@@ -13,7 +13,7 @@ set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
 # Create the executable
-add_executable(graber main.cpp)
+add_executable(graber main.cpp resources.qrc)
 
 # Link the executable to the Qt libraries
 target_link_libraries(graber PRIVATE Qt6::Core Qt6::Gui Qt6::Widgets)

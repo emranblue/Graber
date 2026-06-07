@@ -12,6 +12,8 @@
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
+#include <QFontDatabase>
 #include <string>
 #include <fstream>
 #include <iostream>
@@ -22,42 +24,73 @@ class ClipboardGrabber : public QWidget {
 public:
     ClipboardGrabber(QWidget *parent = nullptr) : QWidget(parent) {
         // --- Setup ---
-        setWindowTitle("Clipboard Graber");
-        setMinimumSize(450, 220);
+        setWindowTitle("ক্লিপবোর্ড গ্র্যাবার");
+        setMinimumSize(450, 300);
 
         // --- State Variables ---
         is_running_ = false;
-        last_clipboard_text_ = "";
+        last_simplified_text_ = "";
+        last_date_ = "";
+        
+        // --- Scalability Fix: Use a dedicated notes directory ---
+        notes_dir_path_ = QDir::homePath() + QDir::separator() + "GraberNotes";
+        QDir dir(notes_dir_path_);
+        if (!dir.exists()) {
+            dir.mkpath(".");
+        }
+
+        // --- UI Styling ---
+        this->setObjectName("MainWindow");
 
         // --- UI Widgets ---
-        status_label_ = new QLabel("Status: Stopped");
+        status_label_ = new QLabel("অবস্থা: বন্ধ");
+        status_label_->setObjectName("status_label");
         status_label_->setAlignment(Qt::AlignCenter);
 
-        last_captured_label_ = new QLabel("Last captured: (nothing)");
+        last_captured_label_ = new QLabel("শেষ ক্যাপচার: (কিছুই না)");
+        last_captured_label_->setObjectName("last_captured_label");
         last_captured_label_->setAlignment(Qt::AlignCenter);
         last_captured_label_->setWordWrap(true);
+        last_captured_label_->setMinimumHeight(80);
 
-        start_button_ = new QPushButton("Start");
-        stop_button_ = new QPushButton("Stop");
+        start_button_ = new QPushButton("শুরু (Start)");
+        stop_button_ = new QPushButton("থামুন (Stop)");
         stop_button_->setEnabled(false);
+        stop_button_->setStyleSheet("QPushButton { background-color: #e84118; } QPushButton:hover { background-color: #c23616; }");
 
         subject_dropdown_ = new QComboBox();
-        add_subject_button_ = new QPushButton("Add Subject");
+        add_subject_button_ = new QPushButton("নতুন বিষয় (New Subject)");
+        add_subject_button_->setStyleSheet("QPushButton { background-color: #44bd32; } QPushButton:hover { background-color: #44bd32; opacity: 0.9; }");
+
+        mode_label_ = new QLabel("মোড:");
+        mode_dropdown_ = new QComboBox();
+        mode_dropdown_->addItem("কপি মোড (Ctrl+C)");
+        mode_dropdown_->addItem("সিলেক্ট মোড");
+
 
         // --- Layout ---
         QVBoxLayout *main_layout = new QVBoxLayout(this);
+        main_layout->setSpacing(15);
+        main_layout->setContentsMargins(20, 20, 20, 20);
+
         QHBoxLayout *control_layout = new QHBoxLayout();
         QHBoxLayout *file_layout = new QHBoxLayout();
+        QHBoxLayout *mode_layout = new QHBoxLayout();
 
         control_layout->addWidget(start_button_);
         control_layout->addWidget(stop_button_);
 
-        file_layout->addWidget(subject_dropdown_);
+        file_layout->addWidget(new QLabel("বিষয়:"));
+        file_layout->addWidget(subject_dropdown_, 1);
         file_layout->addWidget(add_subject_button_);
+
+        mode_layout->addWidget(mode_label_);
+        mode_layout->addWidget(mode_dropdown_, 1);
 
         main_layout->addWidget(status_label_);
         main_layout->addWidget(last_captured_label_);
         main_layout->addLayout(file_layout);
+        main_layout->addLayout(mode_layout);
         main_layout->addLayout(control_layout);
 
         // --- Clipboard Timer ---
@@ -79,17 +112,20 @@ public:
 private slots:
     void start_monitoring() {
         if (subject_dropdown_->currentIndex() == -1) {
-            status_label_->setText("Status: Please select a subject first!");
+            status_label_->setText("অবস্থা: অনুগ্রহ করে প্রথমে একটি বিষয় নির্বাচন করুন!");
             return;
         }
         is_running_ = true;
-        // FIX: Prime the clipboard text to ignore anything copied before starting.
-        last_clipboard_text_ = QGuiApplication::clipboard()->text();
+        
+        QClipboard::Mode mode = (mode_dropdown_->currentIndex() == 0) ? QClipboard::Clipboard : QClipboard::Selection;
+        last_simplified_text_ = QGuiApplication::clipboard()->text(mode).simplified();
+        
         clipboard_timer_->start();
         start_button_->setEnabled(false);
         stop_button_->setEnabled(true);
         subject_dropdown_->setEnabled(false);
         add_subject_button_->setEnabled(false);
+        mode_dropdown_->setEnabled(false);
         update_status_label();
     }
 
@@ -100,18 +136,28 @@ private slots:
         stop_button_->setEnabled(false);
         subject_dropdown_->setEnabled(true);
         add_subject_button_->setEnabled(true);
+        mode_dropdown_->setEnabled(true);
         update_status_label();
     }
 
     void add_subject() {
         bool ok;
-        QString text = QInputDialog::getText(this, "Add Subject",
-                                             "New subject name:", QLineEdit::Normal,
+        QString text = QInputDialog::getText(this, "বিষয় যোগ করুন",
+                                             "নতুন বিষয়ের নাম:", QLineEdit::Normal,
                                              "", &ok);
         if (ok && !text.isEmpty()) {
             // Avoid adding duplicates
             if (subject_dropdown_->findText(text) == -1) {
                 subject_dropdown_->addItem(text);
+                
+                // --- Scalability Fix: Create file immediately ---
+                QString filename = notes_dir_path_ + QDir::separator() + text + ".md";
+                if (!QFile::exists(filename)) {
+                    QFile file(filename);
+                    if (file.open(QIODevice::WriteOnly)) {
+                        file.close();
+                    }
+                }
             }
             subject_dropdown_->setCurrentText(text);
         }
@@ -119,31 +165,21 @@ private slots:
 
     void check_clipboard() {
         QClipboard *clipboard = QGuiApplication::clipboard();
-        QString current_text = clipboard->text();
+        QClipboard::Mode mode = (mode_dropdown_->currentIndex() == 0) ? QClipboard::Clipboard : QClipboard::Selection;
+        QString current_text = clipboard->text(mode);
+        QString simplified_text = current_text.simplified();
 
-        if (!current_text.isEmpty() && current_text != last_clipboard_text_) {
-            last_clipboard_text_ = current_text;
-            last_captured_label_->setText("Last captured: " + current_text);
-            write_to_file(current_text);
+        if (!simplified_text.isEmpty() && simplified_text != last_simplified_text_) {
+            last_simplified_text_ = simplified_text;
+            last_captured_label_->setText("শেষ ক্যাপচার: " + simplified_text);
+            write_to_file(simplified_text);
         }
     }
 
 private:
     void populate_subjects_from_disk() {
-        // 1. Ensure default files exist to provide a starting point
-        QStringList default_subjects = {"Bangladesh", "International"};
-        for (const QString& subject : default_subjects) {
-            QString filename = subject + ".md";
-            if (!QFile::exists(filename)) {
-                QFile file(filename);
-                if (file.open(QIODevice::WriteOnly)) {
-                    file.close();
-                }
-            }
-        }
-
-        // 2. Populate dropdown from all .md files in the directory
-        QDir directory(".");
+        // Populate dropdown from all .md files in the directory
+        QDir directory(notes_dir_path_);
         QStringList md_files = directory.entryList(QStringList() << "*.md", QDir::Files);
         
         subject_dropdown_->clear();
@@ -155,47 +191,55 @@ private:
 
     QString get_current_target_file() {
         if (subject_dropdown_->currentIndex() == -1) {
-            return "Not Selected";
+            return "নির্বাচিত নয়";
         }
-        return subject_dropdown_->currentText() + ".md";
+        return notes_dir_path_ + QDir::separator() + subject_dropdown_->currentText() + ".md";
     }
 
     void update_status_label() {
-        QString status_text = is_running_ ? "Running" : "Stopped";
+        QString status_text = is_running_ ? "চলছে" : "বন্ধ";
         QString target_file = get_current_target_file();
-        status_label_->setText(QString("Status: %1 | Target: %2").arg(status_text, target_file));
+        if (target_file != "নির্বাচিত নয়") {
+            QFileInfo fileInfo(target_file);
+            target_file = fileInfo.fileName();
+        }
+        status_label_->setText(QString("অবস্থা: %1 | লক্ষ্য: %2").arg(status_text, target_file));
     }
 
-    void write_to_file(const QString &text) {
+    void write_to_file(const QString &processed_text) {
         QString target_file = get_current_target_file();
-        if (target_file == "Not Selected") return;
+        if (target_file == "নির্বাচিত নয়") return;
 
         std::ofstream outfile;
         outfile.open(target_file.toStdString(), std::ios_base::app);
         
         if (outfile.is_open()) {
-            QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss");
+            QDateTime now = QDateTime::currentDateTime();
+            QString current_date = now.toString("dd MMMM, yyyy");
             
-            // MORE ROBUST FIX: Use simplified() to replace any newline sequence and other whitespace with a single space.
-            QString processed_text = text.simplified();
-
-            outfile << "---\n";
-            outfile << "**Captured on:** " << timestamp.toStdString() << "\n\n";
-            if (!processed_text.isEmpty()) {
-                outfile << "> " << processed_text.toStdString() << "\n\n";
+            // Add date header if date changed or file is new
+            if (current_date != last_date_) {
+                outfile << "\n### " << current_date.toStdString() << "\n";
+                last_date_ = current_date;
             }
-            outfile << "---\n\n";
+            
+            // Add pointwise text
+            if (!processed_text.isEmpty()) {
+                outfile << "- " << processed_text.trimmed().toStdString() << "\n";
+            }
             
             outfile.close();
         } else {
             std::cerr << "Error: Could not open file " << target_file.toStdString() << std::endl;
-            last_captured_label_->setText("Error: Could not write to file!");
+            last_captured_label_->setText("ত্রুটি: ফাইলে লেখা যায়নি!");
         }
     }
 
     // --- State Variables ---
     bool is_running_;
-    QString last_clipboard_text_;
+    QString last_simplified_text_;
+    QString last_date_;
+    QString notes_dir_path_;
 
     // --- UI Pointers ---
     QLabel *status_label_;
@@ -205,10 +249,36 @@ private:
     QComboBox *subject_dropdown_;
     QPushButton *add_subject_button_;
     QTimer *clipboard_timer_;
+    QLabel *mode_label_;
+    QComboBox *mode_dropdown_;
 };
 
 int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
+
+    // Global UI Styling to ensure black text on light backgrounds
+    app.setStyleSheet(
+        "QWidget { background-color: #f5f6fa; font-family: 'Segoe UI', 'Kalpurush'; color: #2f3640; }"
+        "QLabel { color: #2f3640; font-size: 14px; }"
+        "QPushButton { background-color: #487eb0; color: white; border-radius: 5px; padding: 10px; font-weight: bold; border: none; min-width: 80px; }"
+        "QPushButton:hover { background-color: #40739e; }"
+        "QPushButton:disabled { background-color: #dcdde1; color: #7f8c8d; }"
+        "QComboBox { border: 1px solid #dcdde1; border-radius: 4px; padding: 5px; background: white; color: black; min-height: 30px; }"
+        "QComboBox QAbstractItemView { background: white; color: black; selection-background-color: #487eb0; selection-color: white; }"
+        "QLineEdit { background: white; color: black; padding: 5px; border: 1px solid #dcdde1; border-radius: 4px; }"
+        "#status_label { font-size: 15px; font-weight: bold; color: #192a56; padding: 5px; background: transparent; }"
+        "#last_captured_label { background-color: white; border: 1px solid #dcdde1; border-radius: 5px; padding: 12px; color: #2f3640; font-style: italic; border-left: 4px solid #487eb0; }"
+    );
+
+    // Add the Kalpurush font
+    int fontId = QFontDatabase::addApplicationFont(":/Kalpurush.ttf");
+    if (fontId != -1) {
+        QStringList fontFamilies = QFontDatabase::applicationFontFamilies(fontId);
+        if (!fontFamilies.isEmpty()) {
+            QFont font(fontFamilies.at(0));
+            app.setFont(font);
+        }
+    }
 
     ClipboardGrabber window;
     window.show();
