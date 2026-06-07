@@ -25,10 +25,11 @@ public:
     ClipboardGrabber(QWidget *parent = nullptr) : QWidget(parent) {
         // --- Setup ---
         setWindowTitle("ক্লিপবোর্ড গ্র্যাবার");
-        setMinimumSize(450, 300);
+        setMinimumSize(450, 320);
 
         // --- State Variables ---
         is_running_ = false;
+        is_header_mode_ = false;
         last_simplified_text_ = "";
         last_date_ = "";
         
@@ -62,6 +63,13 @@ public:
         add_subject_button_ = new QPushButton("নতুন বিষয় (New Subject)");
         add_subject_button_->setStyleSheet("QPushButton { background-color: #44bd32; } QPushButton:hover { background-color: #44bd32; opacity: 0.9; }");
 
+        header_toggle_button_ = new QPushButton("টপিক হেডার: বন্ধ (OFF)");
+        header_toggle_button_->setCheckable(true);
+        header_toggle_button_->setStyleSheet(
+            "QPushButton { background-color: #7f8c8d; color: white; }"
+            "QPushButton:checked { background-color: #f1c40f; color: #2f3640; }"
+        );
+
         mode_label_ = new QLabel("মোড:");
         mode_dropdown_ = new QComboBox();
         mode_dropdown_->addItem("কপি মোড (Ctrl+C)");
@@ -75,6 +83,7 @@ public:
 
         QHBoxLayout *control_layout = new QHBoxLayout();
         QHBoxLayout *file_layout = new QHBoxLayout();
+        QHBoxLayout *header_layout = new QHBoxLayout();
         QHBoxLayout *mode_layout = new QHBoxLayout();
 
         control_layout->addWidget(start_button_);
@@ -84,12 +93,16 @@ public:
         file_layout->addWidget(subject_dropdown_, 1);
         file_layout->addWidget(add_subject_button_);
 
+        header_layout->addWidget(new QLabel("ফরম্যাট:"));
+        header_layout->addWidget(header_toggle_button_, 1);
+
         mode_layout->addWidget(mode_label_);
         mode_layout->addWidget(mode_dropdown_, 1);
 
         main_layout->addWidget(status_label_);
         main_layout->addWidget(last_captured_label_);
         main_layout->addLayout(file_layout);
+        main_layout->addLayout(header_layout);
         main_layout->addLayout(mode_layout);
         main_layout->addLayout(control_layout);
 
@@ -101,6 +114,7 @@ public:
         connect(start_button_, &QPushButton::clicked, this, &ClipboardGrabber::start_monitoring);
         connect(stop_button_, &QPushButton::clicked, this, &ClipboardGrabber::stop_monitoring);
         connect(add_subject_button_, &QPushButton::clicked, this, &ClipboardGrabber::add_subject);
+        connect(header_toggle_button_, &QPushButton::toggled, this, &ClipboardGrabber::toggle_header_mode);
         connect(clipboard_timer_, &QTimer::timeout, this, &ClipboardGrabber::check_clipboard);
         
         // --- Initial Population ---
@@ -176,6 +190,15 @@ private slots:
         }
     }
 
+    void toggle_header_mode(bool checked) {
+        is_header_mode_ = checked;
+        if (is_header_mode_) {
+            header_toggle_button_->setText("টপিক হেডার: চালু (ON)");
+        } else {
+            header_toggle_button_->setText("টপিক হেডার: বন্ধ (OFF)");
+        }
+    }
+
 private:
     void populate_subjects_from_disk() {
         // Populate dropdown from all .md files in the directory
@@ -223,9 +246,13 @@ private:
                 last_date_ = current_date;
             }
             
-            // Add pointwise text
+            // Add pointwise text or header
             if (!processed_text.isEmpty()) {
-                outfile << "- " << processed_text.trimmed().toStdString() << "\n";
+                if (is_header_mode_) {
+                    outfile << "\n# " << processed_text.trimmed().toStdString() << "\n\n";
+                } else {
+                    outfile << "- " << processed_text.trimmed().toStdString() << "\n";
+                }
             }
             
             outfile.close();
@@ -237,6 +264,7 @@ private:
 
     // --- State Variables ---
     bool is_running_;
+    bool is_header_mode_;
     QString last_simplified_text_;
     QString last_date_;
     QString notes_dir_path_;
@@ -248,6 +276,7 @@ private:
     QPushButton *stop_button_;
     QComboBox *subject_dropdown_;
     QPushButton *add_subject_button_;
+    QPushButton *header_toggle_button_;
     QTimer *clipboard_timer_;
     QLabel *mode_label_;
     QComboBox *mode_dropdown_;
