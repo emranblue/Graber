@@ -5,6 +5,7 @@ CMakeFiles/
 cmake_install.cmake
 Makefile
 graber_autogen/
+*_autogen/
 
 # Qt-specific
 *.user
