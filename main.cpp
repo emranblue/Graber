@@ -8,8 +8,14 @@
 #include <QClipboard>
 #include <QGuiApplication>
 #include <QImage>
+#include <QFrame>
+#include <QDialog>
+#include <QListWidget>
+#include <QCompleter>
 #include <QMimeData>
 #include <QComboBox>
+#include <QLineEdit>
+#include <QScrollArea>
 #include <QInputDialog>
 #include <QDateTime>
 #include <QDir>
@@ -26,6 +32,19 @@
 #include <QTextStream>
 #include <cctype>
 
+#include <QFile>
+#include <QTextStream>
+#include <QDateTime>
+
+inline void debugLog(const QString &msg) {
+    QFile file(QDir::homePath() + "/GraberNotes/debug.log");
+    if (file.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
+        QTextStream out(&file);
+        out << QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss") << " - " << msg << "\n";
+        file.close();
+    }
+}
+
 class ClipboardGrabber : public QWidget {
     Q_OBJECT
 
@@ -33,11 +52,11 @@ public:
     ClipboardGrabber(QWidget *parent = nullptr) : QWidget(parent) {
         // --- Setup ---
         setWindowTitle("ক্লিপবোর্ড গ্র্যাবার");
-        setMinimumSize(480, 360);
+        setMinimumSize(500, 620);
+        resize(540, 660);
 
         // --- State Variables ---
         is_running_ = false;
-        is_box_open_ = false;
         last_simplified_text_ = "";
         last_date_ = "";
         
@@ -60,21 +79,26 @@ public:
         last_captured_label_->setObjectName("last_captured_label");
         last_captured_label_->setAlignment(Qt::AlignCenter);
         last_captured_label_->setWordWrap(true);
-        last_captured_label_->setMinimumHeight(80);
+        last_captured_label_->setMinimumHeight(60);
 
         start_button_ = new QPushButton("শুরু (Start)");
+        start_button_->setStyleSheet("QPushButton { background-color: #44bd32; } QPushButton:hover { background-color: #44bd32; opacity: 0.9; }");
         stop_button_ = new QPushButton("থামুন (Stop)");
         stop_button_->setEnabled(false);
         stop_button_->setStyleSheet("QPushButton { background-color: #e84118; } QPushButton:hover { background-color: #c23616; }");
 
         add_image_button_ = new QPushButton("ছবি যুক্ত করুন (Add Image)");
-          subject_dropdown_ = new QComboBox();
+        subject_dropdown_ = new QComboBox();
         add_subject_button_ = new QPushButton("নতুন বিষয় (New Subject)");
         add_subject_button_->setStyleSheet("QPushButton { background-color: #44bd32; } QPushButton:hover { background-color: #44bd32; opacity: 0.9; }");
 
         open_file_button_ = new QPushButton("নোট খুলুন (Open Note)");
         open_file_button_->setStyleSheet("QPushButton { background-color: #0097e6; } QPushButton:hover { background-color: #00a8ff; }");
         open_file_button_->setEnabled(false);
+
+        // Search Box for Headings/IDs
+        heading_search_line_edit_ = new QLineEdit();
+        heading_search_line_edit_->setPlaceholderText("আইডি বা শিরোনাম খুঁজুন... (Search ID/Heading...)");
 
         heading_label_ = new QLabel("শিরোনাম (Heading):");
         heading_dropdown_ = new QComboBox();
@@ -83,6 +107,10 @@ public:
         append_to_heading_button_ = new QPushButton("যুক্ত করুন (Append)");
         append_to_heading_button_->setStyleSheet("QPushButton { background-color: #f39c12; } QPushButton:hover { background-color: #e67e22; }");
         append_to_heading_button_->setEnabled(false);
+
+        shift_heading_button_ = new QPushButton("স্থানান্তর (Shift)");
+        shift_heading_button_->setStyleSheet("QPushButton { background-color: #3498db; } QPushButton:hover { background-color: #2980b9; }");
+        shift_heading_button_->setEnabled(false);
 
         delete_heading_button_ = new QPushButton("মুছে ফেলুন (Delete)");
         delete_heading_button_->setStyleSheet("QPushButton { background-color: #c0392b; } QPushButton:hover { background-color: #ae2012; }");
@@ -104,9 +132,19 @@ public:
         section_dropdown_->addItem("আইন ও সংবিধান (Law-Constitution)", "law-constitution");
         section_dropdown_->addItem("রাজনীতি (Politics)", "politics");
         section_dropdown_->addItem("মুক্তিযুদ্ধ (Freedom-Fight)", "freedom-fight");
+        section_dropdown_->addItem("কৃষি (Agriculture)", "agriculture");
+        section_dropdown_->addItem("ইতিহাস (History)", "history");
+        section_dropdown_->addItem("শিক্ষা (Education)", "education");
+        section_dropdown_->addItem("স্বাস্থ্য (Health)", "health");
+        section_dropdown_->addItem("বিজ্ঞান ও প্রযুক্তি (Science-Tech)", "science-tech");
+        section_dropdown_->addItem("পররাষ্ট্রনীতি (Foreign-Policy)", "foreign-policy");
+        section_dropdown_->addItem("প্রশাসন (Administration)", "administration");
         section_dropdown_->addItem("অন্যান্য (Others)", "others");
 
-        inject_heading_button_ = new QPushButton("শিরোনাম ইনজেক্ট করুন (Inject Heading)");
+        add_section_button_ = new QPushButton("নতুন বিভাগ (New Section)");
+        add_section_button_->setStyleSheet("QPushButton { background-color: #44bd32; } QPushButton:hover { background-color: #44bd32; opacity: 0.9; }");
+
+        inject_heading_button_ = new QPushButton("ইনজেক্ট করুন (Inject)");
         inject_heading_button_->setStyleSheet("QPushButton { background-color: #8c7ae6; } QPushButton:hover { background-color: #9c88ff; }");
         inject_heading_button_->setEnabled(false);
 
@@ -115,69 +153,115 @@ public:
         mode_dropdown_->addItem("কপি মোড (Ctrl+C)");
         mode_dropdown_->addItem("সিলেক্ট মোড");
 
-
-        // --- Layout ---
-        QVBoxLayout *main_layout = new QVBoxLayout(this);
-        main_layout->setSpacing(15);
-        main_layout->setContentsMargins(20, 20, 20, 20);
-
-        QHBoxLayout *control_layout = new QHBoxLayout();
+        // --- Layout Panels ---
+        // 1. Subject Management Panel (Card)
+        QFrame *subject_card = new QFrame();
+        subject_card->setObjectName("card");
+        QVBoxLayout *subject_layout = new QVBoxLayout(subject_card);
+        subject_layout->setContentsMargins(12, 12, 12, 12);
+        subject_layout->setSpacing(8);
+        QLabel *subject_title = new QLabel("নোট বিষয় নির্বাচন (Subject Selection):");
+        subject_title->setStyleSheet("font-weight: bold; color: #192a56;");
+        subject_layout->addWidget(subject_title);
+        
         QHBoxLayout *file_layout = new QHBoxLayout();
-        QHBoxLayout *heading_layout = new QHBoxLayout();
-        QHBoxLayout *header_layout = new QHBoxLayout();
-        QHBoxLayout *section_layout = new QHBoxLayout();
-        QHBoxLayout *mode_layout = new QHBoxLayout();
-
-        control_layout->addWidget(start_button_);
-        control_layout->addWidget(stop_button_);
-        control_layout->addWidget(add_image_button_);
-
-        file_layout->addWidget(new QLabel("বিষয়:"));
         file_layout->addWidget(subject_dropdown_, 1);
         file_layout->addWidget(add_subject_button_);
         file_layout->addWidget(open_file_button_);
+        subject_layout->addLayout(file_layout);
 
-        heading_layout->addWidget(heading_label_);
-        heading_layout->addWidget(heading_dropdown_, 1);
-        heading_layout->addWidget(append_to_heading_button_);
-        heading_layout->addWidget(delete_heading_button_);
+        // 2. Capture Configuration Panel (Card)
+        QFrame *capture_card = new QFrame();
+        capture_card->setObjectName("card");
+        QVBoxLayout *capture_layout = new QVBoxLayout(capture_card);
+        capture_layout->setContentsMargins(12, 12, 12, 12);
+        capture_layout->setSpacing(8);
+        QLabel *capture_title = new QLabel("ক্যাপচার ও ইনপুট কনফিগারেশন (Capture Configuration):");
+        capture_title->setStyleSheet("font-weight: bold; color: #192a56;");
+        capture_layout->addWidget(capture_title);
 
-        header_layout->addWidget(new QLabel("ফরম্যাট:"));
-        header_layout->addWidget(format_dropdown_, 1);
+        QHBoxLayout *options_layout = new QHBoxLayout();
+        options_layout->addWidget(new QLabel("ফরম্যাট:"));
+        options_layout->addWidget(format_dropdown_, 1);
+        options_layout->addWidget(mode_label_);
+        options_layout->addWidget(mode_dropdown_, 1);
+        capture_layout->addLayout(options_layout);
 
+        QHBoxLayout *section_layout = new QHBoxLayout();
         section_layout->addWidget(section_label_);
         section_layout->addWidget(section_dropdown_, 1);
-        section_layout->addWidget(inject_heading_button_);
+        section_layout->addWidget(add_section_button_);
+        capture_layout->addLayout(section_layout);
 
-        mode_layout->addWidget(mode_label_);
-        mode_layout->addWidget(mode_dropdown_, 1);
+        QHBoxLayout *image_layout = new QHBoxLayout();
+        image_layout->addWidget(add_image_button_, 1);
+        capture_layout->addLayout(image_layout);
+
+        // 3. Heading Management Panel (Card)
+        QFrame *heading_card = new QFrame();
+        heading_card->setObjectName("card");
+        QVBoxLayout *heading_card_layout = new QVBoxLayout(heading_card);
+        heading_card_layout->setContentsMargins(12, 12, 12, 12);
+        heading_card_layout->setSpacing(8);
+        QLabel *heading_title = new QLabel("টার্গেট শিরোনাম নিয়ন্ত্রণ (Target Heading Control):");
+        heading_title->setStyleSheet("font-weight: bold; color: #192a56;");
+        heading_card_layout->addWidget(heading_title);
+
+        QHBoxLayout *search_layout = new QHBoxLayout();
+        search_layout->addWidget(new QLabel("খুঁজুন:"));
+        search_layout->addWidget(heading_search_line_edit_, 1);
+        heading_card_layout->addLayout(search_layout);
+
+        QHBoxLayout *heading_layout = new QHBoxLayout();
+        heading_layout->addWidget(heading_label_);
+        heading_layout->addWidget(heading_dropdown_, 1);
+        heading_card_layout->addLayout(heading_layout);
+
+        QHBoxLayout *heading_actions_layout = new QHBoxLayout();
+        heading_actions_layout->addWidget(append_to_heading_button_);
+        heading_actions_layout->addWidget(inject_heading_button_);
+        heading_actions_layout->addWidget(shift_heading_button_);
+        heading_actions_layout->addWidget(delete_heading_button_);
+        heading_card_layout->addLayout(heading_actions_layout);
+
+        // Main Layout
+        QVBoxLayout *main_layout = new QVBoxLayout(this);
+        main_layout->setSpacing(10);
+        main_layout->setContentsMargins(12, 12, 12, 12);
 
         main_layout->addWidget(status_label_);
         main_layout->addWidget(last_captured_label_);
-        main_layout->addLayout(file_layout);
-        main_layout->addLayout(heading_layout);
-        main_layout->addLayout(header_layout);
-        main_layout->addLayout(section_layout);
-        main_layout->addLayout(mode_layout);
-        main_layout->addLayout(control_layout);
+        main_layout->addWidget(subject_card);
+        main_layout->addWidget(capture_card);
+        main_layout->addWidget(heading_card);
+
+        QHBoxLayout *control_layout1 = new QHBoxLayout();
+        control_layout1->addWidget(start_button_);
+        control_layout1->addWidget(stop_button_);
+        main_layout->addLayout(control_layout1);
 
         // --- Clipboard Timer ---
         clipboard_timer_ = new QTimer(this);
         clipboard_timer_->setInterval(1000); // Check every 1 second
 
         // --- Connections (Signals and Slots) ---
-        connect(start_button_, &QPushButton::clicked, this, &ClipboardGrabber::start_monitoring);
-        connect(stop_button_, &QPushButton::clicked, this, &ClipboardGrabber::stop_monitoring);
-        connect(add_image_button_, &QPushButton::clicked, this, &ClipboardGrabber::add_clipboard_image);
-        connect(add_subject_button_, &QPushButton::clicked, this, &ClipboardGrabber::add_subject);
-        connect(open_file_button_, &QPushButton::clicked, this, &ClipboardGrabber::open_selected_file);
-        connect(subject_dropdown_, &QComboBox::currentTextChanged, this, &ClipboardGrabber::on_subject_changed);
-        connect(heading_dropdown_, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &ClipboardGrabber::update_button_states);
-        connect(append_to_heading_button_, &QPushButton::clicked, this, &ClipboardGrabber::manual_append_to_heading);
-        connect(delete_heading_button_, &QPushButton::clicked, this, &ClipboardGrabber::delete_selected_heading_section);
-        connect(clipboard_timer_, &QTimer::timeout, this, &ClipboardGrabber::check_clipboard);
-        connect(inject_heading_button_, &QPushButton::clicked, this, &ClipboardGrabber::inject_heading_from_clipboard);
+        connect(start_button_, &QPushButton::clicked, this, [this]() { this->start_monitoring(); });
+        connect(stop_button_, &QPushButton::clicked, this, [this]() { this->stop_monitoring(); });
+        connect(add_image_button_, &QPushButton::clicked, this, [this]() { this->add_clipboard_image(); });
+        connect(add_subject_button_, &QPushButton::clicked, this, [this]() { this->add_subject(); });
+        connect(open_file_button_, &QPushButton::clicked, this, [this]() { this->open_selected_file(); });
+        connect(subject_dropdown_, &QComboBox::currentTextChanged, this, [this](const QString &text) { this->on_subject_changed(text); });
+        connect(heading_dropdown_, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this]() { this->update_button_states(); });
+        connect(append_to_heading_button_, &QPushButton::clicked, this, [this]() { this->manual_append_to_heading(); });
+        connect(delete_heading_button_, &QPushButton::clicked, this, [this]() { this->delete_selected_heading_section(); });
+        connect(clipboard_timer_, &QTimer::timeout, this, [this]() { this->check_clipboard(); });
+        connect(inject_heading_button_, &QPushButton::clicked, this, [this]() { this->inject_heading_from_clipboard(); });
         
+        // Connect search and shift and add section
+        connect(heading_search_line_edit_, &QLineEdit::textChanged, this, [this](const QString &text) { this->on_search_text_changed(text); });
+        connect(shift_heading_button_, &QPushButton::clicked, this, [this]() { this->shift_selected_heading_section(); });
+        connect(add_section_button_, &QPushButton::clicked, this, [this]() { this->add_section(); });
+
         // --- Initial Population ---
         populate_subjects_from_disk();
         subject_dropdown_->setCurrentIndex(-1); // No initial selection
@@ -186,7 +270,6 @@ public:
 
 protected:
     void closeEvent(QCloseEvent *event) override {
-        close_active_box();
         QWidget::closeEvent(event);
     }
 
@@ -216,7 +299,6 @@ private slots:
     void stop_monitoring() {
         is_running_ = false;
         clipboard_timer_->stop();
-        close_active_box();
         update_toc_in_file(get_current_target_file());
         start_button_->setEnabled(true);
         stop_button_->setEnabled(false);
@@ -264,10 +346,14 @@ private slots:
     }
 
     void on_subject_changed(const QString &text) {
-        close_active_box();
         update_status_label();
         open_file_button_->setEnabled(!text.isEmpty());
         inject_heading_button_->setEnabled(!text.isEmpty());
+
+        heading_search_line_edit_->blockSignals(true);
+        heading_search_line_edit_->clear();
+        heading_search_line_edit_->blockSignals(false);
+
         if (!text.isEmpty()) {
             QString target_file = get_current_target_file();
             normalize_markdown_file(target_file);
@@ -275,10 +361,12 @@ private slots:
             restore_state_from_file(target_file);
             populate_headings_from_file();
         } else {
+            all_headings_.clear();
             heading_dropdown_->clear();
             heading_dropdown_->setEnabled(false);
             delete_heading_button_->setEnabled(false);
             append_to_heading_button_->setEnabled(false);
+            shift_heading_button_->setEnabled(false);
         }
     }
 
@@ -314,16 +402,8 @@ private slots:
             QString current_date = now.toString("dd MMMM, yyyy");
             
             if (current_date != last_date_) {
-                if (is_box_open_) {
-                    outfile << "\n</div>\n";
-                    is_box_open_ = false;
-                }
                 outfile << "\n### ***" << current_date.toStdString() << "***\n";
                 last_date_ = current_date;
-            }
-            
-            if (is_box_open_) {
-                outfile << "\n</div>\n";
             }
             
             QString title = simplified_text.trimmed();
@@ -332,8 +412,6 @@ private slots:
             
             outfile << "\n<h2 id=\"" << slug << "\" data-section=\"" << section.toStdString() << "\" style=\"color: #e74c3c; font-weight: bold; font-style: italic; margin-bottom: 5px;\">" 
                     << title.toStdString() << "</h2>\n";
-            outfile << "<div style=\"border: 2px solid #e2e8f0; border-radius: 8px; padding: 15px; margin: 10px 0; background-color: #f8fafc;\">\n";
-            is_box_open_ = true;
             
             outfile.close();
             update_toc_in_file(target_file);
@@ -349,9 +427,6 @@ private slots:
             status_label_->setText("অবস্থা: ফাইলটি খুঁজে পাওয়া যায়নি!");
             return;
         }
-
-        // Close the active box before opening the file
-        close_active_box();
 
         QDesktopServices::openUrl(QUrl::fromLocalFile(target_file));
     }
@@ -396,6 +471,218 @@ private slots:
         
         delete_heading_button_->setEnabled(has_subject && has_selected_heading);
         append_to_heading_button_->setEnabled(has_subject && has_selected_heading);
+        shift_heading_button_->setEnabled(has_subject && has_selected_heading);
+    }
+
+    void on_search_text_changed(const QString &text) {
+        debugLog(QString("on_search_text_changed: text='%1'").arg(text));
+        QString current_selected_slug = "";
+        if (heading_dropdown_->currentIndex() > 0) {
+            current_selected_slug = heading_dropdown_->currentData().toString();
+        }
+        filter_headings(text, current_selected_slug);
+    }
+
+    void filter_headings(const QString &search_text, const QString &preferred_slug = "") {
+        debugLog(QString("filter_headings: search_text='%1', preferred_slug='%2', all_headings_.size()=%3")
+                 .arg(search_text, preferred_slug, QString::number(all_headings_.size())));
+        heading_dropdown_->clear();
+        heading_dropdown_->addItem("(শেষে নতুন করে যোগ করুন / Append to End)", "");
+
+        int match_count = 0;
+        for (const NoteItem &item : all_headings_) {
+            bool matches = true;
+            if (!search_text.isEmpty()) {
+                matches = item.title.contains(search_text, Qt::CaseInsensitive) || 
+                          item.slug.contains(search_text, Qt::CaseInsensitive);
+            }
+            if (matches) {
+                match_count++;
+                if (item.type == "heading") {
+                    heading_dropdown_->addItem(QString("%1 (id: %2) [%3]").arg(item.title, item.slug, item.section), item.slug);
+                } else if (item.type == "subheading") {
+                    heading_dropdown_->addItem(QString("  ↳ %1 (id: %2)").arg(item.title, item.slug), item.slug);
+                }
+            }
+        }
+        debugLog(QString("filter_headings: populated %1 matches").arg(QString::number(match_count)));
+
+        heading_dropdown_->setEnabled(true);
+
+        if (!preferred_slug.isEmpty()) {
+            int index = heading_dropdown_->findData(preferred_slug);
+            if (index != -1) {
+                heading_dropdown_->setCurrentIndex(index);
+            }
+        }
+        
+        update_button_states();
+    }
+
+    void add_section() {
+        bool ok;
+        QString text = QInputDialog::getText(this, "বিভাগ যোগ করুন",
+                                             "নতুন বিভাগের নাম:", QLineEdit::Normal,
+                                             "", &ok);
+        if (ok && !text.isEmpty()) {
+            QString slug = QString::fromStdString(generate_slug(text));
+            // Check if already exists in section_dropdown_
+            bool exists = false;
+            for (int i = 0; i < section_dropdown_->count(); ++i) {
+                if (section_dropdown_->itemData(i).toString() == slug) {
+                    exists = true;
+                    break;
+                }
+            }
+            if (!exists) {
+                section_dropdown_->addItem(QString("%1 (%2)").arg(text, slug.toUpper()), slug);
+            }
+            section_dropdown_->setCurrentIndex(section_dropdown_->count() - 1);
+        }
+    }
+
+    void shift_selected_heading_section() {
+        debugLog(QString("shift_selected_heading_section called"));
+        if (subject_dropdown_->currentIndex() == -1) {
+            debugLog("shift_selected_heading_section: no subject selected");
+            return;
+        }
+        int heading_idx = heading_dropdown_->currentIndex();
+        if (heading_idx <= 0) {
+            debugLog(QString("shift_selected_heading_section: heading_idx=%1 (too small)").arg(heading_idx));
+            return;
+        }
+
+        QString source_slug = heading_dropdown_->currentData().toString();
+        QString target_file = get_current_target_file();
+        debugLog(QString("shift_selected_heading_section: source_slug='%1', target_file='%2'")
+                 .arg(source_slug, target_file));
+
+        // 1. Gather all potential targets (all other headings in the current file)
+        QStringList target_titles;
+        QStringList target_slugs;
+        
+        target_titles.append("(শেষে স্থানান্তর করুন / Move to End)");
+        target_slugs.append("");
+
+        for (const NoteItem &item : all_headings_) {
+            if (item.slug != source_slug) {
+                if (item.type == "heading") {
+                    target_titles.append(QString("%1 (id: %2)").arg(item.title, item.slug));
+                } else {
+                    target_titles.append(QString("  ↳ %1 (id: %2)").arg(item.title, item.slug));
+                }
+                target_slugs.append(item.slug);
+            }
+        }
+
+        // 2. Show a dialog to select the target heading
+        bool ok;
+        QString target_selection = QInputDialog::getItem(this, "সেকশন স্থানান্তর", 
+                                                         "কোথায় স্থানান্তর করতে চান তা নির্বাচন করুন:", 
+                                                         target_titles, 0, false, &ok);
+        if (!ok) {
+            debugLog("shift_selected_heading_section: user cancelled target dialog");
+            return;
+        }
+
+        int selected_idx = target_titles.indexOf(target_selection);
+        if (selected_idx == -1) {
+            debugLog("shift_selected_heading_section: target selection not found in list");
+            return;
+        }
+        QString target_slug = target_slugs.at(selected_idx);
+        debugLog(QString("shift_selected_heading_section: selected target_slug='%1'").arg(target_slug));
+
+        // 3. Read content
+        QFile file(target_file);
+        if (!file.open(QIODevice::ReadWrite | QIODevice::Text)) {
+            last_captured_label_->setText("ত্রুটি: ফাইলটি খোলা যায়নি!");
+            debugLog("shift_selected_heading_section: failed to open target file for reading");
+            return;
+        }
+        
+        QTextStream in(&file);
+        QString content = in.readAll();
+        file.close();
+
+        // 4. Find and extract source section bounds
+        int src_start = -1;
+        int src_end = -1;
+        bool is_html = false;
+        bool found = false;
+
+        if (get_heading_bounds(content, source_slug, src_start, src_end, is_html)) {
+            found = true;
+            debugLog(QString("shift_selected_heading_section: source found in headings (H2), bounds=%1-%2, is_html=%3")
+                     .arg(QString::number(src_start), QString::number(src_end), QString(is_html ? "true" : "false")));
+        } else if (get_subheading_bounds(content, source_slug, src_start, src_end)) {
+            found = true;
+            debugLog(QString("shift_selected_heading_section: source found in subheadings (H3), bounds=%1-%2")
+                     .arg(QString::number(src_start), QString::number(src_end)));
+        }
+
+        if (!found) {
+            last_captured_label_->setText("ত্রুটি: স্থানান্তর করার জন্য উৎস সেকশন পাওয়া যায়নি!");
+            debugLog("shift_selected_heading_section: source section bounds not found!");
+            return;
+        }
+
+        // Extract chunk and remove from original content
+        QString source_chunk = content.mid(src_start, src_end - src_start);
+        content.remove(src_start, src_end - src_start);
+
+        // 5. Find insert position in the modified content
+        int insert_pos = -1;
+        if (target_slug.isEmpty()) {
+            // Move to End
+            insert_pos = content.length();
+            debugLog(QString("shift_selected_heading_section: moving to end, insert_pos=%1").arg(insert_pos));
+        } else {
+            // Find target section bounds in modified content
+            int tgt_start = -1;
+            int tgt_end = -1;
+            bool tgt_is_html = false;
+            
+            // Check if it's heading (H2) or subheading (H3)
+            bool tgt_found_h2 = get_heading_bounds(content, target_slug, tgt_start, tgt_end, tgt_is_html);
+            if (tgt_found_h2) {
+                insert_pos = tgt_end;
+                debugLog(QString("shift_selected_heading_section: target is H2, insert_pos=%1").arg(insert_pos));
+            } else {
+                bool tgt_found_h3 = get_subheading_insert_pos(content, target_slug, insert_pos);
+                if (!tgt_found_h3) {
+                    last_captured_label_->setText("ত্রুটি: গন্তব্য সেকশন খুঁজে পাওয়া যায়নি!");
+                    debugLog("shift_selected_heading_section: target subheading not found in modified content");
+                    return;
+                }
+                debugLog(QString("shift_selected_heading_section: target is H3, insert_pos=%1").arg(insert_pos));
+            }
+        }
+
+        // Insert the chunk at target position
+        // Make sure there are newlines around it
+        if (insert_pos > 0 && content[insert_pos - 1] != '\n') {
+            source_chunk.prepend("\n");
+        }
+        content.insert(insert_pos, source_chunk);
+
+        // 6. Write final content back
+        if (file.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
+            QTextStream out(&file);
+            out << content;
+            file.close();
+            
+            last_captured_label_->setText(QString("স্থানান্তর সফল হয়েছে: %1").arg(source_slug));
+            debugLog("shift_selected_heading_section: shift complete and file written back");
+            
+            // Refresh headings dropdown & TOC
+            update_toc_in_file(target_file);
+            populate_headings_from_file();
+        } else {
+            last_captured_label_->setText("ত্রুটি: ফাইলে স্থানান্তর সম্পন্ন করা যায়নি!");
+            debugLog("shift_selected_heading_section: failed to open target file for writing");
+        }
     }
 
     void manual_append_to_heading() {
@@ -530,7 +817,14 @@ private:
             {"population", "population"}, {"জনসংখ্যা", "population"},
             {"law-constitution", "law-constitution"}, {"আইন ও সংবিধান", "law-constitution"},
             {"politics", "politics"}, {"রাজনীতি", "politics"},
-            {"freedom-fight", "freedom-fight"}, {"মুক্তিযুদ্ধ", "freedom-fight"}
+            {"freedom-fight", "freedom-fight"}, {"মুক্তিযুদ্ধ", "freedom-fight"},
+            {"agriculture", "agriculture"}, {"কৃষি", "agriculture"},
+            {"history", "history"}, {"ইতিহাস", "history"},
+            {"education", "education"}, {"শিক্ষা", "education"},
+            {"health", "health"}, {"স্বাস্থ্য", "health"},
+            {"science-tech", "science-tech"}, {"বিজ্ঞান ও প্রযুক্তি", "science-tech"}, {"বিজ্ঞান", "science-tech"}, {"প্রযুক্তি", "science-tech"},
+            {"foreign-policy", "foreign-policy"}, {"পররাষ্ট্রনীতি", "foreign-policy"},
+            {"administration", "administration"}, {"প্রশাসন", "administration"}
         };
         
         for (const auto &entry : mappings) {
@@ -563,7 +857,6 @@ private:
 
         QStringList lines = clean_content.split('\n');
         QStringList output_lines;
-        bool inside_div = false;
 
         QRegularExpression date_regex("^###\\s*(?:\\*\\*\\*)?\\s*([0-9০-৯]{1,2}\\s+(?:January|February|March|April|May|June|July|August|September|October|November|December|জানুয়ারি|ফেব্রুয়ারি|মার্চ|এপ্রিল|মে|জুন|জুলাই|আগস্ট|সেপ্টেম্বর|অক্টোবর|নভেম্বর|ডিসেম্বর)[,\\s]+[0-9০-৯]{4})\\s*(?:\\*\\*\\*)?$", QRegularExpression::CaseInsensitiveOption);
         QRegularExpression h2_regex("<h2([^>]*)>(.*?)</h2>", QRegularExpression::CaseInsensitiveOption);
@@ -580,18 +873,15 @@ private:
             QRegularExpressionMatch h2_match = h2_regex.match(trimmed_line);
             QRegularExpressionMatch md_match = md_regex.match(trimmed_line);
 
-            if (date_match.hasMatch()) {
-                if (inside_div) {
-                    output_lines.append("</div>");
-                    inside_div = false;
-                }
+            if (trimmed_line.contains("<div") && (trimmed_line.contains("border") || trimmed_line.contains("background-color"))) {
+                // Skip the container box opening
+                continue;
+            } else if (trimmed_line == "</div>") {
+                // Skip the container box closing
+                continue;
+            } else if (date_match.hasMatch()) {
                 output_lines.append(line);
             } else if (h2_match.hasMatch()) {
-                if (inside_div) {
-                    output_lines.append("</div>");
-                    inside_div = false;
-                }
-                
                 QString attributes = h2_match.captured(1);
                 QString title = h2_match.captured(2).trimmed();
                 QString slug = QString::fromStdString(generate_slug(title));
@@ -630,35 +920,19 @@ private:
                 QString slug = QString::fromStdString(generate_slug(title));
 
                 if (level == 2) {
-                    if (inside_div) {
-                        output_lines.append("</div>");
-                        inside_div = false;
-                    }
                     QString style = "color: #e74c3c; font-weight: bold; font-style: italic; margin-bottom: 5px;";
                     QString html_heading = QString("<h2 id=\"%1\" data-section=\"%2\" style=\"%3\">%4</h2>")
                                            .arg(slug, section, style, title);
                     output_lines.append(html_heading);
-                    output_lines.append("<div style=\"border: 2px solid #e2e8f0; border-radius: 8px; padding: 15px; margin: 10px 0; background-color: #f8fafc;\">");
-                    inside_div = true;
                 } else if (level == 3) {
                     QString style = "color: #2980b9; font-weight: bold; font-style: italic; margin-top: 10px; margin-bottom: 5px;";
                     QString html_subheading = QString("<h3 id=\"%1\" style=\"%2\">%3</h3>")
                                               .arg(slug, style, title);
                     output_lines.append(html_subheading);
                 }
-            } else if (trimmed_line.contains("<div") && trimmed_line.contains("border")) {
-                inside_div = true;
-                output_lines.append(line);
-            } else if (trimmed_line.startsWith("</div>")) {
-                inside_div = false;
-                output_lines.append(line);
             } else {
                 output_lines.append(line);
             }
-        }
-
-        if (inside_div) {
-            output_lines.append("</div>");
         }
 
         QString final_content = output_lines.join('\n');
@@ -687,21 +961,7 @@ private:
         status_label_->setText(QString("অবস্থা: %1 | লক্ষ্য: %2").arg(status_text, target_file));
     }
 
-    void close_active_box() {
-        QString target_file = get_current_target_file();
-        if (target_file != "নির্বাচিত নয়" && QFile::exists(target_file)) {
-            restore_state_from_file(target_file);
-            if (is_box_open_) {
-                std::ofstream outfile;
-                outfile.open(target_file.toStdString(), std::ios_base::app);
-                if (outfile.is_open()) {
-                    outfile << "\n</div>\n";
-                    outfile.close();
-                }
-                is_box_open_ = false;
-            }
-        }
-    }
+
 
     void write_image_to_file(const QString &image_filename) {
         QString target_file = get_current_target_file();
@@ -717,10 +977,6 @@ private:
             QString current_date = now.toString("dd MMMM, yyyy");
             
             if (current_date != last_date_) {
-                if (is_box_open_) {
-                    outfile << "\n</div>\n";
-                    is_box_open_ = false;
-                }
                 outfile << "\n### ***" << current_date.toStdString() << "***\n";
                 last_date_ = current_date;
             }
@@ -730,7 +986,7 @@ private:
             update_toc_in_file(target_file);
         } else {
             std::cerr << "Error: Could not open file " << target_file.toStdString() << std::endl;
-            last_captured_label_->setText("ত্রুটি: ফাইলে লেখা যায়নি!");
+            last_captured_label_->setText("ত্রুটি: ছবি ফাইলে যোগ করা যায়নি!");
         }
     }
 
@@ -760,10 +1016,6 @@ private:
             QString current_date = now.toString("dd MMMM, yyyy");
             
             if (current_date != last_date_) {
-                if (is_box_open_) {
-                    outfile << "\n</div>\n";
-                    is_box_open_ = false;
-                }
                 outfile << "\n### ***" << current_date.toStdString() << "***\n";
                 last_date_ = current_date;
             }
@@ -771,22 +1023,15 @@ private:
             int format_index = format_dropdown_->currentIndex();
             if (!processed_text.isEmpty()) {
                 if (format_index == 1) { // Heading Mode
-                    if (is_box_open_) {
-                        outfile << "\n</div>\n";
-                    }
                     QString title = processed_text.trimmed();
                     std::string slug = generate_slug(title);
                     outfile << "\n<h2 id=\"" << slug << "\" data-section=\"" << section.toStdString() << "\" style=\"color: #e74c3c; font-weight: bold; font-style: italic; margin-bottom: 5px;\">" 
                             << title.toStdString() << "</h2>\n";
-                    outfile << "<div style=\"border: 2px solid #e2e8f0; border-radius: 8px; padding: 15px; margin: 10px 0; background-color: #f8fafc;\">\n";
-                    is_box_open_ = true;
                 } else if (format_index == 2) { // Subheading Mode
-                    if (!is_box_open_) {
-                        outfile << "<div style=\"border: 2px solid #e2e8f0; border-radius: 8px; padding: 15px; margin: 10px 0; background-color: #f8fafc;\">\n";
-                        is_box_open_ = true;
-                    }
-                    outfile << "\n<h3 style=\"color: #2980b9; font-weight: bold; font-style: italic; margin-top: 10px; margin-bottom: 5px;\">" 
-                            << processed_text.trimmed().toStdString() << "</h3>\n";
+                    QString title = processed_text.trimmed();
+                    std::string slug = generate_slug(title);
+                    outfile << "\n<h3 id=\"" << slug << "\" style=\"color: #2980b9; font-weight: bold; font-style: italic; margin-top: 10px; margin-bottom: 5px;\">" 
+                            << title.toStdString() << "</h3>\n";
                 } else { // Point Mode
                     outfile << "- " << processed_text.trimmed().toStdString() << "\n";
                 }
@@ -849,7 +1094,6 @@ private:
 
     void restore_state_from_file(const QString &file_path) {
         last_date_ = "";
-        is_box_open_ = false;
         
         QFile file(file_path);
         if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
@@ -860,7 +1104,6 @@ private:
         QRegularExpression date_regex("^###\\s*(?:\\*\\*\\*)?\\s*([0-9০-৯]{1,2}\\s+(?:January|February|March|April|May|June|July|August|September|October|November|December|জানুয়ারি|ফেব্রুয়ারি|মার্চ|এপ্রিল|মে|জুন|জুলাই|আগস্ট|সেপ্টেম্বর|অক্টোবর|নভেম্বর|ডিসেম্বর)[,\\s]+[0-9০-৯]{4})\\s*(?:\\*\\*\\*)?$", QRegularExpression::CaseInsensitiveOption);
         
         QString last_found_date = "";
-        bool box_currently_open = false;
         
         while (!in.atEnd()) {
             QString line = in.readLine().trimmed();
@@ -868,17 +1111,10 @@ private:
             if (match.hasMatch()) {
                 last_found_date = match.captured(1).trimmed();
             }
-            if (line.contains("<div") && line.contains("border")) {
-                box_currently_open = true;
-            }
-            if (line.contains("</div>")) {
-                box_currently_open = false;
-            }
         }
         file.close();
         
         last_date_ = last_found_date;
-        is_box_open_ = box_currently_open;
     }
 
     void update_toc_in_file(const QString &file_path) {
@@ -891,14 +1127,18 @@ private:
         QString content = in.readAll();
         file.close();
 
-        // 1. Remove existing TOC block if present
-        int toc_start = content.indexOf("<!-- TOC_START -->");
-        int toc_end = content.indexOf("<!-- TOC_END -->");
+        // 1. Remove all existing TOC blocks recursively if present
         QString clean_content = content;
-        if (toc_start != -1 && toc_end != -1) {
-            QString pre_toc = content.left(toc_start);
-            QString post_toc = content.mid(toc_end + QString("<!-- TOC_END -->").length());
-            clean_content = pre_toc + post_toc;
+        while (true) {
+            int toc_start = clean_content.indexOf("<!-- TOC_START -->");
+            int toc_end = clean_content.indexOf("<!-- TOC_END -->");
+            if (toc_start != -1 && toc_end != -1 && toc_end > toc_start) {
+                QString pre_toc = clean_content.left(toc_start);
+                QString post_toc = clean_content.mid(toc_end + QString("<!-- TOC_END -->").length());
+                clean_content = pre_toc + post_toc;
+            } else {
+                break;
+            }
         }
 
         // 2. Parse lines to find headings and dates
@@ -963,9 +1203,7 @@ private:
                     section = section_match.captured(1);
                 }
 
-                // Validate section
-                QStringList valid_sections = {"environment", "energy", "economy", "culture", "geography", "population", "law-constitution", "politics", "freedom-fight", "others"};
-                if (!valid_sections.contains(section)) {
+                if (section.trimmed().isEmpty()) {
                     section = "others";
                 }
 
@@ -1009,9 +1247,7 @@ private:
                     title = rest.left(section_match.capturedStart()).trimmed();
                 }
 
-                // Validate section
-                QStringList valid_sections = {"environment", "energy", "economy", "culture", "geography", "population", "law-constitution", "politics", "freedom-fight", "others"};
-                if (!valid_sections.contains(section)) {
+                if (section.trimmed().isEmpty()) {
                     section = "others";
                 }
 
@@ -1058,8 +1294,51 @@ private:
                 {"law-constitution", "আইন ও সংবিধান", "Law-Constitution"},
                 {"politics", "রাজনীতি", "Politics"},
                 {"freedom-fight", "মুক্তিযুদ্ধ", "Freedom-Fight"},
-                {"others", "অন্যান্য", "Others"}
+                {"agriculture", "কৃষি", "Agriculture"},
+                {"history", "ইতিহাস", "History"},
+                {"education", "শিক্ষা", "Education"},
+                {"health", "স্বাস্থ্য", "Health"},
+                {"science-tech", "বিজ্ঞান ও প্রযুক্তি", "Science-Tech"},
+                {"foreign-policy", "পররাষ্ট্রনীতি", "Foreign-Policy"},
+                {"administration", "প্রশাসন", "Administration"}
             };
+
+            // Dynamically collect custom sections
+            for (const HeadingInfo &info : headings) {
+                if (info.section.isEmpty() || info.section == "others") continue;
+                bool exists = false;
+                for (const SectionDef &sec : sections_list) {
+                    if (sec.key == info.section) {
+                        exists = true;
+                        break;
+                    }
+                }
+                if (!exists) {
+                    // Try to look it up in the dropdown to get display names
+                    QString bangla_name = info.section;
+                    QString english_name = info.section;
+                    for (int d_idx = 0; d_idx < section_dropdown_->count(); ++d_idx) {
+                        if (section_dropdown_->itemData(d_idx).toString() == info.section) {
+                            QString full_text = section_dropdown_->itemText(d_idx);
+                            int paren_idx = full_text.indexOf('(');
+                            if (paren_idx != -1) {
+                                bangla_name = full_text.left(paren_idx).trimmed();
+                                QString eng = full_text.mid(paren_idx + 1);
+                                if (eng.endsWith(')')) eng.chop(1);
+                                english_name = eng.trimmed();
+                            } else {
+                                bangla_name = full_text;
+                                english_name = full_text;
+                            }
+                            break;
+                        }
+                    }
+                    sections_list.append({info.section, bangla_name, english_name});
+                }
+            }
+            
+            // Add "others" last
+            sections_list.append({"others", "অন্যান্য", "Others"});
 
             for (const SectionDef &sec : sections_list) {
                 QList<HeadingInfo> sec_headings;
@@ -1164,6 +1443,23 @@ private:
                     section = section_match.captured(1);
                 }
 
+                if (!section.isEmpty() && section != "others") {
+                    bool exists = false;
+                    for (int idx = 0; idx < section_dropdown_->count(); ++idx) {
+                        if (section_dropdown_->itemData(idx).toString() == section) {
+                            exists = true;
+                            break;
+                        }
+                    }
+                    if (!exists) {
+                        QString display_name = section;
+                        if (display_name.length() > 0) {
+                            display_name[0] = display_name[0].toUpper();
+                        }
+                        section_dropdown_->addItem(QString("%1 (%2)").arg(display_name, section.toUpper()), section);
+                    }
+                }
+
                 NoteItem item = {title, slug, "heading", section, ""};
                 items.append(item);
                 current_h2_slug = slug;
@@ -1171,6 +1467,23 @@ private:
                 QString title = md_match.captured(2).trimmed();
                 QString slug = QString::fromStdString(generate_slug(title));
                 QString section = detect_section_from_title(title);
+
+                if (!section.isEmpty() && section != "others") {
+                    bool exists = false;
+                    for (int idx = 0; idx < section_dropdown_->count(); ++idx) {
+                        if (section_dropdown_->itemData(idx).toString() == section) {
+                            exists = true;
+                            break;
+                        }
+                    }
+                    if (!exists) {
+                        QString display_name = section;
+                        if (display_name.length() > 0) {
+                            display_name[0] = display_name[0].toUpper();
+                        }
+                        section_dropdown_->addItem(QString("%1 (%2)").arg(display_name, section.toUpper()), section);
+                    }
+                }
 
                 NoteItem item = {title, slug, "heading", section, ""};
                 items.append(item);
@@ -1220,41 +1533,26 @@ private:
             current_selected_slug = heading_dropdown_->currentData().toString();
         }
 
-        heading_dropdown_->clear();
-        heading_dropdown_->addItem("(শেষে নতুন করে যোগ করুন / Append to End)", "");
-
         QString target_file = get_current_target_file();
         if (target_file == "নির্বাচিত নয়" || !QFile::exists(target_file)) {
+            all_headings_.clear();
+            heading_dropdown_->clear();
+            heading_dropdown_->addItem("(শেষে নতুন করে যোগ করুন / Append to End)", "");
             heading_dropdown_->setEnabled(false);
             delete_heading_button_->setEnabled(false);
             append_to_heading_button_->setEnabled(false);
+            shift_heading_button_->setEnabled(false);
             return;
         }
 
-        QList<NoteItem> items;
-        parse_note_structure(target_file, items);
+        all_headings_.clear();
+        parse_note_structure(target_file, all_headings_);
         
         // Save outline tree file
-        save_tree_file(target_file, items);
+        save_tree_file(target_file, all_headings_);
 
-        for (const NoteItem &item : items) {
-            if (item.type == "heading") {
-                heading_dropdown_->addItem(QString("%1 (id: %2) [%3]").arg(item.title, item.slug, item.section), item.slug);
-            } else if (item.type == "subheading") {
-                heading_dropdown_->addItem(QString("  ↳ %1 (id: %2)").arg(item.title, item.slug), item.slug);
-            }
-        }
-
-        heading_dropdown_->setEnabled(true);
-        
-        if (!current_selected_slug.isEmpty()) {
-            int index = heading_dropdown_->findData(current_selected_slug);
-            if (index != -1) {
-                heading_dropdown_->setCurrentIndex(index);
-            }
-        }
-        
-        update_button_states();
+        // Now filter headings with current search text
+        filter_headings(heading_search_line_edit_->text(), current_selected_slug);
     }
 
     bool get_heading_bounds(const QString &content, const QString &slug, int &start_pos, int &end_pos, bool &is_html) {
@@ -1266,31 +1564,20 @@ private:
             is_html = true;
             start_pos = html_match.capturedStart();
             
-            int div_close_pos = content.indexOf("</div>", html_match.capturedEnd());
-            if (div_close_pos != -1) {
-                end_pos = div_close_pos + 6;
-                while (end_pos < content.length() && (content[end_pos] == '\n' || content[end_pos] == '\r')) {
-                    end_pos++;
-                }
-                return true;
-            } else {
-                int next_h = content.indexOf("<h2", html_match.capturedEnd());
-                QRegularExpression next_md_rx("^#{1,3}\\s+", QRegularExpression::MultilineOption);
-                QRegularExpressionMatch next_md_match = next_md_rx.match(content, html_match.capturedEnd());
-                int next_md = next_md_match.hasMatch() ? next_md_match.capturedStart() : -1;
-                
-                int next_pos = -1;
-                if (next_h != -1 && next_md != -1) next_pos = qMin(next_h, next_md);
-                else if (next_h != -1) next_pos = next_h;
-                else next_pos = next_md;
-                
-                if (next_pos != -1) {
-                    end_pos = next_pos;
-                } else {
-                    end_pos = content.length();
-                }
-                return true;
-            }
+            int next_h2 = content.indexOf("<h2", html_match.capturedEnd(), Qt::CaseInsensitive);
+            int next_h3 = content.indexOf("<h3", html_match.capturedEnd(), Qt::CaseInsensitive);
+            
+            QRegularExpression next_md_rx("^#{1,3}\\s+", QRegularExpression::MultilineOption);
+            QRegularExpressionMatch next_md_match = next_md_rx.match(content, html_match.capturedEnd());
+            int next_md = next_md_match.hasMatch() ? next_md_match.capturedStart() : -1;
+            
+            int min_pos = content.length();
+            if (next_h2 != -1 && next_h2 < min_pos) min_pos = next_h2;
+            if (next_h3 != -1 && next_h3 < min_pos) min_pos = next_h3;
+            if (next_md != -1 && next_md < min_pos) min_pos = next_md;
+            
+            end_pos = min_pos;
+            return true;
         }
         
         QStringList lines = content.split('\n');
@@ -1367,7 +1654,6 @@ private:
 
         int next_h3 = content.indexOf("<h3", start_search, Qt::CaseInsensitive);
         int next_h2 = content.indexOf("<h2", start_search, Qt::CaseInsensitive);
-        int next_div_close = content.indexOf("</div>", start_search);
         
         QRegularExpression next_md_rx("^#{2,3}\\s+", QRegularExpression::MultilineOption);
         QRegularExpressionMatch next_md_match = next_md_rx.match(content, start_search);
@@ -1376,7 +1662,6 @@ private:
         int min_pos = content.length();
         if (next_h3 != -1 && next_h3 < min_pos) min_pos = next_h3;
         if (next_h2 != -1 && next_h2 < min_pos) min_pos = next_h2;
-        if (next_div_close != -1 && next_div_close < min_pos) min_pos = next_div_close;
         if (next_md != -1 && next_md < min_pos) min_pos = next_md;
 
         insert_pos = min_pos;
@@ -1430,49 +1715,31 @@ private:
         bool is_html = false;
         
         if (get_heading_bounds(content, slug, start_pos, end_pos, is_html)) {
-            if (is_html) {
-                int div_close_pos = content.lastIndexOf("</div>", end_pos);
-                if (div_close_pos != -1 && div_close_pos >= start_pos) {
-                    QString to_append = "";
-                    int format_index = format_dropdown_->currentIndex();
-                    if (format_index == 2) {
-                        to_append = QString("\n<h3 style=\"color: #2980b9; font-weight: bold; font-style: italic; margin-top: 10px; margin-bottom: 5px;\">%1</h3>\n")
-                                    .arg(processed_text.trimmed());
-                    } else if (format_index == 1) {
-                        to_append = QString("\n<h3 style=\"color: #e74c3c; font-weight: bold; font-style: italic; margin-top: 10px; margin-bottom: 5px;\">%1</h3>\n")
-                                    .arg(processed_text.trimmed());
-                    } else {
-                        to_append = QString("- %1\n").arg(processed_text.trimmed());
-                    }
-                    
-                    content.insert(div_close_pos, to_append);
-                    
-                    if (file.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
-                        QTextStream out(&file);
-                        out << content;
-                        file.close();
-                        return true;
-                    }
-                }
+            QString to_append = "";
+            int format_index = format_dropdown_->currentIndex();
+            if (format_index == 2) {
+                QString sub_slug = QString::fromStdString(generate_slug(processed_text));
+                to_append = QString("\n<h3 id=\"%1\" style=\"color: #2980b9; font-weight: bold; font-style: italic; margin-top: 10px; margin-bottom: 5px;\">%2</h3>\n")
+                            .arg(sub_slug, processed_text.trimmed());
+            } else if (format_index == 1) {
+                QString main_slug = QString::fromStdString(generate_slug(processed_text));
+                QString section = section_dropdown_->currentData().toString();
+                to_append = QString("\n<h2 id=\"%1\" data-section=\"%2\" style=\"color: #e74c3c; font-weight: bold; font-style: italic; margin-bottom: 5px;\">%3</h2>\n")
+                            .arg(main_slug, section, processed_text.trimmed());
             } else {
-                QString to_append = "";
-                int format_index = format_dropdown_->currentIndex();
-                if (format_index == 2) {
-                    to_append = QString("\n### %1\n").arg(processed_text.trimmed());
-                } else if (format_index == 1) {
-                    to_append = QString("\n## %1\n").arg(processed_text.trimmed());
-                } else {
-                    to_append = QString("- %1\n").arg(processed_text.trimmed());
-                }
-                
-                content.insert(end_pos, to_append);
-                
-                if (file.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
-                    QTextStream out(&file);
-                    out << content;
-                    file.close();
-                    return true;
-                }
+                to_append = QString("- %1\n").arg(processed_text.trimmed());
+            }
+            
+            if (end_pos > 0 && content[end_pos - 1] != '\n') {
+                to_append.prepend("\n");
+            }
+            content.insert(end_pos, to_append);
+            
+            if (file.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
+                QTextStream out(&file);
+                out << content;
+                file.close();
+                return true;
             }
         } else {
             int insert_pos = -1;
@@ -1480,15 +1747,21 @@ private:
                 QString to_append = "";
                 int format_index = format_dropdown_->currentIndex();
                 if (format_index == 2) {
-                    to_append = QString("\n<h3 style=\"color: #2980b9; font-weight: bold; font-style: italic; margin-top: 10px; margin-bottom: 5px;\">%1</h3>\n")
-                                .arg(processed_text.trimmed());
+                    QString sub_slug = QString::fromStdString(generate_slug(processed_text));
+                    to_append = QString("\n<h3 id=\"%1\" style=\"color: #2980b9; font-weight: bold; font-style: italic; margin-top: 10px; margin-bottom: 5px;\">%2</h3>\n")
+                                .arg(sub_slug, processed_text.trimmed());
                 } else if (format_index == 1) {
-                    to_append = QString("\n<h3 style=\"color: #e74c3c; font-weight: bold; font-style: italic; margin-top: 10px; margin-bottom: 5px;\">%1</h3>\n")
-                                .arg(processed_text.trimmed());
+                    QString main_slug = QString::fromStdString(generate_slug(processed_text));
+                    QString section = section_dropdown_->currentData().toString();
+                    to_append = QString("\n<h2 id=\"%1\" data-section=\"%2\" style=\"color: #e74c3c; font-weight: bold; font-style: italic; margin-bottom: 5px;\">%3</h2>\n")
+                                .arg(main_slug, section, processed_text.trimmed());
                 } else {
                     to_append = QString("- %1\n").arg(processed_text.trimmed());
                 }
                 
+                if (insert_pos > 0 && content[insert_pos - 1] != '\n') {
+                    to_append.prepend("\n");
+                }
                 content.insert(insert_pos, to_append);
                 
                 if (file.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
@@ -1504,7 +1777,6 @@ private:
 
     // --- State Variables ---
     bool is_running_;
-    bool is_box_open_;
     QString last_simplified_text_;
     QString last_date_;
     QString notes_dir_path_;
@@ -1529,6 +1801,10 @@ private:
     QComboBox *heading_dropdown_;
     QPushButton *append_to_heading_button_;
     QPushButton *delete_heading_button_;
+    QList<NoteItem> all_headings_;
+    QLineEdit *heading_search_line_edit_;
+    QPushButton *shift_heading_button_;
+    QPushButton *add_section_button_;
 };
 
 int main(int argc, char *argv[]) {
@@ -1537,6 +1813,7 @@ int main(int argc, char *argv[]) {
     // Global UI Styling to ensure black text on light backgrounds
     app.setStyleSheet(
         "QWidget { background-color: #f5f6fa; font-family: 'Segoe UI', 'Kalpurush'; color: #2f3640; }"
+        "QFrame#card { background-color: white; border: 1px solid #dcdde1; border-radius: 8px; }"
         "QLabel { color: #2f3640; font-size: 14px; }"
         "QPushButton { background-color: #487eb0; color: white; border-radius: 5px; padding: 10px; font-weight: bold; border: none; min-width: 80px; }"
         "QPushButton:hover { background-color: #40739e; }"
