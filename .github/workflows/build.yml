@@ -75,10 +75,10 @@ jobs:
         with:
           name: graber-linux-deb
           path: graber.deb
-          compression-level: 0 # Crucial: Stops GitHub from zipping the deb file
+          compression-level: 0
 
   build-windows:
-    name: Build Windows Package (.exe)
+    name: Build Windows Package
     runs-on: windows-latest
     steps:
       - name: Checkout Code
@@ -102,47 +102,113 @@ jobs:
       - name: Build Application
         run: cmake --build build --config Release
 
-      - name: Deploy Qt DLLs (windeployqt)
+      - name: Prepare Raw EXE and Bundled ZIP
         shell: pwsh
         run: |
           mkdir dist
+          # Copy the raw exe out to the root directory for a standalone upload
+          copy build/Release/graber.exe ./graber.exe
+          
+          # Copy the exe into the dist directory to bundle it with its DLL dependencies
           copy build/Release/graber.exe dist/
           windeployqt --dir dist dist/graber.exe
-          # Removed the Compress-Archive step entirely so the raw .exe remains available
+          Compress-Archive -Path dist\* -DestinationPath graber-windows.zip
 
-      - name: Upload Windows Artifact
+      - name: Upload Raw EXE
         uses: actions/upload-artifact@v4
         with:
           name: graber-windows-exe
-          path: dist/graber.exe # Direct path to the raw executable
-          compression-level: 0 # Crucial: Stops GitHub from zipping the exe file
+          path: graber.exe
+          compression-level: 0
+
+      - name: Upload Bundled ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: graber-windows-zip
+          path: graber-windows.zip
+          compression-level: 0
+
+  build-macos:
+    name: Build macOS Disk Image (.dmg)
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.1'
+          host: 'mac'
+          target: 'desktop'
+          arch: 'clang_64'
+          cache: 'true'
+
+      - name: Configure CMake
+        run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build Application
+        run: cmake --build build --config Release
+
+      - name: Bundle with macdeployqt
+        run: |
+          macdeployqt build/graber.app -dmg
+          mv build/graber.dmg graber-macos.dmg
+
+      - name: Upload macOS Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: graber-macos-dmg
+          path: graber-macos.dmg
+          compression-level: 0
+
+  build-freebsd:
+    name: Build FreeBSD Binary
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Build inside FreeBSD VM
+        uses: vmactions/freebsd-vm@v1
+        with:
+          usesh: true
+          prepare: |
+            pkg install -y cmake qt6-base
+          run: |
+            cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+            cmake --build build
+            cp build/graber graber-freebsd
+
+      - name: Upload FreeBSD Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: graber-freebsd-bin
+          path: graber-freebsd
+          compression-level: 0
 
   create-release:
     name: Create GitHub Release
-    needs: [build-linux, build-windows]
+    needs: [build-linux, build-windows, build-macos, build-freebsd]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Download Linux Artifact
+      - name: Download All Artifacts
         uses: actions/download-artifact@v4
         with:
-          name: graber-linux-deb
           path: ./
 
-      - name: Download Windows Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: graber-windows-exe
-          path: ./
-
-      - name: Create Release
+      - name: Create Release and Upload Assets
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            graber.deb
-            graber.exe
+            graber-linux-deb/graber.deb
+            graber-windows-exe/graber.exe
+            graber-windows-zip/graber-windows.zip
+            graber-macos-dmg/graber-macos.dmg
+            graber-freebsd-bin/graber-freebsd
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
