@@ -31,6 +31,8 @@
 #include <QRegularExpression>
 #include <QTextStream>
 #include <cctype>
+#include <QRandomGenerator>
+#include <QPainter>
 
 #include <QFile>
 #include <QTextStream>
@@ -93,7 +95,7 @@ public:
             
             QVBoxLayout *text_layout = new QVBoxLayout();
             QLabel *name_label = new QLabel(cfg.name_bangla);
-            name_label->setStyleSheet("font-weight: bold; font-size: 13px; color: #2f3640; border: none; background: transparent;");
+            name_label->setStyleSheet("font-weight: bold; font-size: 16px; color: #2f3640; border: none; background: transparent;");
             QLabel *desc_label = new QLabel(cfg.name_english);
             desc_label->setStyleSheet("font-size: 11px; color: #7f8c8d; border: none; background: transparent;");
             text_layout->addWidget(name_label);
@@ -477,41 +479,52 @@ public:
 
         start_button_ = new QPushButton("শুরু (Start)");
         start_button_->setStyleSheet("QPushButton { background-color: #44bd32; } QPushButton:hover { background-color: #44bd32; opacity: 0.9; }");
+        start_button_->setIcon(get_feather_icon(QChar(0xe9a8)));
         stop_button_ = new QPushButton("থামুন (Stop)");
         stop_button_->setEnabled(false);
         stop_button_->setStyleSheet("QPushButton { background-color: #e84118; } QPushButton:hover { background-color: #c23616; }");
+        stop_button_->setIcon(get_feather_icon(QChar(0xe9e4)));
 
         add_image_button_ = new QPushButton("ছবি যুক্ত করুন (Add Image)");
+        add_image_button_->setIcon(get_feather_icon(QChar(0xe978)));
         subject_dropdown_ = new QComboBox();
         add_subject_button_ = new QPushButton("নতুন বিষয় (New Subject)");
         add_subject_button_->setStyleSheet("QPushButton { background-color: #44bd32; } QPushButton:hover { background-color: #44bd32; opacity: 0.9; }");
+        add_subject_button_->setIcon(get_feather_icon(QChar(0xe9c9)));
 
         open_file_button_ = new QPushButton("নোট খুলুন (Open Note)");
         open_file_button_->setStyleSheet("QPushButton { background-color: #0097e6; } QPushButton:hover { background-color: #00a8ff; }");
         open_file_button_->setEnabled(false);
+        open_file_button_->setIcon(get_feather_icon(QChar(0xe966)));
 
         heading_label_ = new QLabel("শিরোনাম (Heading):");
         select_heading_button_ = new QPushButton("(শেষে নতুন করে যোগ করুন / Append to End)");
         select_heading_button_->setObjectName("select_heading_button");
         select_heading_button_->setStyleSheet("QPushButton { background-color: white; color: black; border: 1px solid #dcdde1; text-align: left; padding: 10px; font-weight: normal; border-radius: 4px; } QPushButton:hover { background-color: #f5f6fa; } QPushButton:disabled { background-color: #dcdde1; color: #7f8c8d; }");
         select_heading_button_->setEnabled(false);
+        select_heading_button_->setIcon(get_feather_icon(QChar(0xe90a), QColor("#2f3640")));
 
         append_to_heading_button_ = new QPushButton("যুক্ত করুন (Append)");
         append_to_heading_button_->setStyleSheet("QPushButton { background-color: #f39c12; } QPushButton:hover { background-color: #e67e22; }");
         append_to_heading_button_->setEnabled(false);
+        append_to_heading_button_->setIcon(get_feather_icon(QChar(0xe963)));
 
         shift_heading_button_ = new QPushButton("স্থানান্তর (Shift)");
         shift_heading_button_->setStyleSheet("QPushButton { background-color: #3498db; } QPushButton:hover { background-color: #2980b9; }");
         shift_heading_button_->setEnabled(false);
+        shift_heading_button_->setIcon(get_feather_icon(QChar(0xe9bc)));
 
         delete_heading_button_ = new QPushButton("মুছে ফেলুন (Delete)");
         delete_heading_button_->setStyleSheet("QPushButton { background-color: #c0392b; } QPushButton:hover { background-color: #ae2012; }");
         delete_heading_button_->setEnabled(false);
+        delete_heading_button_->setIcon(get_feather_icon(QChar(0xe9f6)));
 
         format_dropdown_ = new QComboBox();
         format_dropdown_->addItem("বুলেট পয়েন্ট (Point)");
         format_dropdown_->addItem("প্রধান শিরোনাম (Heading - Red)");
         format_dropdown_->addItem("উপ-শিরোনাম (Subheading - Blue)");
+        format_dropdown_->addItem("মাইন্ড ম্যাপ (Timeline Mind Map)");
+        format_dropdown_->addItem("প্যারাগ্রাফ (Paragraph)");
 
         section_label_ = new QLabel("বিভাগ (Section):");
         section_dropdown_ = new QComboBox();
@@ -535,10 +548,12 @@ public:
 
         add_section_button_ = new QPushButton("নতুন বিভাগ (New Section)");
         add_section_button_->setStyleSheet("QPushButton { background-color: #44bd32; } QPushButton:hover { background-color: #44bd32; opacity: 0.9; }");
+        add_section_button_->setIcon(get_feather_icon(QChar(0xe9c9)));
 
         inject_heading_button_ = new QPushButton("ইনজেক্ট করুন (Inject)");
         inject_heading_button_->setStyleSheet("QPushButton { background-color: #8c7ae6; } QPushButton:hover { background-color: #9c88ff; }");
         inject_heading_button_->setEnabled(false);
+        inject_heading_button_->setIcon(get_feather_icon(QChar(0xe992)));
 
         mode_label_ = new QLabel("মোড:");
         mode_dropdown_ = new QComboBox();
@@ -624,6 +639,7 @@ public:
 
         settings_button_ = new QPushButton("সেটিংস (Settings)");
         settings_button_->setStyleSheet("QPushButton { background-color: #718093; } QPushButton:hover { background-color: #636e72; }");
+        settings_button_->setIcon(get_feather_icon(QChar(0xe9db)));
 
         QHBoxLayout *control_layout1 = new QHBoxLayout();
         control_layout1->addWidget(start_button_);
@@ -1141,6 +1157,45 @@ private slots:
     }
 
 private:
+    QString get_random_beautiful_color() {
+        static const QStringList colors = {
+            "#1abc9c", "#2ecc71", "#3498db", "#9b59b6", "#e67e22", 
+            "#e74c3c", "#16a085", "#27ae60", "#2980b9", "#8e44ad", 
+            "#d35400", "#c0392b", "#d81b60", "#c2185b", "#3f51b5", 
+            "#1a5276", "#7d3c98", "#196f3d", "#b03a2e", "#0984e3", 
+            "#d63031", "#e84393", "#6c5ce7", "#00b894", "#fdb827"
+        };
+        static int last_idx = -1;
+        int idx = last_idx;
+        if (colors.size() > 1) {
+            while (idx == last_idx) {
+                idx = QRandomGenerator::global()->bounded(colors.size());
+            }
+            last_idx = idx;
+        } else {
+            idx = 0;
+        }
+        return colors.at(idx);
+    }
+
+    QIcon get_feather_icon(const QChar &code, const QColor &color = QColor("#ffffff"), int size = 18) {
+        QPixmap pixmap(size, size);
+        pixmap.fill(Qt::transparent);
+        QPainter painter(&pixmap);
+        painter.setRenderHint(QPainter::Antialiasing);
+        painter.setRenderHint(QPainter::TextAntialiasing);
+        
+        QFont font("feather");
+        font.setPixelSize(size - 2);
+        painter.setFont(font);
+        painter.setPen(color);
+        
+        painter.drawText(pixmap.rect(), Qt::AlignCenter, QString(code));
+        painter.end();
+        
+        return QIcon(pixmap);
+    }
+
     void populate_subjects_from_disk() {
         // Populate dropdown from all .md files in the directory
         QDir directory(notes_dir_path_);
@@ -1229,7 +1284,7 @@ private:
             QRegularExpressionMatch h2_match = h2_regex.match(trimmed_line);
             QRegularExpressionMatch md_match = md_regex.match(trimmed_line);
 
-            if (trimmed_line.contains("<div") && (trimmed_line.contains("border") || trimmed_line.contains("background-color"))) {
+            if (trimmed_line.contains("<div") && (trimmed_line.contains("border") || trimmed_line.contains("background-color")) && !trimmed_line.contains("timeline") && !trimmed_line.contains("bullet")) {
                 // Skip the container box opening
                 continue;
             } else if (trimmed_line == "</div>") {
@@ -1388,8 +1443,14 @@ private:
                     std::string slug = generate_slug(title);
                     outfile << "\n<h3 id=\"" << slug << "\" style=\"color: #2980b9; font-weight: bold; font-style: italic; margin-top: 10px; margin-bottom: 5px;\">" 
                             << title.toStdString() << "</h3>\n";
-                } else { // Point Mode
-                    outfile << "- " << processed_text.trimmed().toStdString() << "\n";
+                } else if (format_index == 3) { // Timeline Mode
+                    QString color = get_random_beautiful_color();
+                    outfile << "<div class=\"timeline-item\" style=\"border-left: 2px dashed " << color.toStdString() << "; margin-left: 20px; padding-left: 20px; padding-bottom: 12px; position: relative;\"><span style=\"position: absolute; left: -2px; top: 18px; width: 12px; height: 2px; background-color: " << color.toStdString() << ";\"></span><span style=\"position: absolute; left: 8px; top: 13px; color: " << color.toStdString() << "; font-size: 10px; line-height: 1;\">➤</span><div style=\"background-color: " << color.toStdString() << "0f; border: 1px solid " << color.toStdString() << "; border-radius: 6px; padding: 8px 12px; display: inline-block; box-shadow: 1px 1px 3px rgba(0,0,0,0.05); margin-left: 10px;\"><span style=\"color: " << color.toStdString() << "; font-weight: 600; font-family: 'Segoe UI', 'Kalpurush', sans-serif; font-size: 16px;\">" << processed_text.trimmed().toStdString() << "</span></div></div>\n";
+                } else if (format_index == 4) { // Paragraph Mode
+                    outfile << "<p class=\"paragraph-item\" style=\"color: #2f3640; line-height: 1.6; font-family: 'Segoe UI', 'Kalpurush', sans-serif; margin-bottom: 10px; text-align: justify;\">" << processed_text.trimmed().toStdString() << "</p>\n";
+                } else { // Point Mode (0)
+                    QString color = get_random_beautiful_color();
+                    outfile << "<div class=\"bullet-item\" style=\"display: flex; align-items: center; margin-bottom: 6px; margin-left: 15px;\"><span style=\"width: 10px; height: 10px; border: 2px solid " << color.toStdString() << "; display: inline-flex; align-items: center; justify-content: center; margin-right: 10px; flex-shrink: 0; box-sizing: border-box;\"><span style=\"width: 4px; height: 4px; background-color: " << color.toStdString() << "; display: block;\"></span></span><span style=\"color: #2f3640; font-family: 'Segoe UI', 'Kalpurush', sans-serif; line-height: 1.4;\">" << processed_text.trimmed().toStdString() << "</span></div>\n";
                 }
             }
             
@@ -2095,8 +2156,18 @@ private:
                 QString section = section_dropdown_->currentData().toString();
                 to_append = QString("\n<h2 id=\"%1\" data-section=\"%2\" style=\"color: #e74c3c; font-weight: bold; font-style: italic; margin-bottom: 5px;\">%3</h2>\n")
                             .arg(main_slug, section, processed_text.trimmed());
-            } else {
-                to_append = QString("- %1\n").arg(processed_text.trimmed());
+            } else if (format_index == 3) {
+                QString color = get_random_beautiful_color();
+                QString color_alpha = color + "0f";
+                to_append = QString("<div class=\"timeline-item\" style=\"border-left: 2px dashed %1; margin-left: 20px; padding-left: 20px; padding-bottom: 12px; position: relative;\"><span style=\"position: absolute; left: -2px; top: 18px; width: 12px; height: 2px; background-color: %1;\"></span><span style=\"position: absolute; left: 8px; top: 13px; color: %1; font-size: 10px; line-height: 1;\">➤</span><div style=\"background-color: %2; border: 1px solid %1; border-radius: 6px; padding: 8px 12px; display: inline-block; box-shadow: 1px 1px 3px rgba(0,0,0,0.05); margin-left: 10px;\"><span style=\"color: %1; font-weight: 600; font-family: 'Segoe UI', 'Kalpurush', sans-serif; font-size: 16px;\">%3</span></div></div>\n")
+                            .arg(color, color_alpha, processed_text.trimmed());
+            } else if (format_index == 4) {
+                to_append = QString("<p class=\"paragraph-item\" style=\"color: #2f3640; line-height: 1.6; font-family: 'Segoe UI', 'Kalpurush', sans-serif; margin-bottom: 10px; text-align: justify;\">%1</p>\n")
+                            .arg(processed_text.trimmed());
+            } else { // Point Mode (0)
+                QString color = get_random_beautiful_color();
+                to_append = QString("<div class=\"bullet-item\" style=\"display: flex; align-items: center; margin-bottom: 6px; margin-left: 15px;\"><span style=\"width: 10px; height: 10px; border: 2px solid %1; display: inline-flex; align-items: center; justify-content: center; margin-right: 10px; flex-shrink: 0; box-sizing: border-box;\"><span style=\"width: 4px; height: 4px; background-color: %1; display: block;\"></span></span><span style=\"color: #2f3640; font-family: 'Segoe UI', 'Kalpurush', sans-serif; line-height: 1.4;\">%2</span></div>\n")
+                            .arg(color, processed_text.trimmed());
             }
             
             if (end_pos > 0 && content[end_pos - 1] != '\n') {
@@ -2124,8 +2195,18 @@ private:
                     QString section = section_dropdown_->currentData().toString();
                     to_append = QString("\n<h2 id=\"%1\" data-section=\"%2\" style=\"color: #e74c3c; font-weight: bold; font-style: italic; margin-bottom: 5px;\">%3</h2>\n")
                                 .arg(main_slug, section, processed_text.trimmed());
-                } else {
-                    to_append = QString("- %1\n").arg(processed_text.trimmed());
+                } else if (format_index == 3) {
+                    QString color = get_random_beautiful_color();
+                    QString color_alpha = color + "0f";
+                    to_append = QString("<div class=\"timeline-item\" style=\"border-left: 2px dashed %1; margin-left: 20px; padding-left: 20px; padding-bottom: 12px; position: relative;\"><span style=\"position: absolute; left: -2px; top: 18px; width: 12px; height: 2px; background-color: %1;\"></span><span style=\"position: absolute; left: 8px; top: 13px; color: %1; font-size: 10px; line-height: 1;\">➤</span><div style=\"background-color: %2; border: 1px solid %1; border-radius: 6px; padding: 8px 12px; display: inline-block; box-shadow: 1px 1px 3px rgba(0,0,0,0.05); margin-left: 10px;\"><span style=\"color: %1; font-weight: 600; font-family: 'Segoe UI', 'Kalpurush', sans-serif; font-size: 16px;\">%3</span></div></div>\n")
+                                .arg(color, color_alpha, processed_text.trimmed());
+                } else if (format_index == 4) {
+                    to_append = QString("<p class=\"paragraph-item\" style=\"color: #2f3640; line-height: 1.6; font-family: 'Segoe UI', 'Kalpurush', sans-serif; margin-bottom: 10px; text-align: justify;\">%1</p>\n")
+                                .arg(processed_text.trimmed());
+                } else { // Point Mode (0)
+                    QString color = get_random_beautiful_color();
+                    to_append = QString("<div class=\"bullet-item\" style=\"display: flex; align-items: center; margin-bottom: 6px; margin-left: 15px;\"><span style=\"width: 10px; height: 10px; border: 2px solid %1; display: inline-flex; align-items: center; justify-content: center; margin-right: 10px; flex-shrink: 0; box-sizing: border-box;\"><span style=\"width: 4px; height: 4px; background-color: %1; display: block;\"></span></span><span style=\"color: #2f3640; font-family: 'Segoe UI', 'Kalpurush', sans-serif; line-height: 1.4;\">%2</span></div>\n")
+                                .arg(color, processed_text.trimmed());
                 }
                 
                 if (insert_pos > 0 && content[insert_pos - 1] != '\n') {
@@ -2328,6 +2409,9 @@ int main(int argc, char *argv[]) {
             app.setFont(font);
         }
     }
+
+    // Add the Feather font
+    QFontDatabase::addApplicationFont(":/feather.ttf");
 
     ClipboardGrabber window;
     window.show();

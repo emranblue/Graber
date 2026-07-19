@@ -68,54 +68,144 @@ The application creates and manages files under the `~/GraberNotes` directory:
 - `~/GraberNotes/` - Main note directory containing your Markdown (`.md`) and Structure Tree (`.tree`) files.
 - `~/GraberNotes/images/` - Contains captured images referenced in your notes.
 - `~/GraberNotes/deleted/` - Backup folder for deleted sections.
-- `~/GraberNotes/backup/` - Contains post-build executable backups.
+- `~/GraberNotes/backup/` - Contains post-build executable backups (Linux/macOS).
 - `~/GraberNotes/settings.ini` - Persistent shortcut settings configuration file.
 - `~/GraberNotes/debug.log` - Application activity and error logs.
 
 ---
 
-## Prerequisites
+## Prerequisites & Installation
 
-You need a C++ compiler supporting C++17, CMake (version 3.16+), and Qt 6 development libraries.
+To build and run Clipboard Graber, you need a C++ compiler supporting C++17, CMake (version 3.16+), and Qt 6 development libraries.
 
-### On Debian/Ubuntu:
-```bash
-sudo apt-get update && sudo apt-get install build-essential cmake qt6-base-dev
-```
+### 1. Linux
 
-### On Fedora/RedHat:
-```bash
-sudo dnf install gcc-c++ cmake qt6-qtbase-devel
-```
+#### Installing Prerequisites:
+* **Debian / Ubuntu / Linux Mint:**
+  ```bash
+  sudo apt update && sudo apt install build-essential cmake qt6-base-dev
+  ```
+* **Fedora / RHEL / CentOS:**
+  ```bash
+  sudo dnf install gcc-c++ cmake qt6-qtbase-devel
+  ```
+* **Arch Linux / Manjaro:**
+  ```bash
+  sudo pacman -S base-devel cmake qt6-base
+  ```
 
----
-
-## How to Build
-
-1. **Navigate to the project directory:**
+#### Building from Source:
+1. Open a terminal and navigate to the project directory:
    ```bash
    cd path/to/graber
    ```
-
-2. **Configure the build with CMake:**
+2. Configure the build:
    ```bash
-   cmake .
+   cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
    ```
-
-3. **Compile the application:**
+3. Compile the application:
    ```bash
-   make
+   cmake --build build
    ```
-   *Note: On compilation, a post-build step automatically creates backups of the `graber` executable in the project's `./backup` folder and in `~/GraberNotes/backup/`.*
+4. Run the executable:
+   ```bash
+   ./build/graber
+   ```
 
 ---
 
-## How to Run
+### 2. Windows
 
-Run the compiled executable:
+#### Installing Prerequisites:
+1. Download and install **Visual Studio 2022** (Community Edition is free). Choose the **Desktop development with C++** workload during installation.
+2. Download and install **Qt 6** (e.g. Qt 6.8.x) from the [Qt Online Installer](https://www.qt.io/download-open-source). Ensure you check the MSVC compilation kit component (e.g., `MSVC 2022 64-bit`).
+3. Download and install **CMake**.
+
+#### Building from Source:
+1. Open the **Developer Command Prompt for VS 2022**.
+2. Navigate to your project directory:
+   ```cmd
+   cd path\to\graber
+   ```
+3. Configure the build with CMake (specify your Qt6 directory if CMake cannot auto-find it, e.g. `-DCMAKE_PREFIX_PATH=C:\Qt\6.8.1\msvc2022_64`):
+   ```cmd
+   cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+   ```
+4. Compile the application:
+   ```cmd
+   cmake --build build --config Release
+   ```
+5. Deploy required Qt DLLs (runs dynamic deployment to make the binary portable):
+   ```cmd
+   mkdir dist
+   copy build\Release\graber.exe dist\
+   windeployqt --dir dist dist\graber.exe
+   ```
+6. Run the application from the `dist/` directory by double-clicking `graber.exe`.
+
+---
+
+### 3. macOS
+
+#### Installing Prerequisites:
+1. Install **Xcode Command Line Tools** by running:
+   ```bash
+   xcode-select --install
+   ```
+2. Install **Homebrew** if not already installed, then install CMake and Qt 6:
+   ```bash
+   brew install cmake qt
+   ```
+
+#### Building from Source:
+1. Navigate to the project directory:
+   ```bash
+   cd path/to/graber
+   ```
+2. Configure the build (Homebrew installs Qt in a prefix path that needs to be passed to CMake):
+   ```bash
+   cmake -B build -S . -DCMAKE_PREFIX_PATH=$(brew --prefix qt) -DCMAKE_BUILD_TYPE=Release
+   ```
+3. Compile the application:
+   ```bash
+   cmake --build build
+   ```
+4. Standalone app bundle deployment (packages all libraries/frameworks inside the `.app` bundle):
+   ```bash
+   macdeployqt build/graber.app -dmg
+   ```
+5. Run the application or mount the generated `.dmg` file to install it:
+   ```bash
+   open build/graber.app
+   ```
+
+---
+
+### 4. FreeBSD
+
+#### Installing Prerequisites:
+Install build utilities, compiler, CMake, and the Qt 6 library package:
 ```bash
-./graber
+sudo pkg install cmake qt6
 ```
+
+#### Building from Source:
+1. Navigate to the project directory:
+   ```bash
+   cd path/to/graber
+   ```
+2. Configure the build:
+   ```bash
+   cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+   ```
+3. Compile the application:
+   ```bash
+   cmake --build build
+   ```
+4. Run the executable:
+   ```bash
+   ./build/graber
+   ```
 
 ---
 
