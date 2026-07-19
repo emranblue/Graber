@@ -280,7 +280,8 @@ private:
         debugLog(QString("populate_list: search_text='%1', all_headings_.size()=%2").arg(search_text, QString::number(all_headings_.size())));
         list_widget_->clear();
         
-        QStringList keywords = search_text.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
+        QString normalized_search = search_text.normalized(QString::NormalizationForm_C);
+        QStringList keywords = normalized_search.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
         
         // Add "Append to End"
         bool show_append_to_end = true;
@@ -1783,14 +1784,15 @@ private:
 
             if (h2_match.hasMatch()) {
                 QString attributes = h2_match.captured(1);
-                QString title = h2_match.captured(2).trimmed();
-                QString slug = QString::fromStdString(generate_slug(title));
+                QString title = h2_match.captured(2).trimmed().normalized(QString::NormalizationForm_C);
+                QString slug = QString::fromStdString(generate_slug(title)).normalized(QString::NormalizationForm_C);
                 
                 QString section = "others";
                 QRegularExpressionMatch section_match = section_attr_regex.match(attributes);
                 if (section_match.hasMatch()) {
                     section = section_match.captured(1);
                 }
+                section = section.normalized(QString::NormalizationForm_C);
 
                 if (!section.isEmpty() && section != "others") {
                     bool exists = false;
@@ -1813,9 +1815,9 @@ private:
                 items.append(item);
                 current_h2_slug = slug;
             } else if (md_match.hasMatch()) {
-                QString title = md_match.captured(2).trimmed();
-                QString slug = QString::fromStdString(generate_slug(title));
-                QString section = detect_section_from_title(title);
+                QString title = md_match.captured(2).trimmed().normalized(QString::NormalizationForm_C);
+                QString slug = QString::fromStdString(generate_slug(title)).normalized(QString::NormalizationForm_C);
+                QString section = detect_section_from_title(title).normalized(QString::NormalizationForm_C);
 
                 if (!section.isEmpty() && section != "others") {
                     bool exists = false;
@@ -1838,14 +1840,14 @@ private:
                 items.append(item);
                 current_h2_slug = slug;
             } else if (h3_match.hasMatch()) {
-                QString title = h3_match.captured(2).trimmed();
-                QString slug = QString::fromStdString(generate_slug(title));
+                QString title = h3_match.captured(2).trimmed().normalized(QString::NormalizationForm_C);
+                QString slug = QString::fromStdString(generate_slug(title)).normalized(QString::NormalizationForm_C);
 
                 NoteItem item = {title, slug, "subheading", "others", current_h2_slug};
                 items.append(item);
             } else if (md_sub_match.hasMatch()) {
-                QString title = md_sub_match.captured(2).trimmed();
-                QString slug = QString::fromStdString(generate_slug(title));
+                QString title = md_sub_match.captured(2).trimmed().normalized(QString::NormalizationForm_C);
+                QString slug = QString::fromStdString(generate_slug(title)).normalized(QString::NormalizationForm_C);
 
                 NoteItem item = {title, slug, "subheading", "others", current_h2_slug};
                 items.append(item);
