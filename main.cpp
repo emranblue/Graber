@@ -189,6 +189,7 @@ public:
         
         search_edit_ = new QLineEdit(this);
         search_edit_->setPlaceholderText("খুঁজুন... (Type to search...)");
+        search_edit_->installEventFilter(this); // Install event filter
         main_layout->addWidget(search_edit_);
         
         list_widget_ = new QListWidget(this);
@@ -214,12 +215,18 @@ public:
         
         populate_list("");
         
+        // Select the current item initially
+        bool found_current = false;
         for (int i = 0; i < list_widget_->count(); ++i) {
             QListWidgetItem *item = list_widget_->item(i);
             if (item->data(Qt::UserRole).toString() == selected_slug_) {
                 list_widget_->setCurrentItem(item);
+                found_current = true;
                 break;
             }
+        }
+        if (!found_current && list_widget_->count() > 0) {
+            list_widget_->setCurrentRow(0);
         }
         
         search_edit_->setFocus();
@@ -227,6 +234,21 @@ public:
     
     QString get_selected_slug() const { return selected_slug_; }
     QString get_selected_title() const { return selected_title_; }
+    
+protected:
+    bool eventFilter(QObject *obj, QEvent *event) override {
+        if (obj == search_edit_ && event->type() == QEvent::KeyPress) {
+            QKeyEvent *keyEvent = static_cast<QKeyEvent*>(event);
+            if (keyEvent->key() == Qt::Key_Down || keyEvent->key() == Qt::Key_Up) {
+                QCoreApplication::sendEvent(list_widget_, keyEvent);
+                return true;
+            } else if (keyEvent->key() == Qt::Key_Enter || keyEvent->key() == Qt::Key_Return) {
+                on_select_clicked();
+                return true;
+            }
+        }
+        return QDialog::eventFilter(obj, event);
+    }
     
 private slots:
     void on_search_text_changed(const QString &text) {
@@ -256,16 +278,29 @@ private:
     void populate_list(const QString &search_text) {
         list_widget_->clear();
         
+        QStringList keywords = search_text.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
+        
         // Add "Append to End"
-        {
+        bool show_append_to_end = true;
+        if (!keywords.isEmpty()) {
+            QString append_option_text = "(শেষে নতুন করে যোগ করুন / Append to End)";
+            for (const QString &kw : keywords) {
+                if (!append_option_text.contains(kw, Qt::CaseInsensitive)) {
+                    show_append_to_end = false;
+                    break;
+                }
+            }
+        }
+        
+        if (show_append_to_end) {
             QListWidgetItem *item = new QListWidgetItem(list_widget_);
             item->setData(Qt::UserRole, "");
             item->setData(Qt::UserRole + 1, "(শেষে নতুন করে যোগ করুন / Append to End)");
             
             QLabel *label = new QLabel();
             QString disp_text = "(শেষে নতুন করে যোগ করুন / Append to End)";
-            if (!search_text.isEmpty() && disp_text.contains(search_text, Qt::CaseInsensitive)) {
-                disp_text = highlight_text(disp_text, search_text);
+            if (!keywords.isEmpty()) {
+                disp_text = highlight_text(disp_text, keywords);
             }
             label->setText(QString("<b>%1</b>").arg(disp_text));
             label->setStyleSheet("padding: 6px; color: #2f3640;");
@@ -276,9 +311,16 @@ private:
         
         for (const auto &heading : all_headings_) {
             bool matches = true;
-            if (!search_text.isEmpty()) {
-                matches = heading.title.contains(search_text, Qt::CaseInsensitive) || 
-                          heading.slug.contains(search_text, Qt::CaseInsensitive);
+            if (!keywords.isEmpty()) {
+                for (const QString &kw : keywords) {
+                    bool kw_found = heading.title.contains(kw, Qt::CaseInsensitive) || 
+                                    heading.slug.contains(kw, Qt::CaseInsensitive) ||
+                                    heading.section.contains(kw, Qt::CaseInsensitive);
+                    if (!kw_found) {
+                        matches = false;
+                        break;
+                    }
+                }
             }
             
             if (matches) {
@@ -294,18 +336,18 @@ private:
                     QString slug_part = heading.slug;
                     QString section_part = heading.section;
                     
-                    if (!search_text.isEmpty()) {
-                        title_part = highlight_text(title_part, search_text);
-                        slug_part = highlight_text(slug_part, search_text);
+                    if (!keywords.isEmpty()) {
+                        title_part = highlight_text(title_part, keywords);
+                        slug_part = highlight_text(slug_part, keywords);
                     }
                     disp_html = QString("<span style=\"font-size: 14px; font-weight: bold; color: #e74c3c;\">%1</span> <span style=\"font-size: 11px; color: #7f8c8d;\">(id: %2) [%3]</span>")
                                 .arg(title_part, slug_part, section_part.toUpper());
                 } else {
                     QString title_part = heading.title;
                     QString slug_part = heading.slug;
-                    if (!search_text.isEmpty()) {
-                        title_part = highlight_text(title_part, search_text);
-                        slug_part = highlight_text(slug_part, search_text);
+                    if (!keywords.isEmpty()) {
+                        title_part = highlight_text(title_part, keywords);
+                        slug_part = highlight_text(slug_part, keywords);
                     }
                     disp_html = QString("<span style=\"padding-left: 15px; font-size: 13px; color: #2980b9;\">↳ %1</span> <span style=\"font-size: 11px; color: #7f8c8d;\">(id: %2)</span>")
                                 .arg(title_part, slug_part);
@@ -318,24 +360,55 @@ private:
                 list_widget_->setItemWidget(item, label);
             }
         }
+        
+        // Auto select first item
+        if (list_widget_->count() > 0) {
+            list_widget_->setCurrentRow(0);
+        }
     }
     
-    QString highlight_text(const QString &src, const QString &search) {
-        if (search.isEmpty()) return src;
+    QString highlight_text(const QString &src, const QStringList &keywords) {
+        if (keywords.isEmpty() || src.isEmpty()) return src;
         
-        QString result;
-        int last_pos = 0;
-        int pos = 0;
-        int search_len = search.length();
+        int n = src.length();
+        QVector<bool> is_matched(n, false);
         
-        while ((pos = src.indexOf(search, last_pos, Qt::CaseInsensitive)) != -1) {
-            result += src.mid(last_pos, pos - last_pos);
-            QString match_text = src.mid(pos, search_len);
-            result += QString("<span style=\"background-color: #f1c40f; color: #2c3e50; font-weight: bold;\">%1</span>").arg(match_text);
-            last_pos = pos + search_len;
+        for (const QString &kw : keywords) {
+            if (kw.isEmpty()) continue;
+            int kw_len = kw.length();
+            int pos = 0;
+            while ((pos = src.indexOf(kw, pos, Qt::CaseInsensitive)) != -1) {
+                for (int i = 0; i < kw_len; ++i) {
+                    is_matched[pos + i] = true;
+                }
+                pos += kw_len;
+            }
         }
         
-        result += src.mid(last_pos);
+        QString result;
+        bool in_highlight = false;
+        for (int i = 0; i < n; ++i) {
+            if (is_matched[i]) {
+                if (!in_highlight) {
+                    result += "<span style=\"background-color: #f1c40f; color: #2c3e50; font-weight: bold;\">";
+                    in_highlight = true;
+                }
+            } else {
+                if (in_highlight) {
+                    result += "</span>";
+                    in_highlight = false;
+                }
+            }
+            
+            QChar c = src[i];
+            if (c == '<') result += "&lt;";
+            else if (c == '>') result += "&gt;";
+            else if (c == '&') result += "&amp;";
+            else result += c;
+        }
+        if (in_highlight) {
+            result += "</span>";
+        }
         return result;
     }
     
