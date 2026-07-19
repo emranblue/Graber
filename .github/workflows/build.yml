@@ -75,6 +75,7 @@ jobs:
         with:
           name: graber-linux-deb
           path: graber.deb
+          compression-level: 0 # Crucial: Stops GitHub from zipping the deb file
 
   build-windows:
     name: Build Windows Package (.exe)
@@ -107,14 +108,14 @@ jobs:
           mkdir dist
           copy build/Release/graber.exe dist/
           windeployqt --dir dist dist/graber.exe
-          # Zip the output directory
-          Compress-Archive -Path dist\* -DestinationPath graber-windows.zip
+          # Removed the Compress-Archive step entirely so the raw .exe remains available
 
       - name: Upload Windows Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: graber-windows-zip
-          path: graber-windows.zip
+          name: graber-windows-exe
+          path: dist/graber.exe # Direct path to the raw executable
+          compression-level: 0 # Crucial: Stops GitHub from zipping the exe file
 
   create-release:
     name: Create GitHub Release
@@ -134,7 +135,7 @@ jobs:
       - name: Download Windows Artifact
         uses: actions/download-artifact@v4
         with:
-          name: graber-windows-zip
+          name: graber-windows-exe
           path: ./
 
       - name: Create Release
@@ -142,6 +143,6 @@ jobs:
         with:
           files: |
             graber.deb
-            graber-windows.zip
+            graber.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
