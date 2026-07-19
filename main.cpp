@@ -252,6 +252,7 @@ protected:
     
 private slots:
     void on_search_text_changed(const QString &text) {
+        debugLog(QString("on_search_text_changed: text='%1'").arg(text));
         populate_list(text);
     }
     
@@ -276,6 +277,7 @@ private slots:
     
 private:
     void populate_list(const QString &search_text) {
+        debugLog(QString("populate_list: search_text='%1', all_headings_.size()=%2").arg(search_text, QString::number(all_headings_.size())));
         list_widget_->clear();
         
         QStringList keywords = search_text.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
@@ -298,15 +300,21 @@ private:
             item->setData(Qt::UserRole + 1, "(শেষে নতুন করে যোগ করুন / Append to End)");
             
             QLabel *label = new QLabel();
+            label->setAttribute(Qt::WA_TransparentForMouseEvents);
+            label->setTextFormat(Qt::RichText);
+            
             QString disp_text = "(শেষে নতুন করে যোগ করুন / Append to End)";
             if (!keywords.isEmpty()) {
                 disp_text = highlight_text(disp_text, keywords);
             }
             label->setText(QString("<b>%1</b>").arg(disp_text));
             label->setStyleSheet("padding: 6px; color: #2f3640;");
-            item->setSizeHint(label->sizeHint());
+            
             list_widget_->addItem(item);
             list_widget_->setItemWidget(item, label);
+            
+            label->adjustSize();
+            item->setSizeHint(QSize(0, qMax(label->sizeHint().height(), 36)));
         }
         
         for (const auto &heading : all_headings_) {
@@ -329,6 +337,9 @@ private:
                 item->setData(Qt::UserRole + 1, heading.title);
                 
                 QLabel *label = new QLabel();
+                label->setAttribute(Qt::WA_TransparentForMouseEvents);
+                label->setTextFormat(Qt::RichText);
+                
                 QString disp_html = "";
                 
                 if (heading.type == "heading") {
@@ -354,10 +365,13 @@ private:
                 }
                 
                 label->setText(disp_html);
-                label->setStyleSheet("padding: 4px;");
-                item->setSizeHint(label->sizeHint());
+                label->setStyleSheet("padding: 6px;");
+                
                 list_widget_->addItem(item);
                 list_widget_->setItemWidget(item, label);
+                
+                label->adjustSize();
+                item->setSizeHint(QSize(0, qMax(label->sizeHint().height(), 36)));
             }
         }
         
