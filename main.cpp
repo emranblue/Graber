@@ -20,6 +20,7 @@
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
+#include <QDirIterator>
 #include <QFileInfo>
 #include <QFontDatabase>
 #include <string>
@@ -492,6 +493,10 @@ public:
         add_subject_button_->setStyleSheet("QPushButton { background-color: #44bd32; } QPushButton:hover { background-color: #44bd32; opacity: 0.9; }");
         add_subject_button_->setIcon(get_feather_icon(QChar(0xe9c9)));
 
+        add_folder_button_ = new QPushButton("নতুন ফোল্ডার (New Folder)");
+        add_folder_button_->setStyleSheet("QPushButton { background-color: #e67e22; } QPushButton:hover { background-color: #d35400; }");
+        add_folder_button_->setIcon(get_feather_icon(QChar(0xe9c9)));
+
         open_file_button_ = new QPushButton("নোট খুলুন (Open Note)");
         open_file_button_->setStyleSheet("QPushButton { background-color: #0097e6; } QPushButton:hover { background-color: #00a8ff; }");
         open_file_button_->setEnabled(false);
@@ -574,6 +579,7 @@ public:
         QHBoxLayout *file_layout = new QHBoxLayout();
         file_layout->addWidget(subject_dropdown_, 1);
         file_layout->addWidget(add_subject_button_);
+        file_layout->addWidget(add_folder_button_);
         file_layout->addWidget(open_file_button_);
         subject_layout->addLayout(file_layout);
 
@@ -656,6 +662,7 @@ public:
         connect(stop_button_, &QPushButton::clicked, this, [this]() { this->stop_monitoring(); });
         connect(add_image_button_, &QPushButton::clicked, this, [this]() { this->add_clipboard_image(); });
         connect(add_subject_button_, &QPushButton::clicked, this, [this]() { this->add_subject(); });
+        connect(add_folder_button_, &QPushButton::clicked, this, [this]() { this->add_folder(); });
         connect(open_file_button_, &QPushButton::clicked, this, [this]() { this->open_selected_file(); });
         connect(subject_dropdown_, &QComboBox::currentTextChanged, this, [this](const QString &text) { this->on_subject_changed(text); });
         connect(select_heading_button_, &QPushButton::clicked, this, [this]() { this->open_heading_select_dialog(); });
@@ -699,6 +706,7 @@ private slots:
         stop_button_->setEnabled(true);
         subject_dropdown_->setEnabled(false);
         add_subject_button_->setEnabled(false);
+        add_folder_button_->setEnabled(false);
         mode_dropdown_->setEnabled(false);
         update_status_label();
     }
@@ -711,6 +719,7 @@ private slots:
         stop_button_->setEnabled(false);
         subject_dropdown_->setEnabled(true);
         add_subject_button_->setEnabled(true);
+        add_folder_button_->setEnabled(true);
         mode_dropdown_->setEnabled(true);
         update_status_label();
     }
@@ -718,7 +727,7 @@ private slots:
     void add_subject() {
         bool ok;
         QString text = QInputDialog::getText(this, "বিষয় যোগ করুন",
-                                             "নতুন বিষয়ের নাম:", QLineEdit::Normal,
+                                             "নতুন বিষয়ের নাম (ফোল্ডার সহ, যেমন: BCS/Bangla):", QLineEdit::Normal,
                                              "", &ok);
         if (ok && !text.isEmpty()) {
             // Avoid adding duplicates
@@ -727,6 +736,11 @@ private slots:
                 
                 // --- Scalability Fix: Create file immediately ---
                 QString filename = notes_dir_path_ + QDir::separator() + text + ".md";
+                QFileInfo file_info(filename);
+                QDir parent_dir = file_info.dir();
+                if (!parent_dir.exists()) {
+                    parent_dir.mkpath(".");
+                }
                 if (!QFile::exists(filename)) {
                     QFile file(filename);
                     if (file.open(QIODevice::WriteOnly)) {
@@ -735,6 +749,21 @@ private slots:
                 }
             }
             subject_dropdown_->setCurrentText(text);
+        }
+    }
+
+    void add_folder() {
+        bool ok;
+        QString text = QInputDialog::getText(this, "ফোল্ডার তৈরি করুন",
+                                             "নতুন ফোল্ডারের নাম (Path):", QLineEdit::Normal,
+                                             "", &ok);
+        if (ok && !text.isEmpty()) {
+            QDir dir(notes_dir_path_);
+            if (dir.mkpath(text)) {
+                status_label_->setText("অবস্থা: ফোল্ডার তৈরি হয়েছে - " + text);
+            } else {
+                status_label_->setText("অবস্থা: ফোল্ডার তৈরি করতে ব্যর্থ!");
+            }
         }
     }
 
@@ -1130,12 +1159,13 @@ private slots:
             
             // Ensure deleted directory exists
             QString deleted_dir_path = notes_dir_path_ + QDir::separator() + "deleted";
-            QDir del_dir(deleted_dir_path);
-            if (!del_dir.exists()) {
-                del_dir.mkpath(".");
+            QString del_filepath = deleted_dir_path + QDir::separator() + del_filename;
+            QFileInfo del_file_info(del_filepath);
+            QDir del_file_dir = del_file_info.dir();
+            if (!del_file_dir.exists()) {
+                del_file_dir.mkpath(".");
             }
             
-            QString del_filepath = deleted_dir_path + QDir::separator() + del_filename;
             QFile del_file(del_filepath);
             if (del_file.open(QIODevice::WriteOnly | QIODevice::Text)) {
                 QTextStream del_out(&del_file);
@@ -1197,19 +1227,29 @@ private:
     }
 
     void populate_subjects_from_disk() {
-        // Populate dropdown from all .md files in the directory
-        QDir directory(notes_dir_path_);
-        QStringList md_files = directory.entryList(QStringList() << "*.md", QDir::Files);
+        // Populate dropdown from all .md files in the directory recursively
+        QStringList all_subjects;
+        QDirIterator it(notes_dir_path_, QStringList() << "*.md", QDir::Files, QDirIterator::Subdirectories);
+        QDir base_dir(notes_dir_path_);
+        while (it.hasNext()) {
+            QString filepath = it.next();
+            QString relative_path = base_dir.relativeFilePath(filepath);
+            
+            // Skip the deleted folder
+            if (relative_path.startsWith(QString("deleted") + QDir::separator()) || relative_path == "deleted") {
+                continue;
+            }
+            
+            normalize_markdown_file(filepath);
+            update_toc_in_file(filepath);
+            
+            relative_path.chop(3); // Remove ".md"
+            all_subjects << relative_path;
+        }
+        all_subjects.sort(Qt::CaseInsensitive);
         
         subject_dropdown_->clear();
-        for (QString filename : md_files) {
-            QString full_path = notes_dir_path_ + QDir::separator() + filename;
-            normalize_markdown_file(full_path);
-            update_toc_in_file(full_path);
-            
-            filename.chop(3); // Remove ".md"
-            subject_dropdown_->addItem(filename);
-        }
+        subject_dropdown_->addItems(all_subjects);
     }
 
     QString detect_section_from_title(const QString &title) {
@@ -2234,6 +2274,7 @@ private:
     QPushButton *add_image_button_;
     QComboBox *subject_dropdown_;
     QPushButton *add_subject_button_;
+    QPushButton *add_folder_button_;
     QPushButton *open_file_button_;
     QComboBox *format_dropdown_;
     QTimer *clipboard_timer_;
