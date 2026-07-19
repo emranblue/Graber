@@ -35,6 +35,9 @@
 #include <QFile>
 #include <QTextStream>
 #include <QDateTime>
+#include <QShortcut>
+#include <QKeySequenceEdit>
+#include <QSettings>
 
 inline void debugLog(const QString &msg) {
     QFile file(QDir::homePath() + "/GraberNotes/debug.log");
@@ -44,6 +47,304 @@ inline void debugLog(const QString &msg) {
         file.close();
     }
 }
+
+struct ShortcutConfig {
+    QString action_id;
+    QString name_bangla;
+    QString name_english;
+    QString default_key;
+    QKeySequence current_key;
+    QShortcut* shortcut_obj = nullptr;
+};
+
+class ShortcutsSettingsDialog : public QDialog {
+    Q_OBJECT
+public:
+    ShortcutsSettingsDialog(QList<ShortcutConfig> &configs, QWidget *parent = nullptr) 
+        : QDialog(parent), configs_(configs) {
+        setWindowTitle("কীবোর্ড শর্টকাট সেটিংস (Keyboard Shortcut Settings)");
+        setMinimumSize(450, 500);
+        
+        QVBoxLayout *main_layout = new QVBoxLayout(this);
+        main_layout->setSpacing(12);
+        main_layout->setContentsMargins(15, 15, 15, 15);
+        
+        QLabel *title = new QLabel("শর্টকাটসমূহ পরিবর্তন করুন (Edit Shortcuts):");
+        title->setStyleSheet("font-weight: bold; font-size: 16px; color: #192a56; border: none; background: transparent;");
+        main_layout->addWidget(title);
+        
+        QScrollArea *scroll = new QScrollArea();
+        scroll->setWidgetResizable(true);
+        scroll->setFrameShape(QFrame::NoFrame);
+        
+        QWidget *scroll_widget = new QWidget();
+        scroll_widget->setStyleSheet("background-color: transparent;");
+        QVBoxLayout *scroll_layout = new QVBoxLayout(scroll_widget);
+        scroll_layout->setSpacing(8);
+        scroll_layout->setContentsMargins(0, 0, 0, 0);
+        
+        for (int i = 0; i < configs_.size(); ++i) {
+            const auto &cfg = configs_[i];
+            
+            QFrame *item_frame = new QFrame();
+            item_frame->setStyleSheet("QFrame { background-color: white; border: 1px solid #dcdde1; border-radius: 6px; padding: 6px; }");
+            QHBoxLayout *item_layout = new QHBoxLayout(item_frame);
+            item_layout->setContentsMargins(8, 8, 8, 8);
+            
+            QVBoxLayout *text_layout = new QVBoxLayout();
+            QLabel *name_label = new QLabel(cfg.name_bangla);
+            name_label->setStyleSheet("font-weight: bold; font-size: 13px; color: #2f3640; border: none; background: transparent;");
+            QLabel *desc_label = new QLabel(cfg.name_english);
+            desc_label->setStyleSheet("font-size: 11px; color: #7f8c8d; border: none; background: transparent;");
+            text_layout->addWidget(name_label);
+            text_layout->addWidget(desc_label);
+            item_layout->addLayout(text_layout, 1);
+            
+            QKeySequenceEdit *key_edit = new QKeySequenceEdit(cfg.current_key);
+            key_edit->setStyleSheet("QKeySequenceEdit { border: 1px solid #dcdde1; padding: 4px; background-color: #f5f6fa; color: black; min-width: 150px; }");
+            item_layout->addWidget(key_edit);
+            
+            edits_.append(key_edit);
+            
+            scroll_layout->addWidget(item_frame);
+        }
+        
+        scroll->setWidget(scroll_widget);
+        main_layout->addWidget(scroll, 1);
+        
+        // Buttons
+        QHBoxLayout *btn_layout = new QHBoxLayout();
+        QPushButton *reset_btn = new QPushButton("ডিফল্ট রিসেট (Reset Defaults)");
+        reset_btn->setStyleSheet("QPushButton { background-color: #e84118; color: white; } QPushButton:hover { background-color: #c23616; }");
+        
+        QPushButton *save_btn = new QPushButton("সংরক্ষণ করুন (Save)");
+        save_btn->setStyleSheet("QPushButton { background-color: #44bd32; color: white; } QPushButton:hover { background-color: #2b8a1a; }");
+        
+        QPushButton *cancel_btn = new QPushButton("বাতিল (Cancel)");
+        cancel_btn->setStyleSheet("QPushButton { background-color: #718093; color: white; } QPushButton:hover { background-color: #57606f; }");
+        
+        btn_layout->addWidget(reset_btn);
+        btn_layout->addStretch();
+        btn_layout->addWidget(save_btn);
+        btn_layout->addWidget(cancel_btn);
+        
+        main_layout->addLayout(btn_layout);
+        
+        connect(reset_btn, &QPushButton::clicked, this, &ShortcutsSettingsDialog::on_reset);
+        connect(save_btn, &QPushButton::clicked, this, &ShortcutsSettingsDialog::on_save);
+        connect(cancel_btn, &QPushButton::clicked, this, &QDialog::reject);
+    }
+    
+private slots:
+    void on_reset() {
+        for (int i = 0; i < configs_.size(); ++i) {
+            edits_[i]->setKeySequence(QKeySequence(configs_[i].default_key));
+        }
+    }
+    
+    void on_save() {
+        for (int i = 0; i < configs_.size(); ++i) {
+            configs_[i].current_key = edits_[i]->keySequence();
+        }
+        accept();
+    }
+    
+private:
+    QList<ShortcutConfig> &configs_;
+    QList<QKeySequenceEdit*> edits_;
+};struct NoteItem {
+    QString title;
+    QString slug;
+    QString type; // "heading" or "subheading"
+    QString section;
+    QString parent_slug;
+};
+
+class HeadingSelectDialog : public QDialog {
+    Q_OBJECT
+public:
+    HeadingSelectDialog(const QList<NoteItem> &all_headings, const QString &current_slug, QWidget *parent = nullptr)
+        : QDialog(parent), all_headings_(all_headings), selected_slug_(current_slug) {
+        setWindowTitle("টার্গেট শিরোনাম নির্বাচন (Select Target Heading)");
+        
+        setStyleSheet(
+            "QDialog { background-color: #f5f6fa; font-family: 'Segoe UI', 'Kalpurush'; color: #2f3640; }"
+            "QLabel { color: #2f3640; font-size: 14px; background: transparent; }"
+            "QLineEdit { background: white; color: black; padding: 8px; border: 1px solid #dcdde1; border-radius: 4px; font-size: 14px; }"
+            "QListWidget { background: white; border: 1px solid #dcdde1; border-radius: 6px; padding: 5px; color: black; }"
+            "QPushButton { background-color: #487eb0; color: white; border-radius: 5px; padding: 10px; font-weight: bold; border: none; min-width: 80px; }"
+            "QPushButton:hover { background-color: #40739e; }"
+            "QPushButton:disabled { background-color: #dcdde1; color: #7f8c8d; }"
+        );
+
+        if (parent) {
+            resize(parent->size());
+        } else {
+            resize(540, 660);
+        }
+        
+        QVBoxLayout *main_layout = new QVBoxLayout(this);
+        main_layout->setSpacing(10);
+        main_layout->setContentsMargins(12, 12, 12, 12);
+        
+        search_edit_ = new QLineEdit(this);
+        search_edit_->setPlaceholderText("খুঁজুন... (Type to search...)");
+        main_layout->addWidget(search_edit_);
+        
+        list_widget_ = new QListWidget(this);
+        list_widget_->setWordWrap(true);
+        main_layout->addWidget(list_widget_, 1);
+        
+        QHBoxLayout *btn_layout = new QHBoxLayout();
+        QPushButton *select_btn = new QPushButton("নির্বাচন করুন (Select)", this);
+        select_btn->setStyleSheet("QPushButton { background-color: #44bd32; color: white; } QPushButton:hover { background-color: #2b8a1a; }");
+        
+        QPushButton *cancel_btn = new QPushButton("বাতিল (Cancel)", this);
+        cancel_btn->setStyleSheet("QPushButton { background-color: #718093; color: white; } QPushButton:hover { background-color: #57606f; }");
+        
+        btn_layout->addStretch();
+        btn_layout->addWidget(select_btn);
+        btn_layout->addWidget(cancel_btn);
+        main_layout->addLayout(btn_layout);
+        
+        connect(search_edit_, &QLineEdit::textChanged, this, &HeadingSelectDialog::on_search_text_changed);
+        connect(list_widget_, &QListWidget::itemDoubleClicked, this, &HeadingSelectDialog::on_item_double_clicked);
+        connect(select_btn, &QPushButton::clicked, this, &HeadingSelectDialog::on_select_clicked);
+        connect(cancel_btn, &QPushButton::clicked, this, &QDialog::reject);
+        
+        populate_list("");
+        
+        for (int i = 0; i < list_widget_->count(); ++i) {
+            QListWidgetItem *item = list_widget_->item(i);
+            if (item->data(Qt::UserRole).toString() == selected_slug_) {
+                list_widget_->setCurrentItem(item);
+                break;
+            }
+        }
+        
+        search_edit_->setFocus();
+    }
+    
+    QString get_selected_slug() const { return selected_slug_; }
+    QString get_selected_title() const { return selected_title_; }
+    
+private slots:
+    void on_search_text_changed(const QString &text) {
+        populate_list(text);
+    }
+    
+    void on_item_double_clicked(QListWidgetItem *item) {
+        if (item) {
+            selected_slug_ = item->data(Qt::UserRole).toString();
+            selected_title_ = item->data(Qt::UserRole + 1).toString();
+            accept();
+        }
+    }
+    
+    void on_select_clicked() {
+        QListWidgetItem *item = list_widget_->currentItem();
+        if (item) {
+            selected_slug_ = item->data(Qt::UserRole).toString();
+            selected_title_ = item->data(Qt::UserRole + 1).toString();
+            accept();
+        } else {
+            reject();
+        }
+    }
+    
+private:
+    void populate_list(const QString &search_text) {
+        list_widget_->clear();
+        
+        // Add "Append to End"
+        {
+            QListWidgetItem *item = new QListWidgetItem(list_widget_);
+            item->setData(Qt::UserRole, "");
+            item->setData(Qt::UserRole + 1, "(শেষে নতুন করে যোগ করুন / Append to End)");
+            
+            QLabel *label = new QLabel();
+            QString disp_text = "(শেষে নতুন করে যোগ করুন / Append to End)";
+            if (!search_text.isEmpty() && disp_text.contains(search_text, Qt::CaseInsensitive)) {
+                disp_text = highlight_text(disp_text, search_text);
+            }
+            label->setText(QString("<b>%1</b>").arg(disp_text));
+            label->setStyleSheet("padding: 6px; color: #2f3640;");
+            item->setSizeHint(label->sizeHint());
+            list_widget_->addItem(item);
+            list_widget_->setItemWidget(item, label);
+        }
+        
+        for (const auto &heading : all_headings_) {
+            bool matches = true;
+            if (!search_text.isEmpty()) {
+                matches = heading.title.contains(search_text, Qt::CaseInsensitive) || 
+                          heading.slug.contains(search_text, Qt::CaseInsensitive);
+            }
+            
+            if (matches) {
+                QListWidgetItem *item = new QListWidgetItem(list_widget_);
+                item->setData(Qt::UserRole, heading.slug);
+                item->setData(Qt::UserRole + 1, heading.title);
+                
+                QLabel *label = new QLabel();
+                QString disp_html = "";
+                
+                if (heading.type == "heading") {
+                    QString title_part = heading.title;
+                    QString slug_part = heading.slug;
+                    QString section_part = heading.section;
+                    
+                    if (!search_text.isEmpty()) {
+                        title_part = highlight_text(title_part, search_text);
+                        slug_part = highlight_text(slug_part, search_text);
+                    }
+                    disp_html = QString("<span style=\"font-size: 14px; font-weight: bold; color: #e74c3c;\">%1</span> <span style=\"font-size: 11px; color: #7f8c8d;\">(id: %2) [%3]</span>")
+                                .arg(title_part, slug_part, section_part.toUpper());
+                } else {
+                    QString title_part = heading.title;
+                    QString slug_part = heading.slug;
+                    if (!search_text.isEmpty()) {
+                        title_part = highlight_text(title_part, search_text);
+                        slug_part = highlight_text(slug_part, search_text);
+                    }
+                    disp_html = QString("<span style=\"padding-left: 15px; font-size: 13px; color: #2980b9;\">↳ %1</span> <span style=\"font-size: 11px; color: #7f8c8d;\">(id: %2)</span>")
+                                .arg(title_part, slug_part);
+                }
+                
+                label->setText(disp_html);
+                label->setStyleSheet("padding: 4px;");
+                item->setSizeHint(label->sizeHint());
+                list_widget_->addItem(item);
+                list_widget_->setItemWidget(item, label);
+            }
+        }
+    }
+    
+    QString highlight_text(const QString &src, const QString &search) {
+        if (search.isEmpty()) return src;
+        
+        QString result;
+        int last_pos = 0;
+        int pos = 0;
+        int search_len = search.length();
+        
+        while ((pos = src.indexOf(search, last_pos, Qt::CaseInsensitive)) != -1) {
+            result += src.mid(last_pos, pos - last_pos);
+            QString match_text = src.mid(pos, search_len);
+            result += QString("<span style=\"background-color: #f1c40f; color: #2c3e50; font-weight: bold;\">%1</span>").arg(match_text);
+            last_pos = pos + search_len;
+        }
+        
+        result += src.mid(last_pos);
+        return result;
+    }
+    
+    const QList<NoteItem> &all_headings_;
+    QString selected_slug_;
+    QString selected_title_;
+    QLineEdit *search_edit_;
+    QListWidget *list_widget_;
+};
 
 class ClipboardGrabber : public QWidget {
     Q_OBJECT
@@ -66,6 +367,11 @@ public:
         if (!dir.exists()) {
             dir.mkpath(".");
         }
+
+        // --- Initialize Shortcuts ---
+        init_shortcut_configs();
+        load_settings();
+        setup_shortcuts();
 
         // --- UI Styling ---
         this->setObjectName("MainWindow");
@@ -96,13 +402,11 @@ public:
         open_file_button_->setStyleSheet("QPushButton { background-color: #0097e6; } QPushButton:hover { background-color: #00a8ff; }");
         open_file_button_->setEnabled(false);
 
-        // Search Box for Headings/IDs
-        heading_search_line_edit_ = new QLineEdit();
-        heading_search_line_edit_->setPlaceholderText("আইডি বা শিরোনাম খুঁজুন... (Search ID/Heading...)");
-
         heading_label_ = new QLabel("শিরোনাম (Heading):");
-        heading_dropdown_ = new QComboBox();
-        heading_dropdown_->setEnabled(false);
+        select_heading_button_ = new QPushButton("(শেষে নতুন করে যোগ করুন / Append to End)");
+        select_heading_button_->setObjectName("select_heading_button");
+        select_heading_button_->setStyleSheet("QPushButton { background-color: white; color: black; border: 1px solid #dcdde1; text-align: left; padding: 10px; font-weight: normal; border-radius: 4px; } QPushButton:hover { background-color: #f5f6fa; } QPushButton:disabled { background-color: #dcdde1; color: #7f8c8d; }");
+        select_heading_button_->setEnabled(false);
 
         append_to_heading_button_ = new QPushButton("যুক্ত করুন (Append)");
         append_to_heading_button_->setStyleSheet("QPushButton { background-color: #f39c12; } QPushButton:hover { background-color: #e67e22; }");
@@ -207,14 +511,9 @@ public:
         heading_title->setStyleSheet("font-weight: bold; color: #192a56;");
         heading_card_layout->addWidget(heading_title);
 
-        QHBoxLayout *search_layout = new QHBoxLayout();
-        search_layout->addWidget(new QLabel("খুঁজুন:"));
-        search_layout->addWidget(heading_search_line_edit_, 1);
-        heading_card_layout->addLayout(search_layout);
-
         QHBoxLayout *heading_layout = new QHBoxLayout();
         heading_layout->addWidget(heading_label_);
-        heading_layout->addWidget(heading_dropdown_, 1);
+        heading_layout->addWidget(select_heading_button_, 1);
         heading_card_layout->addLayout(heading_layout);
 
         QHBoxLayout *heading_actions_layout = new QHBoxLayout();
@@ -235,9 +534,13 @@ public:
         main_layout->addWidget(capture_card);
         main_layout->addWidget(heading_card);
 
+        settings_button_ = new QPushButton("সেটিংস (Settings)");
+        settings_button_->setStyleSheet("QPushButton { background-color: #718093; } QPushButton:hover { background-color: #636e72; }");
+
         QHBoxLayout *control_layout1 = new QHBoxLayout();
         control_layout1->addWidget(start_button_);
         control_layout1->addWidget(stop_button_);
+        control_layout1->addWidget(settings_button_);
         main_layout->addLayout(control_layout1);
 
         // --- Clipboard Timer ---
@@ -251,16 +554,16 @@ public:
         connect(add_subject_button_, &QPushButton::clicked, this, [this]() { this->add_subject(); });
         connect(open_file_button_, &QPushButton::clicked, this, [this]() { this->open_selected_file(); });
         connect(subject_dropdown_, &QComboBox::currentTextChanged, this, [this](const QString &text) { this->on_subject_changed(text); });
-        connect(heading_dropdown_, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this]() { this->update_button_states(); });
+        connect(select_heading_button_, &QPushButton::clicked, this, [this]() { this->open_heading_select_dialog(); });
         connect(append_to_heading_button_, &QPushButton::clicked, this, [this]() { this->manual_append_to_heading(); });
         connect(delete_heading_button_, &QPushButton::clicked, this, [this]() { this->delete_selected_heading_section(); });
         connect(clipboard_timer_, &QTimer::timeout, this, [this]() { this->check_clipboard(); });
         connect(inject_heading_button_, &QPushButton::clicked, this, [this]() { this->inject_heading_from_clipboard(); });
         
-        // Connect search and shift and add section
-        connect(heading_search_line_edit_, &QLineEdit::textChanged, this, [this](const QString &text) { this->on_search_text_changed(text); });
+        // Connect shift and add section
         connect(shift_heading_button_, &QPushButton::clicked, this, [this]() { this->shift_selected_heading_section(); });
         connect(add_section_button_, &QPushButton::clicked, this, [this]() { this->add_section(); });
+        connect(settings_button_, &QPushButton::clicked, this, [this]() { this->open_settings_dialog(); });
 
         // --- Initial Population ---
         populate_subjects_from_disk();
@@ -350,10 +653,6 @@ private slots:
         open_file_button_->setEnabled(!text.isEmpty());
         inject_heading_button_->setEnabled(!text.isEmpty());
 
-        heading_search_line_edit_->blockSignals(true);
-        heading_search_line_edit_->clear();
-        heading_search_line_edit_->blockSignals(false);
-
         if (!text.isEmpty()) {
             QString target_file = get_current_target_file();
             normalize_markdown_file(target_file);
@@ -362,8 +661,12 @@ private slots:
             populate_headings_from_file();
         } else {
             all_headings_.clear();
-            heading_dropdown_->clear();
-            heading_dropdown_->setEnabled(false);
+            selected_heading_slug_ = "";
+            selected_heading_title_ = "(শেষে নতুন করে যোগ করুন / Append to End)";
+            if (select_heading_button_) {
+                select_heading_button_->setText(selected_heading_title_);
+                select_heading_button_->setEnabled(false);
+            }
             delete_heading_button_->setEnabled(false);
             append_to_heading_button_->setEnabled(false);
             shift_heading_button_->setEnabled(false);
@@ -467,56 +770,21 @@ private slots:
 
     void update_button_states() {
         bool has_subject = (subject_dropdown_->currentIndex() != -1);
-        bool has_selected_heading = (heading_dropdown_->currentIndex() > 0);
+        bool has_selected_heading = (!selected_heading_slug_.isEmpty());
         
         delete_heading_button_->setEnabled(has_subject && has_selected_heading);
         append_to_heading_button_->setEnabled(has_subject && has_selected_heading);
         shift_heading_button_->setEnabled(has_subject && has_selected_heading);
     }
 
-    void on_search_text_changed(const QString &text) {
-        debugLog(QString("on_search_text_changed: text='%1'").arg(text));
-        QString current_selected_slug = "";
-        if (heading_dropdown_->currentIndex() > 0) {
-            current_selected_slug = heading_dropdown_->currentData().toString();
+    void open_heading_select_dialog() {
+        HeadingSelectDialog dlg(all_headings_, selected_heading_slug_, this);
+        if (dlg.exec() == QDialog::Accepted) {
+            selected_heading_slug_ = dlg.get_selected_slug();
+            selected_heading_title_ = dlg.get_selected_title();
+            select_heading_button_->setText(selected_heading_title_);
+            update_button_states();
         }
-        filter_headings(text, current_selected_slug);
-    }
-
-    void filter_headings(const QString &search_text, const QString &preferred_slug = "") {
-        debugLog(QString("filter_headings: search_text='%1', preferred_slug='%2', all_headings_.size()=%3")
-                 .arg(search_text, preferred_slug, QString::number(all_headings_.size())));
-        heading_dropdown_->clear();
-        heading_dropdown_->addItem("(শেষে নতুন করে যোগ করুন / Append to End)", "");
-
-        int match_count = 0;
-        for (const NoteItem &item : all_headings_) {
-            bool matches = true;
-            if (!search_text.isEmpty()) {
-                matches = item.title.contains(search_text, Qt::CaseInsensitive) || 
-                          item.slug.contains(search_text, Qt::CaseInsensitive);
-            }
-            if (matches) {
-                match_count++;
-                if (item.type == "heading") {
-                    heading_dropdown_->addItem(QString("%1 (id: %2) [%3]").arg(item.title, item.slug, item.section), item.slug);
-                } else if (item.type == "subheading") {
-                    heading_dropdown_->addItem(QString("  ↳ %1 (id: %2)").arg(item.title, item.slug), item.slug);
-                }
-            }
-        }
-        debugLog(QString("filter_headings: populated %1 matches").arg(QString::number(match_count)));
-
-        heading_dropdown_->setEnabled(true);
-
-        if (!preferred_slug.isEmpty()) {
-            int index = heading_dropdown_->findData(preferred_slug);
-            if (index != -1) {
-                heading_dropdown_->setCurrentIndex(index);
-            }
-        }
-        
-        update_button_states();
     }
 
     void add_section() {
@@ -547,13 +815,12 @@ private slots:
             debugLog("shift_selected_heading_section: no subject selected");
             return;
         }
-        int heading_idx = heading_dropdown_->currentIndex();
-        if (heading_idx <= 0) {
-            debugLog(QString("shift_selected_heading_section: heading_idx=%1 (too small)").arg(heading_idx));
+        if (selected_heading_slug_.isEmpty()) {
+            debugLog("shift_selected_heading_section: no selected heading to shift");
             return;
         }
 
-        QString source_slug = heading_dropdown_->currentData().toString();
+        QString source_slug = selected_heading_slug_;
         QString target_file = get_current_target_file();
         debugLog(QString("shift_selected_heading_section: source_slug='%1', target_file='%2'")
                  .arg(source_slug, target_file));
@@ -687,7 +954,7 @@ private slots:
 
     void manual_append_to_heading() {
         if (subject_dropdown_->currentIndex() == -1) return;
-        if (heading_dropdown_->currentIndex() <= 0) return;
+        if (selected_heading_slug_.isEmpty()) return;
         
         QClipboard *clipboard = QGuiApplication::clipboard();
         QClipboard::Mode mode = (mode_dropdown_->currentIndex() == 0) ? QClipboard::Clipboard : QClipboard::Selection;
@@ -700,7 +967,7 @@ private slots:
         }
 
         QString target_file = get_current_target_file();
-        QString slug = heading_dropdown_->currentData().toString();
+        QString slug = selected_heading_slug_;
         
         if (append_content_to_heading(target_file, slug, simplified_text)) {
             update_toc_in_file(target_file);
@@ -712,10 +979,9 @@ private slots:
 
     void delete_selected_heading_section() {
         if (subject_dropdown_->currentIndex() == -1) return;
-        int heading_idx = heading_dropdown_->currentIndex();
-        if (heading_idx <= 0) return; // index 0 is "(শেষে নতুন করে যোগ করুন)"
+        if (selected_heading_slug_.isEmpty()) return;
         
-        QString slug = heading_dropdown_->currentData().toString();
+        QString slug = selected_heading_slug_;
         QString target_file = get_current_target_file();
         
         QFile file(target_file);
@@ -778,6 +1044,8 @@ private slots:
             
             // Refresh headings dropdown & TOC
             update_toc_in_file(target_file);
+            selected_heading_slug_ = "";
+            selected_heading_title_ = "(শেষে নতুন করে যোগ করুন / Append to End)";
             populate_headings_from_file();
         } else {
             last_captured_label_->setText("ত্রুটি: শিরোনাম বা উপ-শিরোনামটি খুঁজে পাওয়া যায়নি!");
@@ -994,9 +1262,9 @@ private:
         QString target_file = get_current_target_file();
         if (target_file == "নির্বাচিত নয়") return;
 
-        // Check if we have a selected heading in the dropdown
-        if (heading_dropdown_->currentIndex() > 0) {
-            QString slug = heading_dropdown_->currentData().toString();
+        // Check if we have a selected heading
+        if (!selected_heading_slug_.isEmpty()) {
+            QString slug = selected_heading_slug_;
             if (append_content_to_heading(target_file, slug, processed_text)) {
                 update_toc_in_file(target_file);
                 last_captured_label_->setText("শেষ ক্যাপচার (নির্বাচিত শিরোনামে যুক্ত করা হয়েছে): " + processed_text);
@@ -1384,13 +1652,7 @@ private:
         }
     }
 
-    struct NoteItem {
-        QString title;
-        QString slug;
-        QString type; // "heading" or "subheading"
-        QString section;
-        QString parent_slug;
-    };
+
 
     void parse_note_structure(const QString &file_path, QList<NoteItem> &items) {
         items.clear();
@@ -1528,20 +1790,16 @@ private:
     }
 
     void populate_headings_from_file() {
-        QString current_selected_slug = "";
-        if (heading_dropdown_->currentIndex() > 0) {
-            current_selected_slug = heading_dropdown_->currentData().toString();
-        }
-
         QString target_file = get_current_target_file();
         if (target_file == "নির্বাচিত নয়" || !QFile::exists(target_file)) {
             all_headings_.clear();
-            heading_dropdown_->clear();
-            heading_dropdown_->addItem("(শেষে নতুন করে যোগ করুন / Append to End)", "");
-            heading_dropdown_->setEnabled(false);
-            delete_heading_button_->setEnabled(false);
-            append_to_heading_button_->setEnabled(false);
-            shift_heading_button_->setEnabled(false);
+            selected_heading_slug_ = "";
+            selected_heading_title_ = "(শেষে নতুন করে যোগ করুন / Append to End)";
+            if (select_heading_button_) {
+                select_heading_button_->setText(selected_heading_title_);
+                select_heading_button_->setEnabled(false);
+            }
+            update_button_states();
             return;
         }
 
@@ -1551,8 +1809,30 @@ private:
         // Save outline tree file
         save_tree_file(target_file, all_headings_);
 
-        // Now filter headings with current search text
-        filter_headings(heading_search_line_edit_->text(), current_selected_slug);
+        if (select_heading_button_) {
+            select_heading_button_->setEnabled(true);
+        }
+
+        // Verify if previously selected heading still exists
+        bool exists = false;
+        if (!selected_heading_slug_.isEmpty()) {
+            for (const auto &item : all_headings_) {
+                if (item.slug == selected_heading_slug_) {
+                    exists = true;
+                    selected_heading_title_ = item.title;
+                    break;
+                }
+            }
+        }
+        if (!exists) {
+            selected_heading_slug_ = "";
+            selected_heading_title_ = "(শেষে নতুন করে যোগ করুন / Append to End)";
+        }
+
+        if (select_heading_button_) {
+            select_heading_button_->setText(selected_heading_title_);
+        }
+        update_button_states();
     }
 
     bool get_heading_bounds(const QString &content, const QString &slug, int &start_pos, int &end_pos, bool &is_html) {
@@ -1798,13 +2078,138 @@ private:
     QComboBox *section_dropdown_;
     QPushButton *inject_heading_button_;
     QLabel *heading_label_;
-    QComboBox *heading_dropdown_;
+    QPushButton *select_heading_button_;
+    QString selected_heading_slug_;
+    QString selected_heading_title_;
     QPushButton *append_to_heading_button_;
     QPushButton *delete_heading_button_;
     QList<NoteItem> all_headings_;
-    QLineEdit *heading_search_line_edit_;
     QPushButton *shift_heading_button_;
     QPushButton *add_section_button_;
+    QPushButton *settings_button_;
+    QList<ShortcutConfig> shortcut_configs_;
+
+    void init_shortcut_configs() {
+        shortcut_configs_ = {
+            {"start", "শুরু করুন (Start)", "Start Monitoring", "Ctrl+Shift+S", QKeySequence("Ctrl+Shift+S"), nullptr},
+            {"stop", "থামুন (Stop)", "Stop Monitoring", "Ctrl+Shift+T", QKeySequence("Ctrl+Shift+T"), nullptr},
+            {"add_image", "ছবি যুক্ত করুন (Add Image)", "Add Clipboard Image", "Ctrl+Shift+I", QKeySequence("Ctrl+Shift+I"), nullptr},
+            {"new_subject", "নতুন বিষয় (New Subject)", "Create New Subject", "Ctrl+Shift+N", QKeySequence("Ctrl+Shift+N"), nullptr},
+            {"open_note", "নোট খুলুন (Open Note)", "Open Active Note", "Ctrl+Shift+O", QKeySequence("Ctrl+Shift+O"), nullptr},
+            {"append", "যুক্ত করুন (Append)", "Append to Heading", "Ctrl+Shift+A", QKeySequence("Ctrl+Shift+A"), nullptr},
+            {"inject", "ইনজেক্ট করুন (Inject)", "Inject Heading", "Ctrl+Shift+J", QKeySequence("Ctrl+Shift+J"), nullptr},
+            {"shift", "স্থানান্তর (Shift)", "Shift Heading Section", "Ctrl+Shift+H", QKeySequence("Ctrl+Shift+H"), nullptr},
+            {"delete", "মুছে ফেলুন (Delete)", "Delete Heading Section", "Ctrl+Shift+D", QKeySequence("Ctrl+Shift+D"), nullptr},
+            {"new_section", "নতুন বিভাগ (New Section)", "Add Custom Section", "Ctrl+Shift+K", QKeySequence("Ctrl+Shift+K"), nullptr},
+            {"toggle_format", "ফরম্যাট পরিবর্তন (Toggle Format)", "Toggle Capture Format", "Ctrl+Shift+F", QKeySequence("Ctrl+Shift+F"), nullptr},
+            {"toggle_section", "বিভাগ পরিবর্তন (Toggle Section)", "Toggle Section Category", "Ctrl+Shift+G", QKeySequence("Ctrl+Shift+G"), nullptr}
+        };
+    }
+
+    void load_settings() {
+        QSettings settings(notes_dir_path_ + QDir::separator() + "settings.ini", QSettings::IniFormat);
+        settings.beginGroup("Shortcuts");
+        for (auto &cfg : shortcut_configs_) {
+            QString key_str = settings.value(cfg.action_id, cfg.default_key).toString();
+            cfg.current_key = QKeySequence(key_str);
+        }
+        settings.endGroup();
+    }
+
+    void save_settings() {
+        QSettings settings(notes_dir_path_ + QDir::separator() + "settings.ini", QSettings::IniFormat);
+        settings.beginGroup("Shortcuts");
+        for (const auto &cfg : shortcut_configs_) {
+            settings.setValue(cfg.action_id, cfg.current_key.toString());
+        }
+        settings.endGroup();
+    }
+
+    void setup_shortcuts() {
+        // Delete existing shortcut objects
+        for (auto &cfg : shortcut_configs_) {
+            if (cfg.shortcut_obj) {
+                delete cfg.shortcut_obj;
+                cfg.shortcut_obj = nullptr;
+            }
+        }
+        
+        // Create new ones
+        for (auto &cfg : shortcut_configs_) {
+            if (!cfg.current_key.isEmpty()) {
+                cfg.shortcut_obj = new QShortcut(cfg.current_key, this);
+                QString action_id = cfg.action_id;
+                connect(cfg.shortcut_obj, &QShortcut::activated, this, [this, action_id]() {
+                    trigger_shortcut_action(action_id);
+                });
+            }
+        }
+    }
+
+    void trigger_shortcut_action(const QString &action_id) {
+        if (action_id == "start") {
+            if (start_button_->isEnabled()) {
+                start_monitoring();
+            }
+        } else if (action_id == "stop") {
+            if (stop_button_->isEnabled()) {
+                stop_monitoring();
+            }
+        } else if (action_id == "add_image") {
+            if (add_image_button_->isEnabled()) {
+                add_clipboard_image();
+            }
+        } else if (action_id == "new_subject") {
+            if (add_subject_button_->isEnabled()) {
+                add_subject();
+            }
+        } else if (action_id == "open_note") {
+            if (open_file_button_->isEnabled()) {
+                open_selected_file();
+            }
+        } else if (action_id == "append") {
+            if (append_to_heading_button_->isEnabled()) {
+                manual_append_to_heading();
+            }
+        } else if (action_id == "inject") {
+            if (inject_heading_button_->isEnabled()) {
+                inject_heading_from_clipboard();
+            }
+        } else if (action_id == "shift") {
+            if (shift_heading_button_->isEnabled()) {
+                shift_selected_heading_section();
+            }
+        } else if (action_id == "delete") {
+            if (delete_heading_button_->isEnabled()) {
+                delete_selected_heading_section();
+            }
+        } else if (action_id == "new_section") {
+            if (add_section_button_->isEnabled()) {
+                add_section();
+            }
+        } else if (action_id == "toggle_format") {
+            if (format_dropdown_->isEnabled() && format_dropdown_->count() > 0) {
+                int next_idx = (format_dropdown_->currentIndex() + 1) % format_dropdown_->count();
+                format_dropdown_->setCurrentIndex(next_idx);
+                last_captured_label_->setText("ফরম্যাট পরিবর্তন করা হয়েছে: " + format_dropdown_->currentText());
+            }
+        } else if (action_id == "toggle_section") {
+            if (section_dropdown_->isEnabled() && section_dropdown_->count() > 0) {
+                int next_idx = (section_dropdown_->currentIndex() + 1) % section_dropdown_->count();
+                section_dropdown_->setCurrentIndex(next_idx);
+                last_captured_label_->setText("বিভাগ পরিবর্তন করা হয়েছে: " + section_dropdown_->currentText());
+            }
+        }
+    }
+
+    void open_settings_dialog() {
+        ShortcutsSettingsDialog dlg(shortcut_configs_, this);
+        if (dlg.exec() == QDialog::Accepted) {
+            save_settings();
+            setup_shortcuts();
+            status_label_->setText("অবস্থা: শর্টকাটসমূহ সফলভাবে সংরক্ষণ করা হয়েছে!");
+        }
+    }
 };
 
 int main(int argc, char *argv[]) {
