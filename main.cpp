@@ -1449,8 +1449,7 @@ private:
                 } else if (format_index == 4) { // Paragraph Mode
                     outfile << "<p class=\"paragraph-item\" style=\"color: #2f3640; line-height: 1.6; font-family: 'Segoe UI', 'Kalpurush', sans-serif; margin-bottom: 10px; text-align: justify;\">" << processed_text.trimmed().toStdString() << "</p>\n";
                 } else { // Point Mode (0)
-                    QString color = get_random_beautiful_color();
-                    outfile << "<div class=\"bullet-item\" style=\"display: flex; align-items: center; margin-bottom: 6px; margin-left: 15px;\"><span style=\"width: 10px; height: 10px; border: 2px solid " << color.toStdString() << "; display: inline-flex; align-items: center; justify-content: center; margin-right: 10px; flex-shrink: 0; box-sizing: border-box;\"><span style=\"width: 4px; height: 4px; background-color: " << color.toStdString() << "; display: block;\"></span></span><span style=\"color: #2f3640; font-family: 'Segoe UI', 'Kalpurush', sans-serif; line-height: 1.4;\">" << processed_text.trimmed().toStdString() << "</span></div>\n";
+                    outfile << "- ▣ " << processed_text.trimmed().toStdString() << "\n\n";
                 }
             }
             
@@ -2165,9 +2164,7 @@ private:
                 to_append = QString("<p class=\"paragraph-item\" style=\"color: #2f3640; line-height: 1.6; font-family: 'Segoe UI', 'Kalpurush', sans-serif; margin-bottom: 10px; text-align: justify;\">%1</p>\n")
                             .arg(processed_text.trimmed());
             } else { // Point Mode (0)
-                QString color = get_random_beautiful_color();
-                to_append = QString("<div class=\"bullet-item\" style=\"display: flex; align-items: center; margin-bottom: 6px; margin-left: 15px;\"><span style=\"width: 10px; height: 10px; border: 2px solid %1; display: inline-flex; align-items: center; justify-content: center; margin-right: 10px; flex-shrink: 0; box-sizing: border-box;\"><span style=\"width: 4px; height: 4px; background-color: %1; display: block;\"></span></span><span style=\"color: #2f3640; font-family: 'Segoe UI', 'Kalpurush', sans-serif; line-height: 1.4;\">%2</span></div>\n")
-                            .arg(color, processed_text.trimmed());
+                to_append = QString("- ▣ %1\n\n").arg(processed_text.trimmed());
             }
             
             if (end_pos > 0 && content[end_pos - 1] != '\n') {
@@ -2204,9 +2201,7 @@ private:
                     to_append = QString("<p class=\"paragraph-item\" style=\"color: #2f3640; line-height: 1.6; font-family: 'Segoe UI', 'Kalpurush', sans-serif; margin-bottom: 10px; text-align: justify;\">%1</p>\n")
                                 .arg(processed_text.trimmed());
                 } else { // Point Mode (0)
-                    QString color = get_random_beautiful_color();
-                    to_append = QString("<div class=\"bullet-item\" style=\"display: flex; align-items: center; margin-bottom: 6px; margin-left: 15px;\"><span style=\"width: 10px; height: 10px; border: 2px solid %1; display: inline-flex; align-items: center; justify-content: center; margin-right: 10px; flex-shrink: 0; box-sizing: border-box;\"><span style=\"width: 4px; height: 4px; background-color: %1; display: block;\"></span></span><span style=\"color: #2f3640; font-family: 'Segoe UI', 'Kalpurush', sans-serif; line-height: 1.4;\">%2</span></div>\n")
-                                .arg(color, processed_text.trimmed());
+                    to_append = QString("- ▣ %1\n\n").arg(processed_text.trimmed());
                 }
                 
                 if (insert_pos > 0 && content[insert_pos - 1] != '\n') {
