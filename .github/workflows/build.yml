@@ -1,0 +1,147 @@
+name: CI/CD Build and Release
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  build-linux:
+    name: Build Linux Package (.deb)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.1'
+          host: 'linux'
+          target: 'desktop'
+          arch: 'gcc_64'
+          cache: 'true'
+
+      - name: Install Compiler and Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake libgl1-mesa-dev libxkbcommon-dev libx11-xcb-dev libglu1-mesa-dev
+
+      - name: Configure CMake
+        run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build Application
+        run: cmake --build build
+
+      - name: Package as .deb
+        run: |
+          mkdir -p debian/usr/bin
+          cp build/graber debian/usr/bin/
+          
+          mkdir -p debian/usr/share/applications
+          cat << 'EOF' > debian/usr/share/applications/graber.desktop
+          [Desktop Entry]
+          Type=Application
+          Name=Clipboard Graber
+          Comment=Clipboard note capturing and markdown utility
+          Exec=graber
+          Icon=graber
+          Terminal=false
+          Categories=Utility;Office;
+          EOF
+          
+          mkdir -p debian/DEBIAN
+          cat << 'EOF' > debian/DEBIAN/control
+          Package: graber
+          Version: 1.0.0
+          Architecture: amd64
+          Maintainer: Graber Developer <graber@example.com>
+          Depends: libc6, libqt6core6, libqt6gui6, libqt6widgets6, libstdc++6
+          Description: Clipboard Graber GUI application to capture clipboard content and manage markdown notes.
+          EOF
+          
+          dpkg-deb --build debian graber.deb
+
+      - name: Upload Linux Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: graber-linux-deb
+          path: graber.deb
+
+  build-windows:
+    name: Build Windows Package (.exe)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.1'
+          host: 'windows'
+          target: 'desktop'
+          arch: 'win64_msvc2019_64'
+          cache: 'true'
+
+      - name: Set up MSVC Developer Command Prompt
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Configure CMake
+        run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build Application
+        run: cmake --build build --config Release
+
+      - name: Deploy Qt DLLs (windeployqt)
+        shell: pwsh
+        run: |
+          mkdir dist
+          copy build/Release/graber.exe dist/
+          windeployqt --dir dist dist/graber.exe
+          # Zip the output directory
+          Compress-Archive -Path dist\* -DestinationPath graber-windows.zip
+
+      - name: Upload Windows Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: graber-windows-zip
+          path: graber-windows.zip
+
+  create-release:
+    name: Create GitHub Release
+    needs: [build-linux, build-windows]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Download Linux Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: graber-linux-deb
+          path: ./
+
+      - name: Download Windows Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: graber-windows-zip
+          path: ./
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            graber.deb
+            graber-windows.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
