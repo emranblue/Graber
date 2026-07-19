@@ -489,15 +489,15 @@ public:
         add_image_button_ = new QPushButton("ছবি যুক্ত করুন (Add Image)");
         add_image_button_->setIcon(get_feather_icon(QChar(0xe978)));
         subject_dropdown_ = new QComboBox();
-        add_subject_button_ = new QPushButton("নতুন বিষয় (New Subject)");
+        add_subject_button_ = new QPushButton("নতুন বিষয়");
         add_subject_button_->setStyleSheet("QPushButton { background-color: #44bd32; } QPushButton:hover { background-color: #44bd32; opacity: 0.9; }");
         add_subject_button_->setIcon(get_feather_icon(QChar(0xe9c9)));
 
-        add_folder_button_ = new QPushButton("নতুন ফোল্ডার (New Folder)");
+        add_folder_button_ = new QPushButton("নতুন ফোল্ডার");
         add_folder_button_->setStyleSheet("QPushButton { background-color: #e67e22; } QPushButton:hover { background-color: #d35400; }");
         add_folder_button_->setIcon(get_feather_icon(QChar(0xe9c9)));
 
-        open_file_button_ = new QPushButton("নোট খুলুন (Open Note)");
+        open_file_button_ = new QPushButton("নোট খুলুন");
         open_file_button_->setStyleSheet("QPushButton { background-color: #0097e6; } QPushButton:hover { background-color: #00a8ff; }");
         open_file_button_->setEnabled(false);
         open_file_button_->setIcon(get_feather_icon(QChar(0xe966)));
@@ -509,17 +509,17 @@ public:
         select_heading_button_->setEnabled(false);
         select_heading_button_->setIcon(get_feather_icon(QChar(0xe90a), QColor("#2f3640")));
 
-        append_to_heading_button_ = new QPushButton("যুক্ত করুন (Append)");
+        append_to_heading_button_ = new QPushButton("যুক্ত করুন");
         append_to_heading_button_->setStyleSheet("QPushButton { background-color: #f39c12; } QPushButton:hover { background-color: #e67e22; }");
         append_to_heading_button_->setEnabled(false);
         append_to_heading_button_->setIcon(get_feather_icon(QChar(0xe963)));
 
-        shift_heading_button_ = new QPushButton("স্থানান্তর (Shift)");
+        shift_heading_button_ = new QPushButton("স্থানান্তর");
         shift_heading_button_->setStyleSheet("QPushButton { background-color: #3498db; } QPushButton:hover { background-color: #2980b9; }");
         shift_heading_button_->setEnabled(false);
         shift_heading_button_->setIcon(get_feather_icon(QChar(0xe9bc)));
 
-        delete_heading_button_ = new QPushButton("মুছে ফেলুন (Delete)");
+        delete_heading_button_ = new QPushButton("মুছে ফেলুন");
         delete_heading_button_->setStyleSheet("QPushButton { background-color: #c0392b; } QPushButton:hover { background-color: #ae2012; }");
         delete_heading_button_->setEnabled(false);
         delete_heading_button_->setIcon(get_feather_icon(QChar(0xe9f6)));
@@ -551,11 +551,11 @@ public:
         section_dropdown_->addItem("প্রশাসন (Administration)", "administration");
         section_dropdown_->addItem("অন্যান্য (Others)", "others");
 
-        add_section_button_ = new QPushButton("নতুন বিভাগ (New Section)");
+        add_section_button_ = new QPushButton("নতুন বিভাগ");
         add_section_button_->setStyleSheet("QPushButton { background-color: #44bd32; } QPushButton:hover { background-color: #44bd32; opacity: 0.9; }");
         add_section_button_->setIcon(get_feather_icon(QChar(0xe9c9)));
 
-        inject_heading_button_ = new QPushButton("ইনজেক্ট করুন (Inject)");
+        inject_heading_button_ = new QPushButton("ইনজেক্ট করুন");
         inject_heading_button_->setStyleSheet("QPushButton { background-color: #8c7ae6; } QPushButton:hover { background-color: #9c88ff; }");
         inject_heading_button_->setEnabled(false);
         inject_heading_button_->setIcon(get_feather_icon(QChar(0xe992)));
@@ -643,7 +643,7 @@ public:
         main_layout->addWidget(capture_card);
         main_layout->addWidget(heading_card);
 
-        settings_button_ = new QPushButton("সেটিংস (Settings)");
+        settings_button_ = new QPushButton("সেটিংস");
         settings_button_->setStyleSheet("QPushButton { background-color: #718093; } QPushButton:hover { background-color: #636e72; }");
         settings_button_->setIcon(get_feather_icon(QChar(0xe9db)));
 
@@ -1489,7 +1489,7 @@ private:
                 } else if (format_index == 4) { // Paragraph Mode
                     outfile << "<p class=\"paragraph-item\" style=\"color: #2f3640; line-height: 1.6; font-family: 'Segoe UI', 'Kalpurush', sans-serif; margin-bottom: 10px; text-align: justify;\">" << processed_text.trimmed().toStdString() << "</p>\n";
                 } else { // Point Mode (0)
-                    outfile << "- ▣ " << processed_text.trimmed().toStdString() << "\n\n";
+                    outfile << "\n ▣ " << processed_text.trimmed().toStdString() << "\n\n";
                 }
             }
             
