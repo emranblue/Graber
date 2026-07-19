@@ -13,3 +13,6 @@ graber_autogen/
 # OS-generated files
 .DS_Store
 Thumbs.db
+
+# Obsidian notes configuration
+.obsidian/

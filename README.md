@@ -94,7 +94,7 @@ sudo dnf install gcc-c++ cmake qt6-qtbase-devel
 
 1. **Navigate to the project directory:**
    ```bash
-   cd /home/emran/Desktop/extra/graber
+   cd path/to/graber
    ```
 
 2. **Configure the build with CMake:**
