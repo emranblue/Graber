@@ -489,6 +489,10 @@ public:
         add_image_button_ = new QPushButton("ছবি যুক্ত করুন (Add Image)");
         add_image_button_->setIcon(get_feather_icon(QChar(0xe978)));
         subject_dropdown_ = new QComboBox();
+        toggle_subject_button_ = new QPushButton("বিষয় পরিবর্তন");
+        toggle_subject_button_->setStyleSheet("QPushButton { background-color: #9b59b6; } QPushButton:hover { background-color: #8e44ad; }");
+        toggle_subject_button_->setIcon(get_feather_icon(QChar(0xe9d0)));
+
         add_subject_button_ = new QPushButton("নতুন বিষয়");
         add_subject_button_->setStyleSheet("QPushButton { background-color: #44bd32; } QPushButton:hover { background-color: #44bd32; opacity: 0.9; }");
         add_subject_button_->setIcon(get_feather_icon(QChar(0xe9c9)));
@@ -533,23 +537,7 @@ public:
 
         section_label_ = new QLabel("বিভাগ (Section):");
         section_dropdown_ = new QComboBox();
-        section_dropdown_->addItem("পরিবেশ (Environment)", "environment");
-        section_dropdown_->addItem("জ্বালানি (Energy)", "energy");
-        section_dropdown_->addItem("অর্থনীতি (Economy)", "economy");
-        section_dropdown_->addItem("সংস্কৃতি (Culture)", "culture");
-        section_dropdown_->addItem("ভূগোল (Geography)", "geography");
-        section_dropdown_->addItem("জনসংখ্যা (Population)", "population");
-        section_dropdown_->addItem("আইন ও সংবিধান (Law-Constitution)", "law-constitution");
-        section_dropdown_->addItem("রাজনীতি (Politics)", "politics");
-        section_dropdown_->addItem("মুক্তিযুদ্ধ (Freedom-Fight)", "freedom-fight");
-        section_dropdown_->addItem("কৃষি (Agriculture)", "agriculture");
-        section_dropdown_->addItem("ইতিহাস (History)", "history");
-        section_dropdown_->addItem("শিক্ষা (Education)", "education");
-        section_dropdown_->addItem("স্বাস্থ্য (Health)", "health");
-        section_dropdown_->addItem("বিজ্ঞান ও প্রযুক্তি (Science-Tech)", "science-tech");
-        section_dropdown_->addItem("পররাষ্ট্রনীতি (Foreign-Policy)", "foreign-policy");
-        section_dropdown_->addItem("প্রশাসন (Administration)", "administration");
-        section_dropdown_->addItem("অন্যান্য (Others)", "others");
+        load_sections_for_subject("");
 
         add_section_button_ = new QPushButton("নতুন বিভাগ");
         add_section_button_->setStyleSheet("QPushButton { background-color: #44bd32; } QPushButton:hover { background-color: #44bd32; opacity: 0.9; }");
@@ -578,6 +566,7 @@ public:
         
         QHBoxLayout *file_layout = new QHBoxLayout();
         file_layout->addWidget(subject_dropdown_, 1);
+        file_layout->addWidget(toggle_subject_button_);
         file_layout->addWidget(add_subject_button_);
         file_layout->addWidget(add_folder_button_);
         file_layout->addWidget(open_file_button_);
@@ -661,6 +650,7 @@ public:
         connect(start_button_, &QPushButton::clicked, this, [this]() { this->start_monitoring(); });
         connect(stop_button_, &QPushButton::clicked, this, [this]() { this->stop_monitoring(); });
         connect(add_image_button_, &QPushButton::clicked, this, [this]() { this->add_clipboard_image(); });
+        connect(toggle_subject_button_, &QPushButton::clicked, this, [this]() { this->toggle_subject(); });
         connect(add_subject_button_, &QPushButton::clicked, this, [this]() { this->add_subject(); });
         connect(add_folder_button_, &QPushButton::clicked, this, [this]() { this->add_folder(); });
         connect(open_file_button_, &QPushButton::clicked, this, [this]() { this->open_selected_file(); });
@@ -688,6 +678,18 @@ protected:
     }
 
 private slots:
+    void toggle_subject() {
+        if (subject_dropdown_->isEnabled() && subject_dropdown_->count() > 0) {
+            int count = subject_dropdown_->count();
+            int current = subject_dropdown_->currentIndex();
+            int next_idx = (current + 1) % count;
+            subject_dropdown_->setCurrentIndex(next_idx);
+            if (last_captured_label_) {
+                last_captured_label_->setText("বিষয় পরিবর্তন করা হয়েছে: " + subject_dropdown_->currentText());
+            }
+        }
+    }
+
     void start_monitoring() {
         if (subject_dropdown_->currentIndex() == -1) {
             status_label_->setText("অবস্থা: অনুগ্রহ করে প্রথমে একটি বিষয় নির্বাচন করুন!");
@@ -705,6 +707,7 @@ private slots:
         start_button_->setEnabled(false);
         stop_button_->setEnabled(true);
         subject_dropdown_->setEnabled(false);
+        toggle_subject_button_->setEnabled(false);
         add_subject_button_->setEnabled(false);
         add_folder_button_->setEnabled(false);
         mode_dropdown_->setEnabled(false);
@@ -718,6 +721,7 @@ private slots:
         start_button_->setEnabled(true);
         stop_button_->setEnabled(false);
         subject_dropdown_->setEnabled(true);
+        toggle_subject_button_->setEnabled(true);
         add_subject_button_->setEnabled(true);
         add_folder_button_->setEnabled(true);
         mode_dropdown_->setEnabled(true);
@@ -781,7 +785,120 @@ private slots:
         }
     }
 
+private:
+    struct SectionItem {
+        QString displayName;
+        QString slug;
+    };
+
+    QList<SectionItem> get_default_sections() {
+        return {
+            {"পরিবেশ (Environment)", "environment"},
+            {"জ্বালানি (Energy)", "energy"},
+            {"অর্থনীতি (Economy)", "economy"},
+            {"সংস্কৃতি (Culture)", "culture"},
+            {"ভূগোল (Geography)", "geography"},
+            {"জনসংখ্যা (Population)", "population"},
+            {"আইন ও সংবিধান (Law-Constitution)", "law-constitution"},
+            {"রাজনীতি (Politics)", "politics"},
+            {"মুক্তিযুদ্ধ (Freedom-Fight)", "freedom-fight"},
+            {"কৃষি (Agriculture)", "agriculture"},
+            {"ইতিহাস (History)", "history"},
+            {"শিক্ষা (Education)", "education"},
+            {"স্বাস্থ্য (Health)", "health"},
+            {"বিজ্ঞান ও প্রযুক্তি (Science-Tech)", "science-tech"},
+            {"পররাষ্ট্রনীতি (Foreign-Policy)", "foreign-policy"},
+            {"প্রশাসন (Administration)", "administration"},
+            {"অন্যান্য (Others)", "others"}
+        };
+    }
+
+    void save_sections_for_subject(const QString &subject_name) {
+        if (subject_name.isEmpty() || subject_name == "নির্বাচিত নয়" || !section_dropdown_) return;
+
+        QString ini_path = notes_dir_path_ + QDir::separator() + subject_name + ".ini";
+        QFileInfo fileInfo(ini_path);
+        QDir().mkpath(fileInfo.absolutePath());
+
+        QSettings settings(ini_path, QSettings::IniFormat);
+        settings.beginGroup("Sections");
+        settings.remove("");
+
+        QStringList order;
+        for (int i = 0; i < section_dropdown_->count(); ++i) {
+            QString slug = section_dropdown_->itemData(i).toString();
+            QString display_name = section_dropdown_->itemText(i);
+            order.append(slug);
+            settings.setValue(slug, display_name);
+        }
+        settings.setValue("_order", order.join(","));
+        settings.endGroup();
+    }
+
+    void load_sections_for_subject(const QString &subject_name) {
+        if (!section_dropdown_) return;
+        section_dropdown_->clear();
+
+        if (subject_name.isEmpty() || subject_name == "নির্বাচিত নয়") {
+            section_dropdown_->addItem("অন্যান্য (Others)", "others");
+            return;
+        }
+
+        QString ini_path = notes_dir_path_ + QDir::separator() + subject_name + ".ini";
+        QFileInfo fileInfo(ini_path);
+
+        if (!fileInfo.exists()) {
+            section_dropdown_->addItem("অন্যান্য (Others)", "others");
+            save_sections_for_subject(subject_name);
+            return;
+        }
+
+        QSettings settings(ini_path, QSettings::IniFormat);
+        settings.beginGroup("Sections");
+        
+        QString order_str = settings.value("_order").toString();
+        QStringList order = order_str.split(',', Qt::SkipEmptyParts);
+
+        if (!order.isEmpty()) {
+            for (const QString &slug : order) {
+                QString trimmed_slug = slug.trimmed();
+                if (settings.contains(trimmed_slug)) {
+                    QString display_name = settings.value(trimmed_slug).toString();
+                    section_dropdown_->addItem(display_name, trimmed_slug);
+                }
+            }
+        } else {
+            QStringList keys = settings.childKeys();
+            for (const QString &slug : keys) {
+                if (slug == "_order") continue;
+                QString display_name = settings.value(slug).toString();
+                section_dropdown_->addItem(display_name, slug);
+            }
+        }
+        settings.endGroup();
+
+        // Always ensure "others" exists in section_dropdown_
+        bool has_others = false;
+        for (int i = 0; i < section_dropdown_->count(); ++i) {
+            if (section_dropdown_->itemData(i).toString() == "others") {
+                has_others = true;
+                break;
+            }
+        }
+        if (!has_others) {
+            section_dropdown_->addItem("অন্যান্য (Others)", "others");
+        }
+
+        if (section_dropdown_->count() == 0) {
+            section_dropdown_->addItem("অন্যান্য (Others)", "others");
+            save_sections_for_subject(subject_name);
+        }
+    }
+
+private slots:
     void on_subject_changed(const QString &text) {
+        custom_added_sections_.clear();
+        load_sections_for_subject(text);
         update_status_label();
         open_file_button_->setEnabled(!text.isEmpty());
         inject_heading_button_->setEnabled(!text.isEmpty());
@@ -927,18 +1044,24 @@ private slots:
                                              "", &ok);
         if (ok && !text.isEmpty()) {
             QString slug = QString::fromStdString(generate_slug(text));
+            custom_added_sections_.insert(slug);
             // Check if already exists in section_dropdown_
-            bool exists = false;
+            int found_idx = -1;
             for (int i = 0; i < section_dropdown_->count(); ++i) {
                 if (section_dropdown_->itemData(i).toString() == slug) {
-                    exists = true;
+                    found_idx = i;
                     break;
                 }
             }
-            if (!exists) {
+            if (found_idx == -1) {
                 section_dropdown_->addItem(QString("%1 (%2)").arg(text, slug.toUpper()), slug);
+                section_dropdown_->setCurrentIndex(section_dropdown_->count() - 1);
+            } else {
+                section_dropdown_->setCurrentIndex(found_idx);
             }
-            section_dropdown_->setCurrentIndex(section_dropdown_->count() - 1);
+            if (subject_dropdown_->currentIndex() != -1) {
+                save_sections_for_subject(subject_dropdown_->currentText());
+            }
         }
     }
 
@@ -1872,6 +1995,7 @@ private:
         QRegularExpression section_attr_regex("data-section=\"([^\"]*)\"", QRegularExpression::CaseInsensitiveOption);
 
         QString current_h2_slug = "";
+        bool new_section_added = false;
 
         for (int i = 0; i < lines.size(); ++i) {
             QString line = lines[i];
@@ -1908,6 +2032,7 @@ private:
                             display_name[0] = display_name[0].toUpper();
                         }
                         section_dropdown_->addItem(QString("%1 (%2)").arg(display_name, section.toUpper()), section);
+                        new_section_added = true;
                     }
                 }
 
@@ -1933,6 +2058,7 @@ private:
                             display_name[0] = display_name[0].toUpper();
                         }
                         section_dropdown_->addItem(QString("%1 (%2)").arg(display_name, section.toUpper()), section);
+                        new_section_added = true;
                     }
                 }
 
@@ -1952,6 +2078,31 @@ private:
                 NoteItem item = {title, slug, "subheading", "others", current_h2_slug};
                 items.append(item);
             }
+        }
+
+        // Prune unused section elements from section_dropdown_ (except "others" and custom added sections)
+        QSet<QString> used_sections;
+        used_sections.insert("others");
+        for (const NoteItem &item : items) {
+            if (!item.section.isEmpty()) {
+                used_sections.insert(item.section);
+            }
+        }
+        for (const QString &custom_sec : custom_added_sections_) {
+            used_sections.insert(custom_sec);
+        }
+
+        bool sections_pruned = false;
+        for (int i = section_dropdown_->count() - 1; i >= 0; --i) {
+            QString slug = section_dropdown_->itemData(i).toString();
+            if (!used_sections.contains(slug)) {
+                section_dropdown_->removeItem(i);
+                sections_pruned = true;
+            }
+        }
+
+        if ((new_section_added || sections_pruned) && subject_dropdown_->currentIndex() != -1) {
+            save_sections_for_subject(subject_dropdown_->currentText());
         }
     }
 
@@ -2265,6 +2416,7 @@ private:
     QString last_simplified_text_;
     QString last_date_;
     QString notes_dir_path_;
+    QSet<QString> custom_added_sections_;
 
     // --- UI Pointers ---
     QLabel *status_label_;
@@ -2273,6 +2425,7 @@ private:
     QPushButton *stop_button_;
     QPushButton *add_image_button_;
     QComboBox *subject_dropdown_;
+    QPushButton *toggle_subject_button_;
     QPushButton *add_subject_button_;
     QPushButton *add_folder_button_;
     QPushButton *open_file_button_;
@@ -2308,7 +2461,8 @@ private:
             {"delete", "মুছে ফেলুন (Delete)", "Delete Heading Section", "Ctrl+Shift+D", QKeySequence("Ctrl+Shift+D"), nullptr},
             {"new_section", "নতুন বিভাগ (New Section)", "Add Custom Section", "Ctrl+Shift+K", QKeySequence("Ctrl+Shift+K"), nullptr},
             {"toggle_format", "ফরম্যাট পরিবর্তন (Toggle Format)", "Toggle Capture Format", "Ctrl+Shift+F", QKeySequence("Ctrl+Shift+F"), nullptr},
-            {"toggle_section", "বিভাগ পরিবর্তন (Toggle Section)", "Toggle Section Category", "Ctrl+Shift+G", QKeySequence("Ctrl+Shift+G"), nullptr}
+            {"toggle_section", "বিভাগ পরিবর্তন (Toggle Section)", "Toggle Section Category", "Ctrl+Shift+G", QKeySequence("Ctrl+Shift+G"), nullptr},
+            {"toggle_subject", "বিষয় পরিবর্তন (Toggle Subject)", "Toggle Subject Selection", "Ctrl+Shift+E", QKeySequence("Ctrl+Shift+E"), nullptr}
         };
     }
 
@@ -2404,6 +2558,10 @@ private:
                 int next_idx = (section_dropdown_->currentIndex() + 1) % section_dropdown_->count();
                 section_dropdown_->setCurrentIndex(next_idx);
                 last_captured_label_->setText("বিভাগ পরিবর্তন করা হয়েছে: " + section_dropdown_->currentText());
+            }
+        } else if (action_id == "toggle_subject") {
+            if (toggle_subject_button_->isEnabled()) {
+                toggle_subject();
             }
         }
     }
