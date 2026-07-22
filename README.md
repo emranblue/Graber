@@ -12,6 +12,7 @@ It is particularly useful for researching, study planning, document curation, or
   - Automatically lists existing `.md` subject notes from the dedicated home folder (`~/GraberNotes`).
   - Create and open new subject files dynamically directly from the GUI interface.
   - Quick access button to open the active markdown note in your default system editor.
+  - **Toggle Subject Button & Shortcut**: Quickly cycle through available subjects via the "বিষয় পরিবর্তন" button or `Ctrl+Shift+E` shortcut.
 
 - **Advanced Search & Heading Selection Dialog**:
   - Instantly search all headings and subheadings within your note file through a dedicated, interactive popup dialog.
@@ -33,7 +34,8 @@ It is particularly useful for researching, study planning, document curation, or
 
 - **Section Categorization & Custom Sections**:
   - Map captured content to standard sections like Environment, Energy, Economy, Law-Constitution, Politics, Foreign-Policy, etc.
-  - Create **new custom categories** directly inside the app using the "New Section" feature. Newly created categories are automatically recognized in notes, added to the dropdown, and grouped in the TOC.
+  - **Per-Subject Section Configurations (`<subject>.ini`)**: Each subject manages its own list of section categories in a dedicated `.ini` file (e.g., `~/GraberNotes/BCS/Bangla.ini`), allowing custom section lists per subject note.
+  - Create **new custom categories** directly inside the app using the "New Section" feature. Newly created categories are automatically persisted into the active subject's `.ini` file, recognized in notes, and grouped in the TOC.
 
 - **Flexible Clipboard Capture Modes**:
   - Toggle monitoring between **Copy Mode** (Ctrl+C / Clipboard) and **Select Mode** (Primary Selection).
@@ -56,7 +58,7 @@ It is particularly useful for researching, study planning, document curation, or
   - Automatically appends a markdown image link to the active date section of the file.
 
 - **Custom Keyboard Shortcuts & Settings**:
-  - Supports 12 global actions (Start/Stop monitoring, Add image, New subject, Open active note, Append to heading, Inject heading, Shift heading section, Delete heading section, Add custom section, Toggle capture format, Toggle section category) mapped to keyboard shortcuts.
+  - Supports 13 global actions (Start/Stop monitoring, Add image, New subject, Open active note, Append to heading, Inject heading, Shift heading section, Delete heading section, Add custom section, Toggle capture format, Toggle section category, Toggle subject selection) mapped to keyboard shortcuts.
   - Remap shortcuts using a dedicated **Settings Dialog** inside the app.
   - Settings are persisted across sessions in `~/GraberNotes/settings.ini`.
 
@@ -65,11 +67,12 @@ It is particularly useful for researching, study planning, document curation, or
 ## Directory Structure
 
 The application creates and manages files under the `~/GraberNotes` directory:
-- `~/GraberNotes/` - Main note directory containing your Markdown (`.md`) and Structure Tree (`.tree`) files.
+- `~/GraberNotes/` - Main note directory containing your Markdown (`.md`), Structure Tree (`.tree`), and per-subject section configuration (`.ini`) files.
 - `~/GraberNotes/images/` - Contains captured images referenced in your notes.
 - `~/GraberNotes/deleted/` - Backup folder for deleted sections.
 - `~/GraberNotes/backup/` - Contains post-build executable backups (Linux/macOS).
 - `~/GraberNotes/settings.ini` - Persistent shortcut settings configuration file.
+- `~/GraberNotes/<subject>.ini` - Per-subject section configuration settings file.
 - `~/GraberNotes/debug.log` - Application activity and error logs.
 
 ---
