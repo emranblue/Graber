@@ -128,72 +128,9 @@ jobs:
           path: graber-windows.zip
           compression-level: 0
 
-  build-macos:
-    name: Build macOS Disk Image (.dmg)
-    runs-on: macos-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Install Qt
-        uses: jurplel/install-qt-action@v4
-        with:
-          version: '6.8.3'
-          host: 'mac'
-          target: 'desktop'
-          arch: 'clang_64'
-          cache: 'true'
-
-      - name: Configure CMake
-        run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
-        env:
-          LDFLAGS: "-Wl,-weak_framework,AGL"
-
-      - name: Build Application
-        run: cmake --build build --config Release
-        env:
-          LDFLAGS: "-Wl,-weak_framework,AGL"
-
-      - name: Bundle with macdeployqt
-        run: |
-          macdeployqt build/graber.app -dmg
-          mv build/graber.dmg graber-macos.dmg
-
-      - name: Upload macOS Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: graber-macos-dmg
-          path: graber-macos.dmg
-          compression-level: 0
-
-  build-freebsd:
-    name: Build FreeBSD Binary
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Build inside FreeBSD VM
-        uses: vmactions/freebsd-vm@v1
-        with:
-          usesh: true
-          prepare: |
-            pkg install -y cmake qt6-base
-          run: |
-            cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
-            cmake --build build
-            cp build/graber graber-freebsd
-
-      - name: Upload FreeBSD Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: graber-freebsd-bin
-          path: graber-freebsd
-          compression-level: 0
-
   create-release:
     name: Create GitHub Release
-    needs: [build-linux, build-windows, build-macos, build-freebsd]
+    needs: [build-linux, build-windows]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
@@ -212,7 +149,5 @@ jobs:
             graber-linux-deb/graber.deb
             graber-windows-exe/graber.exe
             graber-windows-zip/graber-windows.zip
-            graber-macos-dmg/graber-macos.dmg
-            graber-freebsd-bin/graber-freebsd
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
