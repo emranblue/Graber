@@ -21,7 +21,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Install Qt
+      - name: Install Qt 6.8
         uses: jurplel/install-qt-action@v4
         with:
           version: '6.8.3'
@@ -30,24 +30,48 @@ jobs:
           arch: 'linux_gcc_64'
           cache: 'true'
 
-      - name: Install Compiler and Dependencies
+      - name: Install Build Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake libgl1-mesa-dev libxkbcommon-dev libx11-xcb-dev libglu1-mesa-dev
+          sudo apt-get install -y \
+            build-essential \
+            cmake \
+            libgl1-mesa-dev \
+            libxkbcommon-dev \
+            libx11-xcb-dev \
+            libglu1-mesa-dev \
+            libxcb-cursor0 \
+            libxcb-icccm4 \
+            libxcb-image0 \
+            libxcb-keysyms1 \
+            libxcb-render-util0 \
+            libxcb-shape0 \
+            libxcb-xinerama0 \
+            wget file
 
       - name: Configure CMake
         run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
 
       - name: Build Application
-        run: cmake --build build
+        run: cmake --build build --config Release
 
-      - name: Package as .deb
+      - name: Bundle Qt & Create .deb Package
         run: |
-          mkdir -p debian/usr/bin
-          cp build/graber debian/usr/bin/
-          
-          mkdir -p debian/usr/share/applications
-          cat << 'EOF' > debian/usr/share/applications/graber.desktop
+          # 1. Download bundling tools (linuxdeploy & Qt plugin)
+          wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          wget -q https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
+          chmod +x linuxdeploy-x86_64.AppImage linuxdeploy-plugin-qt-x86_64.AppImage
+
+          # 2. Prepare Linux directory structure
+          mkdir -p AppDir/usr/bin
+          mkdir -p AppDir/usr/share/applications
+          mkdir -p AppDir/usr/share/icons/hicolor/scalable/apps/
+
+          # Copy compiled binary from CMake build output
+          cp build/graber AppDir/usr/bin/
+
+          # Create desktop shortcut file
+          cat << 'EOF' > AppDir/usr/share/applications/graber.desktop
           [Desktop Entry]
           Type=Application
           Name=Clipboard Graber
@@ -57,17 +81,30 @@ jobs:
           Terminal=false
           Categories=Utility;Office;
           EOF
-          
+
+          # Touch dummy icon reference so packaging succeeds
+          touch AppDir/usr/share/icons/hicolor/scalable/apps/graber.svg
+
+          # 3. Bundle Qt 6.8 dependencies and platform plugins into AppDir
+          export QMAKE="${QT_PATH}/bin/qmake"
+          export EXTRA_QT_PLUGINS="platforms,xcbglintegrations,imageformats,iconengines"
+          ./linuxdeploy-x86_64.AppImage --appdir AppDir --plugin qt
+
+          # 4. Create DEB package structure
+          mkdir -p debian/usr
+          cp -r AppDir/usr/* debian/usr/
+
           mkdir -p debian/DEBIAN
           cat << 'EOF' > debian/DEBIAN/control
           Package: graber
           Version: 1.0.0
           Architecture: amd64
-          Maintainer: Graber Developer <graber@example.com>
-          Depends: libc6, libqt6core6, libqt6gui6, libqt6widgets6, libstdc++6
+          Maintainer: Emran <emran.blue.120@gmail.com>
+          Depends: libc6, libgl1, libxkbcommon0, libx11-xcb1, libxcb-cursor0
           Description: Clipboard Graber GUI application to capture clipboard content and manage markdown notes.
           EOF
-          
+
+          # Build final .deb file
           dpkg-deb --build debian graber.deb
 
       - name: Upload Linux Artifact
@@ -84,7 +121,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Install Qt
+      - name: Install Qt 6.8
         uses: jurplel/install-qt-action@v4
         with:
           version: '6.8.3'
@@ -106,10 +143,7 @@ jobs:
         shell: pwsh
         run: |
           mkdir dist
-          # Copy the raw exe out to the root directory for a standalone upload
           copy build/Release/graber.exe ./graber.exe
-          
-          # Copy the exe into the dist directory to bundle it with its DLL dependencies
           copy build/Release/graber.exe dist/
           windeployqt --dir dist dist/graber.exe
           Compress-Archive -Path dist\* -DestinationPath graber-windows.zip
