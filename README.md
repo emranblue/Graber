@@ -64,10 +64,30 @@ It is particularly useful for researching, study planning, document curation, or
 
 ---
 
-## Directory Structure
+## Project Architecture & Directory Structure
 
-The application creates and manages files under the `~/GraberNotes` directory:
-- `~/GraberNotes/` - Main note directory containing your Markdown (`.md`), Structure Tree (`.tree`), and per-subject section configuration (`.ini`) files.
+### Modular Source Code Structure
+
+The project is designed using SOLID principles, abstract interfaces, and clean domain layers for maximum scalability:
+
+```
+graber/
+├── core/                          # Domain Models & Enums (Types.h)
+├── interfaces/                    # Abstract Contracts (IClipboardMonitor, IDocumentFormatter, INoteRepository, ISectionRepository)
+├── services/                      # Application Services (NoteService)
+├── repositories/                  # Storage & Persistence (NoteRepository, IniSectionRepository)
+├── formatters/                    # Document Processing Engines (MarkdownDocumentFormatter, MarkdownUtils)
+├── monitors/                      # System Clipboard & Selection Tracking (ClipboardMonitor)
+├── shortcuts/                     # Keyboard Shortcuts System (ShortcutManager)
+├── ui/                            # Qt User Interface Components (ClipboardGrabber, Dialogs)
+└── utils/                         # Styling, Icons, & Logging Utilities (Utils)
+```
+For a detailed file-by-file tree breakdown, see [PROJECT_TREE.md](file:///home/emran/Desktop/extra/graber/PROJECT_TREE.md).
+
+### Runtime Notes Directory (`~/GraberNotes`)
+
+The application automatically manages user notes under `~/GraberNotes`:
+- `~/GraberNotes/` - Main note directory containing Markdown (`.md`), Structure Tree (`.tree`), and per-subject section configuration (`.ini`) files.
 - `~/GraberNotes/images/` - Contains captured images referenced in your notes.
 - `~/GraberNotes/deleted/` - Backup folder for deleted sections.
 - `~/GraberNotes/backup/` - Contains post-build executable backups (Linux/macOS).
