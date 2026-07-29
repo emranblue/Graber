@@ -22,6 +22,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Qt 6.8
+        id: install-qt
         uses: jurplel/install-qt-action@v4
         with:
           version: '6.8.3'
@@ -57,17 +58,24 @@ jobs:
 
       - name: Bundle Qt & Create .deb Package
         run: |
-          # 1. Download bundling tools (linuxdeploy & Qt plugin)
+          # 1. Locate QMake path dynamically from install-qt step output
+          QT_BIN_DIR="${{ steps.install-qt.outputs.qtPath }}/bin"
+          export PATH="$QT_BIN_DIR:$PATH"
+          export QMAKE="$QT_BIN_DIR/qmake"
+
+          echo "Using QMAKE at: $QMAKE"
+
+          # 2. Download bundling tools (linuxdeploy & Qt plugin)
           wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
           wget -q https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
           chmod +x linuxdeploy-x86_64.AppImage linuxdeploy-plugin-qt-x86_64.AppImage
 
-          # 2. Prepare Linux directory structure
+          # 3. Prepare Linux directory structure
           mkdir -p AppDir/usr/bin
           mkdir -p AppDir/usr/share/applications
           mkdir -p AppDir/usr/share/icons/hicolor/scalable/apps/
 
-          # Copy compiled binary from CMake build output
+          # Copy compiled binary
           cp build/graber AppDir/usr/bin/
 
           # Create desktop shortcut file
@@ -85,12 +93,11 @@ jobs:
           # Touch dummy icon reference so packaging succeeds
           touch AppDir/usr/share/icons/hicolor/scalable/apps/graber.svg
 
-          # 3. Bundle Qt 6.8 dependencies and platform plugins into AppDir
-          export QMAKE="${QT_PATH}/bin/qmake"
+          # 4. Bundle Qt 6.8 dependencies and platform plugins into AppDir
           export EXTRA_QT_PLUGINS="platforms,xcbglintegrations,imageformats,iconengines"
           ./linuxdeploy-x86_64.AppImage --appdir AppDir --plugin qt
 
-          # 4. Create DEB package structure
+          # 5. Create DEB package structure
           mkdir -p debian/usr
           cp -r AppDir/usr/* debian/usr/
 
