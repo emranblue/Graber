@@ -19,6 +19,10 @@ add_executable(graber
     MarkdownUtils.cpp
     ShortcutsSettingsDialog.cpp
     HeadingSelectDialog.cpp
+    ClipboardMonitor.cpp
+    NoteRepository.cpp
+    ShortcutManager.cpp
+    ClipboardGrabberUI.cpp
     ClipboardGrabber.cpp
     resources.qrc
 )

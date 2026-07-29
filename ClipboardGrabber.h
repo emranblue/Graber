@@ -2,14 +2,14 @@
 #define CLIPBOARDGRABBER_H
 
 #include <QWidget>
-#include <QLabel>
-#include <QPushButton>
-#include <QComboBox>
-#include <QTimer>
 #include <QSet>
 #include <QList>
 #include <QCloseEvent>
 #include "Types.h"
+#include "ClipboardMonitor.h"
+#include "NoteRepository.h"
+#include "ShortcutManager.h"
+#include "ClipboardGrabberUI.h"
 
 class ClipboardGrabber : public QWidget {
     Q_OBJECT
@@ -26,7 +26,8 @@ private slots:
     void stop_monitoring();
     void add_subject();
     void add_folder();
-    void check_clipboard();
+    void handle_text_captured(const QString &text);
+    void handle_image_captured(const QImage &image);
     void on_subject_changed(const QString &text);
     void inject_heading_from_clipboard();
     void open_selected_file();
@@ -38,62 +39,32 @@ private slots:
     void manual_append_to_heading();
     void delete_selected_heading_section();
     void open_settings_dialog();
+    void trigger_shortcut_action(const QString &action_id);
 
 private:
     void save_sections_for_subject(const QString &subject_name);
     void load_sections_for_subject(const QString &subject_name);
     void populate_subjects_from_disk();
-    void normalize_markdown_file(const QString &file_path);
     QString get_current_target_file();
     void update_status_label();
-    void write_image_to_file(const QString &image_filename);
     void write_to_file(const QString &processed_text, const QString &section = "others");
-    void update_toc_in_file(const QString &file_path);
-    void parse_note_structure(const QString &file_path, QList<NoteItem> &items);
     void populate_headings_from_file();
-    bool append_content_to_heading(const QString &file_path, const QString &slug, const QString &processed_text);
-    void init_shortcut_configs();
-    void load_settings();
-    void save_settings();
-    void setup_shortcuts();
-    void trigger_shortcut_action(const QString &action_id);
 
     // State Variables
     bool is_running_;
-    QString last_simplified_text_;
     QString last_date_;
-    QString notes_dir_path_;
     QSet<QString> custom_added_sections_;
 
-    // UI Pointers
-    QLabel *status_label_;
-    QLabel *last_captured_label_;
-    QPushButton *start_button_;
-    QPushButton *stop_button_;
-    QPushButton *add_image_button_;
-    QComboBox *subject_dropdown_;
-    QPushButton *toggle_subject_button_;
-    QPushButton *add_subject_button_;
-    QPushButton *add_folder_button_;
-    QPushButton *open_file_button_;
-    QComboBox *format_dropdown_;
-    QTimer *clipboard_timer_;
-    QLabel *mode_label_;
-    QComboBox *mode_dropdown_;
-    QLabel *section_label_;
-    QComboBox *section_dropdown_;
-    QPushButton *inject_heading_button_;
-    QLabel *heading_label_;
-    QPushButton *select_heading_button_;
+    // Target Heading selection state
     QString selected_heading_slug_;
     QString selected_heading_title_;
-    QPushButton *append_to_heading_button_;
-    QPushButton *delete_heading_button_;
     QList<NoteItem> all_headings_;
-    QPushButton *shift_heading_button_;
-    QPushButton *add_section_button_;
-    QPushButton *settings_button_;
-    QList<ShortcutConfig> shortcut_configs_;
+
+    // Modular Components & UI
+    ClipboardGrabberUI ui_;
+    ClipboardMonitor *clipboard_monitor_;
+    NoteRepository note_repository_;
+    ShortcutManager shortcut_manager_;
 };
 
 #endif // CLIPBOARDGRABBER_H

@@ -3,12 +3,12 @@
 
 BUILD_DIR = build
 
-all: $(BUILD_DIR)/Makefile
+all:
+	@if [ ! -d "$(BUILD_DIR)" ] || [ ! -f "$(BUILD_DIR)/Makefile" ]; then \
+		cmake -B $(BUILD_DIR) -S . ; \
+	fi
 	@cmake --build $(BUILD_DIR)
 	@cp -f $(BUILD_DIR)/graber ./graber
-
-$(BUILD_DIR)/Makefile: CMakeLists.txt
-	@cmake -B $(BUILD_DIR) -S .
 
 clean:
 	@if [ -d "$(BUILD_DIR)" ]; then cmake --build $(BUILD_DIR) --target clean; fi
