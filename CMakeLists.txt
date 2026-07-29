@@ -12,28 +12,70 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/interfaces)
+include_directories(
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/core
+    ${CMAKE_CURRENT_SOURCE_DIR}/interfaces
+    ${CMAKE_CURRENT_SOURCE_DIR}/services
+    ${CMAKE_CURRENT_SOURCE_DIR}/repositories
+    ${CMAKE_CURRENT_SOURCE_DIR}/formatters
+    ${CMAKE_CURRENT_SOURCE_DIR}/monitors
+    ${CMAKE_CURRENT_SOURCE_DIR}/shortcuts
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui
+    ${CMAKE_CURRENT_SOURCE_DIR}/utils
+)
 
 # Create the executable
 add_executable(graber
+    main.cpp
+    resources.qrc
+
+    # Interfaces
     interfaces/IClipboardMonitor.h
     interfaces/IDocumentFormatter.h
     interfaces/INoteRepository.h
     interfaces/ISectionRepository.h
-    main.cpp
-    Utils.cpp
-    MarkdownUtils.cpp
-    IniSectionRepository.cpp
-    MarkdownDocumentFormatter.cpp
-    NoteService.cpp
-    ShortcutsSettingsDialog.cpp
-    HeadingSelectDialog.cpp
-    ClipboardMonitor.cpp
-    NoteRepository.cpp
-    ShortcutManager.cpp
-    ClipboardGrabberUI.cpp
-    ClipboardGrabber.cpp
-    resources.qrc
+
+    # Core
+    core/Types.h
+
+    # Services
+    services/NoteService.h
+    services/NoteService.cpp
+
+    # Repositories
+    repositories/NoteRepository.h
+    repositories/NoteRepository.cpp
+    repositories/IniSectionRepository.h
+    repositories/IniSectionRepository.cpp
+
+    # Formatters
+    formatters/MarkdownDocumentFormatter.h
+    formatters/MarkdownDocumentFormatter.cpp
+    formatters/MarkdownUtils.h
+    formatters/MarkdownUtils.cpp
+
+    # Monitors
+    monitors/ClipboardMonitor.h
+    monitors/ClipboardMonitor.cpp
+
+    # Shortcuts
+    shortcuts/ShortcutManager.h
+    shortcuts/ShortcutManager.cpp
+
+    # UI
+    ui/ClipboardGrabber.h
+    ui/ClipboardGrabber.cpp
+    ui/ClipboardGrabberUI.h
+    ui/ClipboardGrabberUI.cpp
+    ui/HeadingSelectDialog.h
+    ui/HeadingSelectDialog.cpp
+    ui/ShortcutsSettingsDialog.h
+    ui/ShortcutsSettingsDialog.cpp
+
+    # Utils
+    utils/Utils.h
+    utils/Utils.cpp
 )
 
 # Link the executable to the Qt libraries
