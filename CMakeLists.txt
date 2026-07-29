@@ -13,18 +13,34 @@ set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
 # Create the executable
-add_executable(graber main.cpp resources.qrc)
+add_executable(graber
+    main.cpp
+    Utils.cpp
+    MarkdownUtils.cpp
+    ShortcutsSettingsDialog.cpp
+    HeadingSelectDialog.cpp
+    ClipboardGrabber.cpp
+    resources.qrc
+)
 
 # Link the executable to the Qt libraries
 target_link_libraries(graber PRIVATE Qt6::Core Qt6::Gui Qt6::Widgets)
 
-# Post-build step to copy executable to backup folders (Linux/Unix only)
+# Post-build step to copy executable to backup folders
 if(UNIX)
-    add_custom_command(TARGET graber POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_SOURCE_DIR}/backup"
-        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:graber> "${CMAKE_SOURCE_DIR}/backup/graber"
-        COMMAND ${CMAKE_COMMAND} -E make_directory "$ENV{HOME}/GraberNotes/backup"
-        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:graber> "$ENV{HOME}/GraberNotes/backup/graber"
-        COMMENT "Backing up the executable to project backup/ and ~/GraberNotes/backup/"
-    )
+    if(DEFINED ENV{HOME})
+        add_custom_command(TARGET graber POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_SOURCE_DIR}/backup"
+            COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:graber> "${CMAKE_SOURCE_DIR}/backup/graber"
+            COMMAND ${CMAKE_COMMAND} -E make_directory "$ENV{HOME}/GraberNotes/backup"
+            COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:graber> "$ENV{HOME}/GraberNotes/backup/graber"
+            COMMENT "Backing up the executable to project backup/ and ~/GraberNotes/backup/"
+        )
+    else()
+        add_custom_command(TARGET graber POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_SOURCE_DIR}/backup"
+            COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:graber> "${CMAKE_SOURCE_DIR}/backup/graber"
+            COMMENT "Backing up the executable to project backup/"
+        )
+    endif()
 endif()
