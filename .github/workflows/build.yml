@@ -104,7 +104,7 @@ jobs:
           done
 
           # Create Entry Point Wrapper Script in /usr/bin/graber
-          cat <<'EOF' > ${PKG_DIR}/usr/bin/${APP_NAME}
+          cat << 'EOF' > ${PKG_DIR}/usr/bin/${APP_NAME}
 #!/bin/bash
 DIR="/usr/lib/graber"
 export QT_PLUGIN_PATH="${DIR}/platforms:${DIR}"
@@ -120,16 +120,14 @@ EOF
             fi
           done
 
-          # DEBIAN/control file
-          cat <<EOF > ${PKG_DIR}/DEBIAN/control
-Package: ${APP_NAME}
-Version: ${VERSION}
-Architecture: amd64
-Maintainer: Developer <emran.blue.120@gmail.com>
-Section: utils
-Priority: optional
-Description: Fully self-contained ${APP_NAME} application.
-EOF
+          # Create DEBIAN/control file safely line-by-line
+          echo "Package: ${APP_NAME}" > ${PKG_DIR}/DEBIAN/control
+          echo "Version: ${VERSION}" >> ${PKG_DIR}/DEBIAN/control
+          echo "Architecture: amd64" >> ${PKG_DIR}/DEBIAN/control
+          echo "Maintainer: Developer <emran.blue.120@gmail.com>" >> ${PKG_DIR}/DEBIAN/control
+          echo "Section: utils" >> ${PKG_DIR}/DEBIAN/control
+          echo "Priority: optional" >> ${PKG_DIR}/DEBIAN/control
+          echo "Description: Fully self-contained ${APP_NAME} application." >> ${PKG_DIR}/DEBIAN/control
 
           # Set Permissions
           chmod -R 755 ${PKG_DIR}/DEBIAN
@@ -154,7 +152,7 @@ EOF
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # ==========================================
-  # 2. WINDOWS ZIP BUILD (STABLE QT FIX)
+  # 2. WINDOWS PORTABLE ZIP BUILD
   # ==========================================
   build-windows:
     runs-on: windows-2022
@@ -165,8 +163,7 @@ EOF
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # Install Qt 6 using stable qtinstall action (Qt LTS 6.5.3)
-      - name: Install Qt 6 (Windows)
+      - name: Install Qt 6 (Windows LTS)
         uses: jurplel/install-qt-action@v3
         with:
           version: '6.5.3'
@@ -184,24 +181,18 @@ EOF
         shell: pwsh
         run: |
           $APP_NAME = "graber"
-          $VERSION = "${env:GITHUB_REF_NAME}".TrimStart("v")
-          if ([string]::IsNullOrWhiteSpace($VERSION)) { $VERSION = "latest" }
-
-          # Locate binary inside build tree
-          $EXE_PATH = Get-ChildItem -Path "build" -Filter "$APP_NAME.exe" -Recurse | Select-Object -First 1 -ExpandProperty FullName
-
-          if (-not $EXE_PATH) {
-              Write-Error "Could not find $APP_NAME.exe in build folder!"
-              exit 1
-          }
+          $VERSION = if ("${env:GITHUB_REF_NAME}") { "${env:GITHUB_REF_NAME}".TrimStart("v") } else { "1.0.0" }
 
           mkdir windows-package
-          Copy-Item $EXE_PATH -Destination "windows-package/"
 
-          # Run windeployqt to automatically bundle all required Qt .dll files
+          $EXE = Get-ChildItem -Path "build" -Recurse -Filter "$APP_NAME.exe" | Select-Object -First 1
+          if (-not $EXE) {
+            Write-Error "Executable $APP_NAME.exe not found!"
+            exit 1
+          }
+
+          Copy-Item $EXE.FullName -Destination "windows-package/"
           windeployqt --release --no-compiler-runtime "windows-package/$APP_NAME.exe"
-
-          # Zip package
           Compress-Archive -Path "windows-package/*" -DestinationPath "${APP_NAME}_${VERSION}_windows_x64.zip"
 
       - name: Upload Windows Zip Artifact
