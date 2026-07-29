@@ -59,7 +59,7 @@ jobs:
           # Copy Real Executable to /usr/lib/graber/
           cp build/${APP_NAME} "${BIN_PATH}"
 
-          # Copy Qt Platform Plugins (libqxcb.so and X11 plugins)
+          # Copy Qt Platform Plugins
           QT_PLUGIN_PATH=$(qtpaths --plugin-dir 2>/dev/null || echo "/usr/lib/x86_64-linux-gnu/qt6/plugins")
           if [ -d "${QT_PLUGIN_PATH}/platforms" ]; then
             cp -r "${QT_PLUGIN_PATH}/platforms"/* "${LIB_DIR}/platforms/"
@@ -78,7 +78,7 @@ jobs:
             fi
           done
 
-          # Copy Dependencies for Platform Plugins (Crucial for libqxcb.so)
+          # Copy Dependencies for Platform Plugins
           for plugin in "${LIB_DIR}"/platforms/*.so; do
             if [ -f "$plugin" ]; then
               ldd "$plugin" | grep "=>" | awk '{print $3}' | grep -v '^$' | while read -r lib; do
@@ -95,7 +95,7 @@ jobs:
             fi
           done
 
-          # Patch RPATH using patchelf ($ORIGIN resolves to /usr/lib/graber/)
+          # Patch RPATH
           patchelf --set-rpath "\$ORIGIN" "${BIN_PATH}"
           for lib in "${LIB_DIR}"/*.so* "${LIB_DIR}"/platforms/*.so*; do
             if [ -f "$lib" ]; then
@@ -103,7 +103,7 @@ jobs:
             fi
           done
 
-          # Create Entry Point Wrapper Script in /usr/bin/graber
+          # Entry Point Wrapper Script
           cat << 'EOF' > ${PKG_DIR}/usr/bin/${APP_NAME}
 #!/bin/bash
 DIR="/usr/lib/graber"
@@ -120,7 +120,7 @@ EOF
             fi
           done
 
-          # Create DEBIAN/control file safely line-by-line
+          # Write DEBIAN/control
           echo "Package: ${APP_NAME}" > ${PKG_DIR}/DEBIAN/control
           echo "Version: ${VERSION}" >> ${PKG_DIR}/DEBIAN/control
           echo "Architecture: amd64" >> ${PKG_DIR}/DEBIAN/control
@@ -129,7 +129,6 @@ EOF
           echo "Priority: optional" >> ${PKG_DIR}/DEBIAN/control
           echo "Description: Fully self-contained ${APP_NAME} application." >> ${PKG_DIR}/DEBIAN/control
 
-          # Set Permissions
           chmod -R 755 ${PKG_DIR}/DEBIAN
           chmod 755 ${PKG_DIR}/usr/bin/${APP_NAME}
           chmod 755 ${BIN_PATH}
@@ -220,13 +219,16 @@ EOF
     steps:
       - name: Send Email Notification
         uses: dawidd6/action-send-mail@v3
+        env:
+          LINUX_RES: ${{ needs.build-linux-deb.result }}
+          WIN_RES: ${{ needs.build-windows.result }}
         with:
           server_address: smtp.gmail.com
           server_port: 465
           secure: true
           username: ${{ secrets.MAIL_USERNAME }}
           password: ${{ secrets.MAIL_PASSWORD }}
-          subject: "Graber Build Status: ${{ (needs.build-linux-deb.result == 'success' && needs.build-windows.result == 'success') && 'SUCCESS' || 'FAILED' }} [${{ github.ref_name }}]"
+          subject: "Graber Build Status: ${{ github.ref_name }}"
           to: emran.blue.120@gmail.com
           from: "Graber CI/CD <ci@graber.app>"
           body: |
