@@ -37,6 +37,7 @@ public:
     QPushButton *shift_heading_button;
     QPushButton *add_section_button;
     QPushButton *settings_button;
+    QPushButton *wizards_button;
 };
 
 #endif // CLIPBOARDGRABBERUI_H

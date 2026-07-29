@@ -1,4 +1,5 @@
 #include "ShortcutManager.h"
+#include "ActionRegistry.h"
 #include <QDir>
 
 ShortcutManager::ShortcutManager(QObject *parent) : QObject(parent) {
@@ -15,24 +16,25 @@ ShortcutManager::~ShortcutManager() {
 }
 
 void ShortcutManager::initDefaultConfigs() {
-    configs_ = {
-        {"start", "শুরু করুন (Start)", "Start Monitoring", "Ctrl+Shift+S", QKeySequence("Ctrl+Shift+S"), nullptr},
-        {"stop", "থামুন (Stop)", "Stop Monitoring", "Ctrl+Shift+T", QKeySequence("Ctrl+Shift+T"), nullptr},
-        {"add_image", "ছবি যুক্ত করুন (Add Image)", "Add Clipboard Image", "Ctrl+Shift+I", QKeySequence("Ctrl+Shift+I"), nullptr},
-        {"new_subject", "নতুন বিষয় (New Subject)", "Create New Subject", "Ctrl+Shift+N", QKeySequence("Ctrl+Shift+N"), nullptr},
-        {"open_note", "নোট খুলুন (Open Note)", "Open Active Note", "Ctrl+Shift+O", QKeySequence("Ctrl+Shift+O"), nullptr},
-        {"append", "যুক্ত করুন (Append)", "Append to Heading", "Ctrl+Shift+A", QKeySequence("Ctrl+Shift+A"), nullptr},
-        {"inject", "ইনজেক্ট করুন (Inject)", "Inject Heading", "Ctrl+Shift+J", QKeySequence("Ctrl+Shift+J"), nullptr},
-        {"shift", "স্থানান্তর (Shift)", "Shift Heading Section", "Ctrl+Shift+H", QKeySequence("Ctrl+Shift+H"), nullptr},
-        {"delete", "মুছে ফেলুন (Delete)", "Delete Heading Section", "Ctrl+Shift+D", QKeySequence("Ctrl+Shift+D"), nullptr},
-        {"new_section", "নতুন বিভাগ (New Section)", "Add Custom Section", "Ctrl+Shift+K", QKeySequence("Ctrl+Shift+K"), nullptr},
-        {"toggle_format", "ফরম্যাট পরিবর্তন (Toggle Format)", "Toggle Capture Format", "Ctrl+Shift+F", QKeySequence("Ctrl+Shift+F"), nullptr},
-        {"toggle_section", "বিভাগ পরিবর্তন (Toggle Section)", "Toggle Section Category", "Ctrl+Shift+G", QKeySequence("Ctrl+Shift+G"), nullptr},
-        {"toggle_subject", "বিষয় পরিবর্তন (Toggle Subject)", "Toggle Subject Selection", "Ctrl+Shift+E", QKeySequence("Ctrl+Shift+E"), nullptr}
-    };
+    configs_.clear();
+    auto registered_actions = ActionRegistry::instance().getAllActions();
+    
+    for (const auto &action : registered_actions) {
+        ShortcutConfig cfg;
+        cfg.action_id = action->id();
+        cfg.name_bangla = action->displayName();
+        cfg.name_english = action->description();
+        cfg.default_key = action->defaultShortcut().toString();
+        cfg.current_key = action->defaultShortcut();
+        cfg.shortcut_obj = nullptr;
+        configs_.append(cfg);
+    }
 }
 
 void ShortcutManager::loadSettings(const QString &settingsFilePath) {
+    // Sync with ActionRegistry first to pick up any new actions/wizards
+    initDefaultConfigs();
+
     QSettings settings(settingsFilePath, QSettings::IniFormat);
     settings.beginGroup("Shortcuts");
     for (auto &cfg : configs_) {
@@ -64,6 +66,7 @@ void ShortcutManager::setupShortcuts(QWidget *parentWidget) {
             cfg.shortcut_obj = new QShortcut(cfg.current_key, parentWidget);
             QString action_id = cfg.action_id;
             connect(cfg.shortcut_obj, &QShortcut::activated, this, [this, action_id]() {
+                ActionRegistry::instance().executeAction(action_id);
                 emit actionTriggered(action_id);
             });
         }

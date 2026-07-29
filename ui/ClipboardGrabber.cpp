@@ -3,6 +3,10 @@
 #include "MarkdownUtils.h"
 #include "ShortcutsSettingsDialog.h"
 #include "HeadingSelectDialog.h"
+#include "ExportNoteWizard.h"
+#include "ServiceRegistry.h"
+#include "ActionRegistry.h"
+#include "FeatureManager.h"
 
 #include <QClipboard>
 #include <QGuiApplication>
@@ -12,6 +16,8 @@
 #include <QDesktopServices>
 #include <QUrl>
 #include <QDateTime>
+#include <QMenu>
+#include <QMessageBox>
 
 ClipboardGrabber::ClipboardGrabber(QWidget *parent) : QWidget(parent) {
     // --- Setup UI ---
@@ -26,6 +32,11 @@ ClipboardGrabber::ClipboardGrabber(QWidget *parent) : QWidget(parent) {
     connect(clipboard_monitor_, &IClipboardMonitor::textCaptured, this, &ClipboardGrabber::handle_text_captured);
     connect(clipboard_monitor_, &IClipboardMonitor::imageCaptured, this, &ClipboardGrabber::handle_image_captured);
 
+    // --- Setup Abstraction Layers (Service, Action, Feature Registries) ---
+    setup_services();
+    setup_actions();
+    setup_features();
+
     connect(&shortcut_manager_, &ShortcutManager::actionTriggered, this, &ClipboardGrabber::trigger_shortcut_action);
     QString settings_file_path = note_service_.notesDirPath() + QDir::separator() + "settings.ini";
     shortcut_manager_.loadSettings(settings_file_path);
@@ -33,27 +44,115 @@ ClipboardGrabber::ClipboardGrabber(QWidget *parent) : QWidget(parent) {
 
     load_sections_for_subject("");
 
-    // --- Connections (Signals and Slots) ---
-    connect(ui_.start_button, &QPushButton::clicked, this, [this]() { this->start_monitoring(); });
-    connect(ui_.stop_button, &QPushButton::clicked, this, [this]() { this->stop_monitoring(); });
-    connect(ui_.add_image_button, &QPushButton::clicked, this, [this]() { this->add_clipboard_image(); });
-    connect(ui_.toggle_subject_button, &QPushButton::clicked, this, [this]() { this->toggle_subject(); });
-    connect(ui_.add_subject_button, &QPushButton::clicked, this, [this]() { this->add_subject(); });
-    connect(ui_.add_folder_button, &QPushButton::clicked, this, [this]() { this->add_folder(); });
-    connect(ui_.open_file_button, &QPushButton::clicked, this, [this]() { this->open_selected_file(); });
-    connect(ui_.subject_dropdown, &QComboBox::currentTextChanged, this, [this](const QString &text) { this->on_subject_changed(text); });
+    // --- Bind UI Buttons to Action Registry ---
+    ActionRegistry::instance().bindButton(ui_.start_button, "start");
+    ActionRegistry::instance().bindButton(ui_.stop_button, "stop");
+    ActionRegistry::instance().bindButton(ui_.add_image_button, "add_image");
+    ActionRegistry::instance().bindButton(ui_.toggle_subject_button, "toggle_subject");
+    ActionRegistry::instance().bindButton(ui_.add_subject_button, "new_subject");
+    ActionRegistry::instance().bindButton(ui_.add_folder_button, "add_folder");
+    ActionRegistry::instance().bindButton(ui_.open_file_button, "open_note");
+    ActionRegistry::instance().bindButton(ui_.append_to_heading_button, "append");
+    ActionRegistry::instance().bindButton(ui_.delete_heading_button, "delete");
+    ActionRegistry::instance().bindButton(ui_.inject_heading_button, "inject");
+    ActionRegistry::instance().bindButton(ui_.shift_heading_button, "shift");
+    ActionRegistry::instance().bindButton(ui_.add_section_button, "new_section");
+    ActionRegistry::instance().bindButton(ui_.settings_button, "settings");
+    ActionRegistry::instance().bindButton(ui_.wizards_button, "wizards");
+
     connect(ui_.select_heading_button, &QPushButton::clicked, this, [this]() { this->open_heading_select_dialog(); });
-    connect(ui_.append_to_heading_button, &QPushButton::clicked, this, [this]() { this->manual_append_to_heading(); });
-    connect(ui_.delete_heading_button, &QPushButton::clicked, this, [this]() { this->delete_selected_heading_section(); });
-    connect(ui_.inject_heading_button, &QPushButton::clicked, this, [this]() { this->inject_heading_from_clipboard(); });
-    connect(ui_.shift_heading_button, &QPushButton::clicked, this, [this]() { this->shift_selected_heading_section(); });
-    connect(ui_.add_section_button, &QPushButton::clicked, this, [this]() { this->add_section(); });
-    connect(ui_.settings_button, &QPushButton::clicked, this, [this]() { this->open_settings_dialog(); });
+    connect(ui_.subject_dropdown, &QComboBox::currentTextChanged, this, [this](const QString &text) { this->on_subject_changed(text); });
 
     // --- Initial Population ---
     populate_subjects_from_disk();
     ui_.subject_dropdown->setCurrentIndex(-1); // No initial selection
     update_status_label();
+}
+
+void ClipboardGrabber::setup_services() {
+    // Register NoteService in ServiceRegistry for loose coupling
+    auto note_svc_ptr = std::shared_ptr<INoteService>(&note_service_, [](INoteService*){});
+    ServiceRegistry::instance().registerService<INoteService>(note_svc_ptr);
+
+    auto clip_mon_ptr = std::shared_ptr<IClipboardMonitor>(clipboard_monitor_, [](IClipboardMonitor*){});
+    ServiceRegistry::instance().registerService<IClipboardMonitor>(clip_mon_ptr);
+}
+
+void ClipboardGrabber::setup_actions() {
+    ActionRegistry &reg = ActionRegistry::instance();
+
+    reg.registerFunctionalAction("start", "শুরু করুন (Start)", "ক্লিপবোর্ড ট্র্যাকিং চালু করুন", "Monitoring", QKeySequence("Ctrl+Shift+S"),
+        [this](const QVariantMap &) { this->start_monitoring(); },
+        [this]() { return !is_running_ && ui_.subject_dropdown->currentIndex() != -1; });
+
+    reg.registerFunctionalAction("stop", "থামুন (Stop)", "ক্লিপবোর্ড ট্র্যাকিং বন্ধ করুন", "Monitoring", QKeySequence("Ctrl+Shift+T"),
+        [this](const QVariantMap &) { this->stop_monitoring(); },
+        [this]() { return is_running_; });
+
+    reg.registerFunctionalAction("add_image", "ছবি যুক্ত করুন (Add Image)", "ক্লিপবোর্ডের ছবি যুক্ত করুন", "Capture", QKeySequence("Ctrl+Shift+I"),
+        [this](const QVariantMap &) { this->add_clipboard_image(); },
+        [this]() { return ui_.subject_dropdown->currentIndex() != -1; });
+
+    reg.registerFunctionalAction("new_subject", "নতুন বিষয় (New Subject)", "নতুন বিষয় তৈরি করুন", "Subject", QKeySequence("Ctrl+Shift+N"),
+        [this](const QVariantMap &) { this->add_subject(); });
+
+    reg.registerFunctionalAction("add_folder", "নতুন ফোল্ডার (New Folder)", "নতুন ফোল্ডার তৈরি করুন", "Subject", QKeySequence("Ctrl+Shift+M"),
+        [this](const QVariantMap &) { this->add_folder(); });
+
+    reg.registerFunctionalAction("open_note", "নোট খুলুন (Open Note)", "সক্রিয় নোট ফাইল ওপেন করুন", "File", QKeySequence("Ctrl+Shift+O"),
+        [this](const QVariantMap &) { this->open_selected_file(); },
+        [this]() { return ui_.subject_dropdown->currentIndex() != -1 && ui_.subject_dropdown->currentText() != "নির্বাচিত নয়"; });
+
+    reg.registerFunctionalAction("append", "যুক্ত করুন (Append)", "টার্গেট শিরোনামে কনটেন্ট যুক্ত করুন", "Heading", QKeySequence("Ctrl+Shift+A"),
+        [this](const QVariantMap &) { this->manual_append_to_heading(); },
+        [this]() { return ui_.subject_dropdown->currentIndex() != -1 && !selected_heading_slug_.isEmpty(); });
+
+    reg.registerFunctionalAction("inject", "ইনজেক্ট করুন (Inject)", "ক্লিপবোর্ডের লেখা নতুন শিরোনাম হিসেবে ইনজেক্ট করুন", "Heading", QKeySequence("Ctrl+Shift+J"),
+        [this](const QVariantMap &) { this->inject_heading_from_clipboard(); },
+        [this]() { return ui_.subject_dropdown->currentIndex() != -1; });
+
+    reg.registerFunctionalAction("shift", "স্থানান্তর (Shift)", "শিরোনাম অন্য স্থানে স্থানান্তর করুন", "Heading", QKeySequence("Ctrl+Shift+H"),
+        [this](const QVariantMap &) { this->shift_selected_heading_section(); },
+        [this]() { return ui_.subject_dropdown->currentIndex() != -1 && !selected_heading_slug_.isEmpty(); });
+
+    reg.registerFunctionalAction("delete", "মুছে ফেলুন (Delete)", "টার্গেট শিরোনাম সেকশন ডিলিট করুন", "Heading", QKeySequence("Ctrl+Shift+D"),
+        [this](const QVariantMap &) { this->delete_selected_heading_section(); },
+        [this]() { return ui_.subject_dropdown->currentIndex() != -1 && !selected_heading_slug_.isEmpty(); });
+
+    reg.registerFunctionalAction("new_section", "নতুন বিভাগ (New Section)", "কাস্টম বিভাগ যোগ করুন", "Section", QKeySequence("Ctrl+Shift+K"),
+        [this](const QVariantMap &) { this->add_section(); });
+
+    reg.registerFunctionalAction("toggle_format", "ফরম্যাট পরিবর্তন (Toggle Format)", "ক্যাপচার ফরম্যাট সাইকেল করুন", "Capture", QKeySequence("Ctrl+Shift+F"),
+        [this](const QVariantMap &) {
+            if (ui_.format_dropdown->isEnabled() && ui_.format_dropdown->count() > 0) {
+                int next_idx = (ui_.format_dropdown->currentIndex() + 1) % ui_.format_dropdown->count();
+                ui_.format_dropdown->setCurrentIndex(next_idx);
+                ui_.last_captured_label->setText("ফরম্যাট পরিবর্তন করা হয়েছে: " + ui_.format_dropdown->currentText());
+            }
+        });
+
+    reg.registerFunctionalAction("toggle_section", "বিভাগ পরিবর্তন (Toggle Section)", "বিভাগ ক্যাটগরি সাইকেল করুন", "Section", QKeySequence("Ctrl+Shift+G"),
+        [this](const QVariantMap &) {
+            if (ui_.section_dropdown->isEnabled() && ui_.section_dropdown->count() > 0) {
+                int next_idx = (ui_.section_dropdown->currentIndex() + 1) % ui_.section_dropdown->count();
+                ui_.section_dropdown->setCurrentIndex(next_idx);
+                ui_.last_captured_label->setText("বিভাগ পরিবর্তন করা হয়েছে: " + ui_.section_dropdown->currentText());
+            }
+        });
+
+    reg.registerFunctionalAction("toggle_subject", "বিষয় পরিবর্তন (Toggle Subject)", "পরবর্তী বিষয় নির্বাচন করুন", "Subject", QKeySequence("Ctrl+Shift+E"),
+        [this](const QVariantMap &) { this->toggle_subject(); });
+
+    reg.registerFunctionalAction("settings", "সেটিংস (Settings)", "শর্টকাট সেটিংস খুলুন", "System", QKeySequence("Ctrl+Shift+P"),
+        [this](const QVariantMap &) { this->open_settings_dialog(); });
+
+    reg.registerFunctionalAction("wizards", "উইজার্ড ও টুলস (Wizards & Tools)", "এক্সটেনশন ও উইজার্ড তালিকা খুলুন", "Wizards", QKeySequence("Ctrl+Shift+W"),
+        [this](const QVariantMap &) { this->open_wizards_dialog(); });
+}
+
+void ClipboardGrabber::setup_features() {
+    // Register built-in export note wizard
+    FeatureManager::instance().registerFeature(std::make_shared<ExportNoteWizard>(this));
 }
 
 void ClipboardGrabber::closeEvent(QCloseEvent *event) {
@@ -99,28 +198,20 @@ void ClipboardGrabber::start_monitoring() {
     QClipboard::Mode mode = (ui_.mode_dropdown->currentIndex() == 0) ? QClipboard::Clipboard : QClipboard::Selection;
     clipboard_monitor_->start(mode, 1000);
     
-    ui_.start_button->setEnabled(false);
-    ui_.stop_button->setEnabled(true);
     ui_.subject_dropdown->setEnabled(false);
-    ui_.toggle_subject_button->setEnabled(false);
-    ui_.add_subject_button->setEnabled(false);
-    ui_.add_folder_button->setEnabled(false);
     ui_.mode_dropdown->setEnabled(false);
     update_status_label();
+    ActionRegistry::instance().updateBoundButtons();
 }
 
 void ClipboardGrabber::stop_monitoring() {
     is_running_ = false;
     clipboard_monitor_->stop();
     note_service_.updateTocInFile(get_current_target_file(), get_sections_from_ui());
-    ui_.start_button->setEnabled(true);
-    ui_.stop_button->setEnabled(false);
     ui_.subject_dropdown->setEnabled(true);
-    ui_.toggle_subject_button->setEnabled(true);
-    ui_.add_subject_button->setEnabled(true);
-    ui_.add_folder_button->setEnabled(true);
     ui_.mode_dropdown->setEnabled(true);
     update_status_label();
+    ActionRegistry::instance().updateBoundButtons();
 }
 
 void ClipboardGrabber::add_subject() {
@@ -238,14 +329,7 @@ void ClipboardGrabber::add_clipboard_image() {
 }
 
 void ClipboardGrabber::update_button_states() {
-    bool has_subject = (ui_.subject_dropdown->currentIndex() != -1 && ui_.subject_dropdown->currentText() != "নির্বাচিত নয়");
-    ui_.open_file_button->setEnabled(has_subject);
-    ui_.select_heading_button->setEnabled(has_subject);
-    ui_.inject_heading_button->setEnabled(has_subject);
-    bool has_heading = has_subject && !selected_heading_slug_.isEmpty();
-    ui_.append_to_heading_button->setEnabled(has_heading);
-    ui_.delete_heading_button->setEnabled(has_heading);
-    ui_.shift_heading_button->setEnabled(has_heading);
+    ActionRegistry::instance().updateBoundButtons();
 }
 
 void ClipboardGrabber::open_heading_select_dialog() {
@@ -259,6 +343,7 @@ void ClipboardGrabber::open_heading_select_dialog() {
             ui_.select_heading_button->setText(selected_heading_title_);
         }
     }
+    update_button_states();
 }
 
 void ClipboardGrabber::add_section() {
@@ -433,63 +518,7 @@ void ClipboardGrabber::populate_headings_from_file() {
 }
 
 void ClipboardGrabber::trigger_shortcut_action(const QString &action_id) {
-    if (action_id == "start") {
-        if (ui_.start_button->isEnabled()) {
-            start_monitoring();
-        }
-    } else if (action_id == "stop") {
-        if (ui_.stop_button->isEnabled()) {
-            stop_monitoring();
-        }
-    } else if (action_id == "add_image") {
-        if (ui_.add_image_button->isEnabled()) {
-            add_clipboard_image();
-        }
-    } else if (action_id == "new_subject") {
-        if (ui_.add_subject_button->isEnabled()) {
-            add_subject();
-        }
-    } else if (action_id == "open_note") {
-        if (ui_.open_file_button->isEnabled()) {
-            open_selected_file();
-        }
-    } else if (action_id == "append") {
-        if (ui_.append_to_heading_button->isEnabled()) {
-            manual_append_to_heading();
-        }
-    } else if (action_id == "inject") {
-        if (ui_.inject_heading_button->isEnabled()) {
-            inject_heading_from_clipboard();
-        }
-    } else if (action_id == "shift") {
-        if (ui_.shift_heading_button->isEnabled()) {
-            shift_selected_heading_section();
-        }
-    } else if (action_id == "delete") {
-        if (ui_.delete_heading_button->isEnabled()) {
-            delete_selected_heading_section();
-        }
-    } else if (action_id == "new_section") {
-        if (ui_.add_section_button->isEnabled()) {
-            add_section();
-        }
-    } else if (action_id == "toggle_format") {
-        if (ui_.format_dropdown->isEnabled() && ui_.format_dropdown->count() > 0) {
-            int next_idx = (ui_.format_dropdown->currentIndex() + 1) % ui_.format_dropdown->count();
-            ui_.format_dropdown->setCurrentIndex(next_idx);
-            ui_.last_captured_label->setText("ফরম্যাট পরিবর্তন করা হয়েছে: " + ui_.format_dropdown->currentText());
-        }
-    } else if (action_id == "toggle_section") {
-        if (ui_.section_dropdown->isEnabled() && ui_.section_dropdown->count() > 0) {
-            int next_idx = (ui_.section_dropdown->currentIndex() + 1) % ui_.section_dropdown->count();
-            ui_.section_dropdown->setCurrentIndex(next_idx);
-            ui_.last_captured_label->setText("বিভাগ পরিবর্তন করা হয়েছে: " + ui_.section_dropdown->currentText());
-        }
-    } else if (action_id == "toggle_subject") {
-        if (ui_.toggle_subject_button->isEnabled()) {
-            toggle_subject();
-        }
-    }
+    ActionRegistry::instance().executeAction(action_id);
 }
 
 void ClipboardGrabber::open_settings_dialog() {
@@ -500,4 +529,21 @@ void ClipboardGrabber::open_settings_dialog() {
         shortcut_manager_.setupShortcuts(this);
         ui_.status_label->setText("অবস্থা: শর্টকাটসমূহ সফলভাবে সংরক্ষণ করা হয়েছে!");
     }
+}
+
+void ClipboardGrabber::open_wizards_dialog() {
+    auto features = FeatureManager::instance().getAllFeatures();
+    if (features.isEmpty()) {
+        QMessageBox::information(this, "উইজার্ড ও টুলস", "কোনো এক্সটেনশন বা উইজার্ড ইনস্টল করা নেই।");
+        return;
+    }
+
+    QMenu wizards_menu(this);
+    for (const auto &feat : features) {
+        QAction *act = wizards_menu.addAction(feat->displayName());
+        connect(act, &QAction::triggered, this, [this, feat]() {
+            feat->executeWizard(this, &ServiceRegistry::instance());
+        });
+    }
+    wizards_menu.exec(ui_.wizards_button->mapToGlobal(QPoint(0, ui_.wizards_button->height())));
 }

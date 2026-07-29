@@ -95,6 +95,10 @@ void ClipboardGrabberUI::setupUi(QWidget *parent) {
     mode_dropdown->addItem("কপি মোড (Ctrl+C)");
     mode_dropdown->addItem("সিলেক্ট মোড");
 
+    wizards_button = new QPushButton("উইজার্ড ও টুলস");
+    wizards_button->setStyleSheet("QPushButton { background-color: #8e44ad; } QPushButton:hover { background-color: #9b59b6; }");
+    wizards_button->setIcon(get_feather_icon(QChar(0xe9b8)));
+
     // --- Layout Panels ---
     // 1. Subject Management Panel (Card)
     QFrame *subject_card = new QFrame();
@@ -181,6 +185,7 @@ void ClipboardGrabberUI::setupUi(QWidget *parent) {
     QHBoxLayout *control_layout1 = new QHBoxLayout();
     control_layout1->addWidget(start_button);
     control_layout1->addWidget(stop_button);
+    control_layout1->addWidget(wizards_button);
     control_layout1->addWidget(settings_button);
     main_layout->addLayout(control_layout1);
 }

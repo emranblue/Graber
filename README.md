@@ -83,6 +83,7 @@ graber/
 └── utils/                         # Styling, Icons, & Logging Utilities (Utils)
 ```
 For a detailed file-by-file tree breakdown, see [PROJECT_TREE.md](file:///home/emran/Desktop/extra/graber/PROJECT_TREE.md).
+For a developer guide on extending services, actions, shortcuts, and wizards, see [UPDATE_GUIDE.md](file:///home/emran/Desktop/extra/graber/UPDATE_GUIDE.md).
 
 ### Runtime Notes Directory (`~/GraberNotes`)
 

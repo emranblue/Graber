@@ -7,6 +7,7 @@
 #include <QCloseEvent>
 #include "Types.h"
 #include "interfaces/IClipboardMonitor.h"
+#include "interfaces/INoteService.h"
 #include "ClipboardMonitor.h"
 #include "NoteService.h"
 #include "ShortcutManager.h"
@@ -41,9 +42,14 @@ private slots:
     void manual_append_to_heading();
     void delete_selected_heading_section();
     void open_settings_dialog();
+    void open_wizards_dialog();
     void trigger_shortcut_action(const QString &action_id);
 
 private:
+    void setup_services();
+    void setup_actions();
+    void setup_features();
+
     QList<SectionItem> get_sections_from_ui() const;
     void populate_sections_ui(const QList<SectionItem> &sections);
 

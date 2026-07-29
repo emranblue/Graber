@@ -35,6 +35,10 @@ add_executable(graber
     interfaces/IDocumentFormatter.h
     interfaces/INoteRepository.h
     interfaces/ISectionRepository.h
+    interfaces/INoteService.h
+    interfaces/IServiceRegistry.h
+    interfaces/IAction.h
+    interfaces/IWizardFeature.h
 
     # Core
     core/Types.h
@@ -42,6 +46,12 @@ add_executable(graber
     # Services
     services/NoteService.h
     services/NoteService.cpp
+    services/ServiceRegistry.h
+    services/ServiceRegistry.cpp
+    services/ActionRegistry.h
+    services/ActionRegistry.cpp
+    services/FeatureManager.h
+    services/FeatureManager.cpp
 
     # Repositories
     repositories/NoteRepository.h
@@ -72,6 +82,8 @@ add_executable(graber
     ui/HeadingSelectDialog.cpp
     ui/ShortcutsSettingsDialog.h
     ui/ShortcutsSettingsDialog.cpp
+    ui/ExportNoteWizard.h
+    ui/ExportNoteWizard.cpp
 
     # Utils
     utils/Utils.h
