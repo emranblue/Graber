@@ -11,8 +11,16 @@ QString NoteService::notesDirPath() const {
     return note_repository_->notesDirPath();
 }
 
-QStringList NoteService::populateSubjects(const QList<SectionItem> &sections) {
-    return note_repository_->populateSubjectsFromDisk(sections);
+QStringList NoteService::populateFolders() {
+    return note_repository_->populateFoldersFromDisk();
+}
+
+QStringList NoteService::populateSubjects(const QList<SectionItem> &sections, const QString &folderFilter) {
+    return note_repository_->populateSubjectsFromDisk(sections, folderFilter);
+}
+
+QList<SubjectItem> NoteService::populateSubjectItems(const QList<SectionItem> &sections, const QString &folderFilter) {
+    return note_repository_->populateSubjectItemsFromDisk(sections, folderFilter);
 }
 
 bool NoteService::createSubject(const QString &subjectName) {
@@ -21,6 +29,10 @@ bool NoteService::createSubject(const QString &subjectName) {
 
 bool NoteService::createFolder(const QString &folderPath, QString &outStatusMsg) {
     return note_repository_->createFolder(folderPath, outStatusMsg);
+}
+
+bool NoteService::moveSubject(const QString &oldSubjectName, const QString &newSubjectName, QString &outStatusMsg) {
+    return note_repository_->moveSubject(oldSubjectName, newSubjectName, outStatusMsg);
 }
 
 QList<SectionItem> NoteService::loadSectionsForSubject(const QString &subjectName) {

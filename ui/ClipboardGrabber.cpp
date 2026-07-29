@@ -61,9 +61,11 @@ ClipboardGrabber::ClipboardGrabber(QWidget *parent) : QWidget(parent) {
     ActionRegistry::instance().bindButton(ui_.wizards_button, "wizards");
 
     connect(ui_.select_heading_button, &QPushButton::clicked, this, [this]() { this->open_heading_select_dialog(); });
+    connect(ui_.folder_dropdown, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &ClipboardGrabber::on_folder_changed);
     connect(ui_.subject_dropdown, &QComboBox::currentTextChanged, this, [this](const QString &text) { this->on_subject_changed(text); });
 
     // --- Initial Population ---
+    populate_folders_from_disk();
     populate_subjects_from_disk();
     ui_.subject_dropdown->setCurrentIndex(-1); // No initial selection
     update_status_label();
@@ -199,6 +201,9 @@ void ClipboardGrabber::start_monitoring() {
     clipboard_monitor_->start(mode, 1000);
     
     ui_.subject_dropdown->setEnabled(false);
+    ui_.folder_dropdown->setEnabled(false);
+    ui_.add_folder_button->setEnabled(false);
+    ui_.add_subject_button->setEnabled(false);
     ui_.mode_dropdown->setEnabled(false);
     update_status_label();
     ActionRegistry::instance().updateBoundButtons();
@@ -209,6 +214,9 @@ void ClipboardGrabber::stop_monitoring() {
     clipboard_monitor_->stop();
     note_service_.updateTocInFile(get_current_target_file(), get_sections_from_ui());
     ui_.subject_dropdown->setEnabled(true);
+    ui_.folder_dropdown->setEnabled(true);
+    ui_.add_folder_button->setEnabled(true);
+    ui_.add_subject_button->setEnabled(true);
     ui_.mode_dropdown->setEnabled(true);
     update_status_label();
     ActionRegistry::instance().updateBoundButtons();
@@ -216,15 +224,38 @@ void ClipboardGrabber::stop_monitoring() {
 
 void ClipboardGrabber::add_subject() {
     bool ok;
+    QString selected_folder = ui_.folder_dropdown->currentData().toString();
+    QString default_prefix = "";
+    if (!selected_folder.isEmpty() && selected_folder != "__ALL__" && selected_folder != "__ROOT__") {
+        default_prefix = selected_folder + "/";
+    }
+
     QString text = QInputDialog::getText(this, "বিষয় যোগ করুন",
                                          "নতুন বিষয়ের নাম (ফোল্ডার সহ, যেমন: BCS/Bangla):", QLineEdit::Normal,
-                                         "", &ok);
+                                         default_prefix, &ok);
     if (ok && !text.isEmpty()) {
-        if (ui_.subject_dropdown->findText(text) == -1) {
-            ui_.subject_dropdown->addItem(text);
-            note_service_.createSubject(text);
+        text = text.trimmed();
+        text.replace('\\', '/');
+        note_service_.createSubject(text);
+
+        // If subject has folder hierarchy, refresh folders dropdown and set selection
+        int last_slash = text.lastIndexOf('/');
+        if (last_slash != -1) {
+            populate_folders_from_disk();
+            QString folder_part = text.left(last_slash);
+            int f_idx = ui_.folder_dropdown->findData(folder_part);
+            if (f_idx != -1) {
+                ui_.folder_dropdown->blockSignals(true);
+                ui_.folder_dropdown->setCurrentIndex(f_idx);
+                ui_.folder_dropdown->blockSignals(false);
+            }
         }
-        ui_.subject_dropdown->setCurrentText(text);
+
+        populate_subjects_from_disk();
+        int s_idx = ui_.subject_dropdown->findData(text);
+        if (s_idx != -1) {
+            ui_.subject_dropdown->setCurrentIndex(s_idx);
+        }
     }
 }
 
@@ -234,8 +265,18 @@ void ClipboardGrabber::add_folder() {
                                          "নতুন ফোল্ডারের নাম (Path):", QLineEdit::Normal,
                                          "", &ok);
     if (ok && !text.isEmpty()) {
+        text = text.trimmed();
+        text.replace('\\', '/');
         QString status_msg;
-        note_service_.createFolder(text, status_msg);
+        if (note_service_.createFolder(text, status_msg)) {
+            populate_folders_from_disk();
+            int idx = ui_.folder_dropdown->findData(text);
+            if (idx != -1) {
+                ui_.folder_dropdown->setCurrentIndex(idx);
+            } else {
+                populate_subjects_from_disk();
+            }
+        }
         ui_.status_label->setText(status_msg);
     }
 }
@@ -365,7 +406,7 @@ void ClipboardGrabber::add_section() {
         if (!exists) {
             ui_.section_dropdown->addItem(display_name, slug);
             custom_added_sections_.insert(slug);
-            save_sections_for_subject(ui_.subject_dropdown->currentText());
+            save_sections_for_subject(get_selected_subject_name());
         }
         ui_.section_dropdown->setCurrentIndex(ui_.section_dropdown->findData(slug));
     }
@@ -449,7 +490,7 @@ void ClipboardGrabber::delete_selected_heading_section() {
     QString target_file = get_current_target_file();
     QString out_label_text;
 
-    if (note_service_.deleteHeadingSection(target_file, slug, ui_.subject_dropdown->currentText(), out_label_text)) {
+    if (note_service_.deleteHeadingSection(target_file, slug, get_selected_subject_name(), out_label_text)) {
         note_service_.updateTocInFile(target_file, get_sections_from_ui());
         ui_.last_captured_label->setText(out_label_text);
         selected_heading_slug_ = "";
@@ -461,23 +502,79 @@ void ClipboardGrabber::delete_selected_heading_section() {
     }
 }
 
+void ClipboardGrabber::on_folder_changed(int index) {
+    Q_UNUSED(index);
+    populate_subjects_from_disk();
+}
+
+void ClipboardGrabber::populate_folders_from_disk() {
+    QString current_folder_data = ui_.folder_dropdown->currentData().toString();
+
+    ui_.folder_dropdown->blockSignals(true);
+    ui_.folder_dropdown->clear();
+
+    ui_.folder_dropdown->addItem("সকল ফোল্ডার (All Folders)", "__ALL__");
+    ui_.folder_dropdown->addItem("রুট ফোল্ডার (Root / Base)", "__ROOT__");
+
+    QStringList folders = note_service_.populateFolders();
+    for (const QString &folder : folders) {
+        ui_.folder_dropdown->addItem("📁 " + folder, folder);
+    }
+
+    int found_idx = -1;
+    if (!current_folder_data.isEmpty()) {
+        found_idx = ui_.folder_dropdown->findData(current_folder_data);
+    }
+    if (found_idx != -1) {
+        ui_.folder_dropdown->setCurrentIndex(found_idx);
+    } else {
+        ui_.folder_dropdown->setCurrentIndex(0);
+    }
+
+    ui_.folder_dropdown->blockSignals(false);
+}
+
+QString ClipboardGrabber::get_selected_subject_name() const {
+    if (ui_.subject_dropdown->currentIndex() == -1) return "";
+    QString data = ui_.subject_dropdown->currentData().toString();
+    if (!data.isEmpty()) return data;
+    return ui_.subject_dropdown->currentText();
+}
+
 void ClipboardGrabber::populate_subjects_from_disk() {
-    QString current = ui_.subject_dropdown->currentText();
+    QString current_full_name = get_selected_subject_name();
+    QString folder_filter = ui_.folder_dropdown->currentData().toString();
+    if (folder_filter.isEmpty()) {
+        folder_filter = "__ALL__";
+    }
+
     ui_.subject_dropdown->blockSignals(true);
     ui_.subject_dropdown->clear();
-    QStringList subjects = note_service_.populateSubjects(get_sections_from_ui());
-    ui_.subject_dropdown->addItems(subjects);
-    if (!current.isEmpty() && subjects.contains(current)) {
-        ui_.subject_dropdown->setCurrentText(current);
+
+    QList<SubjectItem> subject_items = note_service_.populateSubjectItems(get_sections_from_ui(), folder_filter);
+    int select_idx = -1;
+    for (int i = 0; i < subject_items.size(); ++i) {
+        const auto &sub = subject_items.at(i);
+        ui_.subject_dropdown->addItem(sub.displayName, sub.fullPath);
+        if (!current_full_name.isEmpty() && sub.fullPath == current_full_name) {
+            select_idx = i;
+        }
+    }
+
+    if (select_idx != -1) {
+        ui_.subject_dropdown->setCurrentIndex(select_idx);
     } else if (ui_.subject_dropdown->count() > 0) {
         ui_.subject_dropdown->setCurrentIndex(0);
+    } else {
+        ui_.subject_dropdown->setCurrentIndex(-1);
     }
+
     ui_.subject_dropdown->blockSignals(false);
-    on_subject_changed(ui_.subject_dropdown->currentText());
+    on_subject_changed(get_selected_subject_name());
 }
 
 QString ClipboardGrabber::get_current_target_file() {
-    return note_service_.getTargetFilePath(ui_.subject_dropdown->currentText());
+    return note_service_.getTargetFilePath(get_selected_subject_name());
 }
 
 void ClipboardGrabber::update_status_label() {
@@ -513,7 +610,7 @@ void ClipboardGrabber::populate_headings_from_file() {
         update_button_states();
         return;
     }
-    all_headings_ = note_service_.parseNoteStructure(target_file, get_sections_from_ui(), custom_added_sections_, ui_.subject_dropdown->currentText());
+    all_headings_ = note_service_.parseNoteStructure(target_file, get_sections_from_ui(), custom_added_sections_, get_selected_subject_name());
     update_button_states();
 }
 

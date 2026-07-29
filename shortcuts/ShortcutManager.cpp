@@ -64,10 +64,14 @@ void ShortcutManager::setupShortcuts(QWidget *parentWidget) {
     for (auto &cfg : configs_) {
         if (!cfg.current_key.isEmpty()) {
             cfg.shortcut_obj = new QShortcut(cfg.current_key, parentWidget);
+            cfg.shortcut_obj->setContext(Qt::ApplicationShortcut);
+            cfg.shortcut_obj->setAutoRepeat(false);
             QString action_id = cfg.action_id;
             connect(cfg.shortcut_obj, &QShortcut::activated, this, [this, action_id]() {
-                ActionRegistry::instance().executeAction(action_id);
-                emit actionTriggered(action_id);
+                if (ActionRegistry::instance().isActionEnabled(action_id)) {
+                    ActionRegistry::instance().executeAction(action_id);
+                    emit actionTriggered(action_id);
+                }
             });
         }
     }

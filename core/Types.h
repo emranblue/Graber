@@ -43,4 +43,14 @@ struct SectionItem {
     }
 };
 
+struct SubjectItem {
+    QString fullPath;    // e.g. "BCS/Bangla"
+    QString displayName; // e.g. "Bangla" or "BCS / Bangla"
+    QString folderPath;  // e.g. "BCS"
+
+    bool operator==(const SubjectItem &other) const {
+        return fullPath == other.fullPath;
+    }
+};
+
 #endif // TYPES_H

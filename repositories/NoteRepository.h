@@ -14,10 +14,13 @@ public:
     ~NoteRepository() override = default;
 
     QString notesDirPath() const override;
-    QStringList populateSubjectsFromDisk(const QList<SectionItem> &sections) override;
+    QStringList populateFoldersFromDisk() override;
+    QStringList populateSubjectsFromDisk(const QList<SectionItem> &sections, const QString &folderFilter = "") override;
+    QList<SubjectItem> populateSubjectItemsFromDisk(const QList<SectionItem> &sections, const QString &folderFilter = "") override;
 
     bool createSubject(const QString &subjectName) override;
     bool createFolder(const QString &folderPath, QString &outStatusMsg) override;
+    bool moveSubject(const QString &oldSubjectName, const QString &newSubjectName, QString &outStatusMsg) override;
 
     QList<SectionItem> loadSectionsForSubject(const QString &subjectName) override;
     void saveSectionsForSubject(const QString &subjectName, const QList<SectionItem> &sections) override;

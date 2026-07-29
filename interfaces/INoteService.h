@@ -12,9 +12,12 @@ public:
     virtual ~INoteService() = default;
 
     virtual QString notesDirPath() const = 0;
-    virtual QStringList populateSubjects(const QList<SectionItem> &sections) = 0;
+    virtual QStringList populateFolders() = 0;
+    virtual QStringList populateSubjects(const QList<SectionItem> &sections, const QString &folderFilter = "") = 0;
+    virtual QList<SubjectItem> populateSubjectItems(const QList<SectionItem> &sections, const QString &folderFilter = "") = 0;
     virtual bool createSubject(const QString &subjectName) = 0;
     virtual bool createFolder(const QString &folderPath, QString &outStatusMsg) = 0;
+    virtual bool moveSubject(const QString &oldSubjectName, const QString &newSubjectName, QString &outStatusMsg) = 0;
 
     virtual QList<SectionItem> loadSectionsForSubject(const QString &subjectName) = 0;
     virtual void saveSectionsForSubject(const QString &subjectName, const QList<SectionItem> &sections) = 0;

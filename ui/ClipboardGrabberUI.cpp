@@ -4,8 +4,8 @@
 void ClipboardGrabberUI::setupUi(QWidget *parent) {
     // --- Window Setup ---
     parent->setWindowTitle("ক্লিপবোর্ড গ্র্যাবার");
-    parent->setMinimumSize(500, 620);
-    parent->resize(540, 660);
+    parent->setMinimumSize(520, 660);
+    parent->resize(560, 700);
     parent->setObjectName("MainWindow");
 
     // --- UI Widgets ---
@@ -31,7 +31,9 @@ void ClipboardGrabberUI::setupUi(QWidget *parent) {
     add_image_button = new QPushButton("ছবি যুক্ত করুন (Add Image)");
     add_image_button->setIcon(get_feather_icon(QChar(0xe978)));
 
+    folder_dropdown = new QComboBox();
     subject_dropdown = new QComboBox();
+
     toggle_subject_button = new QPushButton("বিষয় পরিবর্তন");
     toggle_subject_button->setStyleSheet("QPushButton { background-color: #9b59b6; } QPushButton:hover { background-color: #8e44ad; }");
     toggle_subject_button->setIcon(get_feather_icon(QChar(0xe9d0)));
@@ -106,15 +108,27 @@ void ClipboardGrabberUI::setupUi(QWidget *parent) {
     QVBoxLayout *subject_layout = new QVBoxLayout(subject_card);
     subject_layout->setContentsMargins(12, 12, 12, 12);
     subject_layout->setSpacing(8);
-    QLabel *subject_title = new QLabel("নোট বিষয় নির্বাচন (Subject Selection):");
+    QLabel *subject_title = new QLabel("ফোল্ডার ও বিষয়ের তালিকা (Folder & Subject Navigation):");
     subject_title->setStyleSheet("font-weight: bold; color: #192a56;");
     subject_layout->addWidget(subject_title);
     
+    // Row 1: Folder Selection
+    QHBoxLayout *folder_layout = new QHBoxLayout();
+    QLabel *lbl_folder = new QLabel("ফোল্ডার:");
+    lbl_folder->setFixedWidth(60);
+    folder_layout->addWidget(lbl_folder);
+    folder_layout->addWidget(folder_dropdown, 1);
+    folder_layout->addWidget(add_folder_button);
+    subject_layout->addLayout(folder_layout);
+
+    // Row 2: Subject Selection
     QHBoxLayout *file_layout = new QHBoxLayout();
+    QLabel *lbl_subject = new QLabel("বিষয়:");
+    lbl_subject->setFixedWidth(60);
+    file_layout->addWidget(lbl_subject);
     file_layout->addWidget(subject_dropdown, 1);
     file_layout->addWidget(toggle_subject_button);
     file_layout->addWidget(add_subject_button);
-    file_layout->addWidget(add_folder_button);
     file_layout->addWidget(open_file_button);
     subject_layout->addLayout(file_layout);
 

@@ -19,6 +19,7 @@ public:
     QPushButton *start_button;
     QPushButton *stop_button;
     QPushButton *add_image_button;
+    QComboBox *folder_dropdown;
     QComboBox *subject_dropdown;
     QPushButton *toggle_subject_button;
     QPushButton *add_subject_button;

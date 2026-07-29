@@ -32,6 +32,7 @@ private slots:
     void handle_text_captured(const QString &text);
     void handle_image_captured(const QImage &image);
     void on_subject_changed(const QString &text);
+    void on_folder_changed(int index);
     void inject_heading_from_clipboard();
     void open_selected_file();
     void add_clipboard_image();
@@ -55,7 +56,9 @@ private:
 
     void save_sections_for_subject(const QString &subject_name);
     void load_sections_for_subject(const QString &subject_name);
+    void populate_folders_from_disk();
     void populate_subjects_from_disk();
+    QString get_selected_subject_name() const;
     QString get_current_target_file();
     void update_status_label();
     void write_to_file(const QString &processed_text, const QString &section = "others");
