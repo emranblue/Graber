@@ -1,194 +1,126 @@
-name: CI/CD Build and Release
+name: Build Self-Contained DEB
 
 on:
   push:
-    branches:
-      - main
-    tags:
-      - 'v*'
+    branches: [ "main", "master" ]
   pull_request:
-    branches:
-      - main
-
-permissions:
-  contents: write
+    branches: [ "main", "master" ]
+  workflow_dispatch:
 
 jobs:
-  build-linux:
-    name: Build Linux Package (.deb)
-    runs-on: ubuntu-latest
+  build-deb:
+    # Building on ubuntu-22.04 ensures forward compatibility with newer glibc systems
+    runs-on: ubuntu-22.04
+
     steps:
-      - name: Checkout Code
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install Qt 6.8
-        id: install-qt
-        uses: jurplel/install-qt-action@v4
-        with:
-          version: '6.8.3'
-          host: 'linux'
-          target: 'desktop'
-          arch: 'linux_gcc_64'
-          cache: 'true'
-
-      - name: Install Build Dependencies
+      - name: Install System Build Tools & patchelf
         run: |
           sudo apt-get update
           sudo apt-get install -y \
             build-essential \
             cmake \
+            patchelf \
+            strip-nondeterminism \
             libgl1-mesa-dev \
+            libegl1-mesa-dev \
             libxkbcommon-dev \
-            libx11-xcb-dev \
-            libglu1-mesa-dev \
-            libxcb-cursor0 \
-            libxcb-icccm4 \
-            libxcb-image0 \
-            libxcb-keysyms1 \
-            libxcb-render-util0 \
-            libxcb-shape0 \
-            libxcb-xinerama0 \
-            wget file
+            libdbus-1-dev
 
-      - name: Configure CMake
-        run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
-
-      - name: Build Application
-        run: cmake --build build --config Release
-
-      - name: Bundle Qt & Create .deb Package
-        run: |
-          # 1. Locate QMake path dynamically from install-qt step output
-          QT_BIN_DIR="${{ steps.install-qt.outputs.qtPath }}/bin"
-          export PATH="$QT_BIN_DIR:$PATH"
-          export QMAKE="$QT_BIN_DIR/qmake"
-
-          echo "Using QMAKE at: $QMAKE"
-
-          # 2. Download bundling tools (linuxdeploy & Qt plugin)
-          wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
-          wget -q https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
-          chmod +x linuxdeploy-x86_64.AppImage linuxdeploy-plugin-qt-x86_64.AppImage
-
-          # 3. Prepare Linux directory structure
-          mkdir -p AppDir/usr/bin
-          mkdir -p AppDir/usr/share/applications
-          mkdir -p AppDir/usr/share/icons/hicolor/scalable/apps/
-
-          # Copy compiled binary
-          cp build/graber AppDir/usr/bin/
-
-          # Create desktop shortcut file
-          cat << 'EOF' > AppDir/usr/share/applications/graber.desktop
-          [Desktop Entry]
-          Type=Application
-          Name=Clipboard Graber
-          Comment=Clipboard note capturing and markdown utility
-          Exec=graber
-          Icon=graber
-          Terminal=false
-          Categories=Utility;Office;
-          EOF
-
-          # Touch dummy icon reference so packaging succeeds
-          touch AppDir/usr/share/icons/hicolor/scalable/apps/graber.svg
-
-          # 4. Bundle Qt 6.8 dependencies and platform plugins into AppDir
-          export EXTRA_QT_PLUGINS="platforms,xcbglintegrations,imageformats,iconengines"
-          ./linuxdeploy-x86_64.AppImage --appdir AppDir --plugin qt
-
-          # 5. Create DEB package structure
-          mkdir -p debian/usr
-          cp -r AppDir/usr/* debian/usr/
-
-          mkdir -p debian/DEBIAN
-          cat << 'EOF' > debian/DEBIAN/control
-          Package: graber
-          Version: 1.0.0
-          Architecture: amd64
-          Maintainer: Emran <emran.blue.120@gmail.com>
-          Depends: libc6, libgl1, libxkbcommon0, libx11-xcb1, libxcb-cursor0
-          Description: Clipboard Graber GUI application to capture clipboard content and manage markdown notes.
-          EOF
-
-          # Build final .deb file
-          dpkg-deb --build debian graber.deb
-
-      - name: Upload Linux Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: graber-linux-deb
-          path: graber.deb
-          compression-level: 0
-
-  build-windows:
-    name: Build Windows Package
-    runs-on: windows-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Install Qt 6.8
+      - name: Install Qt 6
         uses: jurplel/install-qt-action@v4
         with:
-          version: '6.8.3'
-          host: 'windows'
-          target: 'desktop'
-          arch: 'win64_msvc2022_64'
-          cache: 'true'
-
-      - name: Set up MSVC Developer Command Prompt
-        uses: ilammy/msvc-dev-cmd@v1
-
-      - name: Configure CMake
-        run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+          version: '6.8.0' # Adjust version if needed
+          arch: 'gcc_64'
+          dir: '${{ github.workspace }}/Qt'
 
       - name: Build Application
-        run: cmake --build build --config Release
-
-      - name: Prepare Raw EXE and Bundled ZIP
-        shell: pwsh
         run: |
-          mkdir dist
-          copy build/Release/graber.exe ./graber.exe
-          copy build/Release/graber.exe dist/
-          windeployqt --dir dist dist/graber.exe
-          Compress-Archive -Path dist\* -DestinationPath graber-windows.zip
+          # Configure and build using CMake (adjust if using qmake directly)
+          cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --config Release
 
-      - name: Upload Raw EXE
+          # If using qmake directly instead of CMake, use this:
+          # ${{ env.Qt6_DIR }}/bin/qmake -o Makefile Graber.pro
+          # make -j$(nproc)
+
+      - name: Package Self-Contained DEB
+        run: |
+          APP_NAME="graber"
+          PKG_DIR="package-root"
+
+          # 1. Prepare Directory Hierarchy
+          mkdir -p ${PKG_DIR}/DEBIAN
+          mkdir -p ${PKG_DIR}/usr/bin
+          mkdir -p ${PKG_DIR}/usr/lib/${APP_NAME}
+          mkdir -p ${PKG_DIR}/usr/lib/${APP_NAME}/platforms
+
+          # 2. Copy Built Binary
+          # (Ensure 'build/graber' matches your build output path)
+          cp build/${APP_NAME} ${PKG_DIR}/usr/bin/
+
+          BIN_PATH="${PKG_DIR}/usr/bin/${APP_NAME}"
+          LIB_DIR="${PKG_DIR}/usr/lib/${APP_NAME}"
+
+          # 3. Copy Qt Platform Plugins (XCB for Linux desktop UI rendering)
+          cp -r ${{ env.Qt6_DIR }}/plugins/platforms/* ${LIB_DIR}/platforms/
+
+          # 4. Copy Shared Library Dependencies using ldd
+          ldd "${BIN_PATH}" | grep "=>" | awk '{print $3}' | grep -v '^$' | while read -r lib; do
+            if [ -f "$lib" ]; then
+              case "$(basename "$lib")" in
+                # Exclude core glibc libraries to prevent system crashes across distros
+                libc.so*|libpthread.so*|libdl.so*|libm.so*|librt.so*|ld-linux*)
+                  ;;
+                *)
+                  cp -L "$lib" "${LIB_DIR}/"
+                  ;;
+              esac
+            fi
+          done
+
+          # 5. Patch RPATH using patchelf
+          # Sets binary to look in /usr/lib/graber/ for bundled libraries
+          patchelf --set-rpath "\$ORIGIN/../lib/${APP_NAME}" "${BIN_PATH}"
+
+          # Patch all copied libraries and platform plugins
+          for lib in "${LIB_DIR}"/*.so* "${LIB_DIR}"/platforms/*.so*; do
+            if [ -f "$lib" ]; then
+              patchelf --set-rpath "\$ORIGIN" "$lib" 2>/dev/null || true
+            fi
+          done
+
+          # 6. Strip Debug Symbols (significantly reduces package size)
+          strip --strip-unneeded "${BIN_PATH}" 2>/dev/null || true
+          for lib in "${LIB_DIR}"/*.so* "${LIB_DIR}"/platforms/*.so*; do
+            if [ -f "$lib" ]; then
+              strip --strip-unneeded "$lib" 2>/dev/null || true
+            fi
+          done
+
+          # 7. Write minimal DEBIAN/control File (No local dependencies specified)
+          cat <<EOF > ${PKG_DIR}/DEBIAN/control
+          Package: ${APP_NAME}
+          Version: 1.0.0
+          Architecture: amd64
+          Maintainer: Developer <dev@example.com>
+          Section: utils
+          Priority: optional
+          Description: Fully self-contained ${APP_NAME} application.
+          EOF
+
+          # Set Permissions
+          chmod -R 755 ${PKG_DIR}/DEBIAN
+          chmod 755 ${BIN_PATH}
+          chmod -R 644 ${LIB_DIR}/*.so* 2>/dev/null || true
+
+          # 8. Build Compressed DEB Package
+          dpkg-deb -Zxz -z9 --build ${PKG_DIR} ${APP_NAME}_1.0.0_amd64.deb
+
+      - name: Upload DEB Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: graber-windows-exe
-          path: graber.exe
-          compression-level: 0
-
-      - name: Upload Bundled ZIP
-        uses: actions/upload-artifact@v4
-        with:
-          name: graber-windows-zip
-          path: graber-windows.zip
-          compression-level: 0
-
-  create-release:
-    name: Create GitHub Release
-    needs: [build-linux, build-windows]
-    if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Download All Artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: ./
-
-      - name: Create Release and Upload Assets
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            graber-linux-deb/graber.deb
-            graber-windows-exe/graber.exe
-            graber-windows-zip/graber-windows.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          name: graber-standalone-deb
+          path: "*.deb"
