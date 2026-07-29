@@ -1,15 +1,21 @@
-name: Build Self-Contained DEB
+name: Build Cross-Platform (Linux & Windows) & Release
 
 on:
   push:
     branches: [ "main", "master" ]
-  pull_request:
-    branches: [ "main", "master" ]
+    tags:
+      - 'v*'
+      - '[0-9]*'
   workflow_dispatch:
 
 jobs:
-  build-deb:
+  # ==========================================
+  # 1. LINUX SELF-CONTAINED .DEB BUILD
+  # ==========================================
+  build-linux-deb:
     runs-on: ubuntu-22.04
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout Repository
@@ -29,7 +35,7 @@ jobs:
             libxkbcommon-dev \
             libdbus-1-dev
 
-      - name: Build Application
+      - name: Build Application (Linux)
         run: |
           cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
           cmake --build build --config Release
@@ -38,30 +44,28 @@ jobs:
         run: |
           APP_NAME="graber"
           PKG_DIR="package-root"
+          VERSION="${GITHUB_REF_NAME#v}"
 
-          # 1. Prepare Directory Structure
           mkdir -p ${PKG_DIR}/DEBIAN
           mkdir -p ${PKG_DIR}/usr/bin
           mkdir -p ${PKG_DIR}/usr/lib/${APP_NAME}
           mkdir -p ${PKG_DIR}/usr/lib/${APP_NAME}/platforms
 
-          # 2. Copy Executable
           cp build/${APP_NAME} ${PKG_DIR}/usr/bin/
 
           BIN_PATH="${PKG_DIR}/usr/bin/${APP_NAME}"
           LIB_DIR="${PKG_DIR}/usr/lib/${APP_NAME}"
 
-          # 3. Copy Qt Platform Plugins (XCB for Linux GUI rendering)
+          # Copy Qt Platform Plugins (XCB for Linux GUI)
           QT_PLUGIN_PATH=$(qtpaths --plugin-dir 2>/dev/null || echo "/usr/lib/x86_64-linux-gnu/qt6/plugins")
           if [ -d "${QT_PLUGIN_PATH}/platforms" ]; then
             cp -r "${QT_PLUGIN_PATH}/platforms"/* "${LIB_DIR}/platforms/"
           fi
 
-          # 4. Copy Shared Library Dependencies using ldd
+          # Copy Shared Library Dependencies
           ldd "${BIN_PATH}" | grep "=>" | awk '{print $3}' | grep -v '^$' | while read -r lib; do
             if [ -f "$lib" ]; then
               case "$(basename "$lib")" in
-                # Skip core glibc system libraries to avoid crashes on other distros
                 libc.so*|libpthread.so*|libdl.so*|libm.so*|librt.so*|ld-linux*)
                   ;;
                 *)
@@ -71,7 +75,7 @@ jobs:
             fi
           done
 
-          # Also grab plugin dependencies (like libQt6XcbQpa.so, etc.)
+          # Copy plugin dependencies
           for plugin in "${LIB_DIR}"/platforms/*.so; do
             if [ -f "$plugin" ]; then
               ldd "$plugin" | grep "=>" | awk '{print $3}' | grep -v '^$' | while read -r lib; do
@@ -88,16 +92,15 @@ jobs:
             fi
           done
 
-          # 5. Patch RPATH using patchelf
+          # Patch RPATH to use bundled /usr/lib/graber/ libraries
           patchelf --set-rpath "\$ORIGIN/../lib/${APP_NAME}" "${BIN_PATH}"
-
           for lib in "${LIB_DIR}"/*.so* "${LIB_DIR}"/platforms/*.so*; do
             if [ -f "$lib" ]; then
               patchelf --set-rpath "\$ORIGIN" "$lib" 2>/dev/null || true
             fi
           done
 
-          # 6. Strip Debug Symbols to reduce overall package size
+          # Strip Debug Symbols
           strip --strip-unneeded "${BIN_PATH}" 2>/dev/null || true
           for lib in "${LIB_DIR}"/*.so* "${LIB_DIR}"/platforms/*.so*; do
             if [ -f "$lib" ]; then
@@ -105,27 +108,124 @@ jobs:
             fi
           done
 
-          # 7. Write DEBIAN/control file (Empty dependencies field)
+          # Write DEBIAN/control File (No local dependencies specified)
           cat <<EOF > ${PKG_DIR}/DEBIAN/control
           Package: ${APP_NAME}
-          Version: 1.0.0
+          Version: ${VERSION}
           Architecture: amd64
-          Maintainer: Developer <dev@example.com>
+          Maintainer: Developer <emran.blue.120@gmail.com>
           Section: utils
           Priority: optional
           Description: Fully self-contained ${APP_NAME} application.
           EOF
 
-          # Set proper execution and file permissions
           chmod -R 755 ${PKG_DIR}/DEBIAN
           chmod 755 ${BIN_PATH}
           chmod -R 644 ${LIB_DIR}/*.so* 2>/dev/null || true
 
-          # 8. Build Compressed DEB Package
-          dpkg-deb -Zxz -z9 --build ${PKG_DIR} ${APP_NAME}_1.0.0_amd64.deb
+          dpkg-deb -Zxz -z9 --build ${PKG_DIR} ${APP_NAME}_${VERSION}_amd64.deb
 
-      - name: Upload DEB Artifact
+      - name: Upload Linux DEB Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: graber-standalone-deb
+          name: graber-linux-deb
           path: "*.deb"
+
+      - name: Attach Linux DEB to GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+        with:
+          files: "*.deb"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ==========================================
+  # 2. WINDOWS ZIP BUILD
+  # ==========================================
+  build-windows:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install Qt 6 (Windows)
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.0'
+          arch: 'win64_msvc2019_64'
+
+      - name: Build Application (Windows)
+        run: |
+          cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --config Release
+
+      - name: Package Windows Portable Zip (windeployqt)
+        shell: pwsh
+        run: |
+          $APP_NAME = "graber"
+          $VERSION = "${env:GITHUB_REF_NAME}".TrimStart("v")
+          if ([string]::IsNullOrWhiteSpace($VERSION)) { $VERSION = "latest" }
+
+          $BUILD_DIR = "build/Release"
+          if (-not (Test-Path "$BUILD_DIR/$APP_NAME.exe")) {
+              $BUILD_DIR = "build"
+          }
+
+          mkdir windows-package
+          Copy-Item "$BUILD_DIR/$APP_NAME.exe" -Destination "windows-package/"
+
+          # Deploy required Qt DLLs automatically
+          windeployqt --release --no-compiler-runtime "windows-package/$APP_NAME.exe"
+
+          # Zip the portable folder
+          Compress-Archive -Path "windows-package/*" -DestinationPath "${APP_NAME}_${VERSION}_windows_x64.zip"
+
+      - name: Upload Windows Zip Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: graber-windows-zip
+          path: "*.zip"
+
+      - name: Attach Windows Zip to GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+        with:
+          files: "*.zip"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ==========================================
+  # 3. NOTIFY DEVELOPER VIA EMAIL
+  # ==========================================
+  notify-developer:
+    needs: [build-linux-deb, build-windows]
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Send Email Notification
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: "Graber Build Status: ${{ (needs.build-linux-deb.result == 'success' && needs.build-windows.result == 'success') && 'SUCCESS' || 'FAILED' }} [${{ github.ref_name }}]"
+          to: emran.blue.120@gmail.com
+          from: "Graber CI/CD <ci@graber.app>"
+          body: |
+            Hello,
+
+            The cross-platform build pipeline for Graber (${{ github.ref_name }}) has completed.
+
+            Status:
+            - Linux .deb Build: ${{ needs.build-linux-deb.result }}
+            - Windows .zip Build: ${{ needs.build-windows.result }}
+
+            Commit: ${{ github.sha }}
+            Repository: ${{ github.repository }}
+            Workflow Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
