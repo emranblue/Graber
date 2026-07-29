@@ -9,69 +9,59 @@ on:
 
 jobs:
   build-deb:
-    # Building on ubuntu-22.04 ensures forward compatibility with newer glibc systems
     runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install System Build Tools & patchelf
+      - name: Install System Build Tools & Qt6 via APT
         run: |
           sudo apt-get update
           sudo apt-get install -y \
             build-essential \
             cmake \
             patchelf \
-            strip-nondeterminism \
+            qt6-base-dev \
+            qt6-base-dev-tools \
             libgl1-mesa-dev \
             libegl1-mesa-dev \
             libxkbcommon-dev \
             libdbus-1-dev
 
-      - name: Install Qt 6
-        uses: jurplel/install-qt-action@v4
-        with:
-          version: '6.8.0' # Adjust version if needed
-          arch: 'gcc_64'
-          dir: '${{ github.workspace }}/Qt'
-
       - name: Build Application
         run: |
-          # Configure and build using CMake (adjust if using qmake directly)
           cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
           cmake --build build --config Release
-
-          # If using qmake directly instead of CMake, use this:
-          # ${{ env.Qt6_DIR }}/bin/qmake -o Makefile Graber.pro
-          # make -j$(nproc)
 
       - name: Package Self-Contained DEB
         run: |
           APP_NAME="graber"
           PKG_DIR="package-root"
 
-          # 1. Prepare Directory Hierarchy
+          # 1. Prepare Directory Structure
           mkdir -p ${PKG_DIR}/DEBIAN
           mkdir -p ${PKG_DIR}/usr/bin
           mkdir -p ${PKG_DIR}/usr/lib/${APP_NAME}
           mkdir -p ${PKG_DIR}/usr/lib/${APP_NAME}/platforms
 
-          # 2. Copy Built Binary
-          # (Ensure 'build/graber' matches your build output path)
+          # 2. Copy Executable
           cp build/${APP_NAME} ${PKG_DIR}/usr/bin/
 
           BIN_PATH="${PKG_DIR}/usr/bin/${APP_NAME}"
           LIB_DIR="${PKG_DIR}/usr/lib/${APP_NAME}"
 
-          # 3. Copy Qt Platform Plugins (XCB for Linux desktop UI rendering)
-          cp -r ${{ env.Qt6_DIR }}/plugins/platforms/* ${LIB_DIR}/platforms/
+          # 3. Copy Qt Platform Plugins (XCB for Linux GUI rendering)
+          QT_PLUGIN_PATH=$(qtpaths --plugin-dir 2>/dev/null || echo "/usr/lib/x86_64-linux-gnu/qt6/plugins")
+          if [ -d "${QT_PLUGIN_PATH}/platforms" ]; then
+            cp -r "${QT_PLUGIN_PATH}/platforms"/* "${LIB_DIR}/platforms/"
+          fi
 
           # 4. Copy Shared Library Dependencies using ldd
           ldd "${BIN_PATH}" | grep "=>" | awk '{print $3}' | grep -v '^$' | while read -r lib; do
             if [ -f "$lib" ]; then
               case "$(basename "$lib")" in
-                # Exclude core glibc libraries to prevent system crashes across distros
+                # Skip core glibc system libraries to avoid crashes on other distros
                 libc.so*|libpthread.so*|libdl.so*|libm.so*|librt.so*|ld-linux*)
                   ;;
                 *)
@@ -81,18 +71,33 @@ jobs:
             fi
           done
 
+          # Also grab plugin dependencies (like libQt6XcbQpa.so, etc.)
+          for plugin in "${LIB_DIR}"/platforms/*.so; do
+            if [ -f "$plugin" ]; then
+              ldd "$plugin" | grep "=>" | awk '{print $3}' | grep -v '^$' | while read -r lib; do
+                if [ -f "$lib" ]; then
+                  case "$(basename "$lib")" in
+                    libc.so*|libpthread.so*|libdl.so*|libm.so*|librt.so*|ld-linux*)
+                      ;;
+                    *)
+                      cp -L -n "$lib" "${LIB_DIR}/" 2>/dev/null || true
+                      ;;
+                  esac
+                fi
+              done
+            fi
+          done
+
           # 5. Patch RPATH using patchelf
-          # Sets binary to look in /usr/lib/graber/ for bundled libraries
           patchelf --set-rpath "\$ORIGIN/../lib/${APP_NAME}" "${BIN_PATH}"
 
-          # Patch all copied libraries and platform plugins
           for lib in "${LIB_DIR}"/*.so* "${LIB_DIR}"/platforms/*.so*; do
             if [ -f "$lib" ]; then
               patchelf --set-rpath "\$ORIGIN" "$lib" 2>/dev/null || true
             fi
           done
 
-          # 6. Strip Debug Symbols (significantly reduces package size)
+          # 6. Strip Debug Symbols to reduce overall package size
           strip --strip-unneeded "${BIN_PATH}" 2>/dev/null || true
           for lib in "${LIB_DIR}"/*.so* "${LIB_DIR}"/platforms/*.so*; do
             if [ -f "$lib" ]; then
@@ -100,7 +105,7 @@ jobs:
             fi
           done
 
-          # 7. Write minimal DEBIAN/control File (No local dependencies specified)
+          # 7. Write DEBIAN/control file (Empty dependencies field)
           cat <<EOF > ${PKG_DIR}/DEBIAN/control
           Package: ${APP_NAME}
           Version: 1.0.0
@@ -111,7 +116,7 @@ jobs:
           Description: Fully self-contained ${APP_NAME} application.
           EOF
 
-          # Set Permissions
+          # Set proper execution and file permissions
           chmod -R 755 ${PKG_DIR}/DEBIAN
           chmod 755 ${BIN_PATH}
           chmod -R 644 ${LIB_DIR}/*.so* 2>/dev/null || true
