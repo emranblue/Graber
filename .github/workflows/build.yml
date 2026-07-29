@@ -56,7 +56,7 @@ jobs:
           BIN_PATH="${PKG_DIR}/usr/bin/${APP_NAME}"
           LIB_DIR="${PKG_DIR}/usr/lib/${APP_NAME}"
 
-          # Copy Qt Platform Plugins (XCB for Linux GUI)
+          # Copy Qt Platform Plugins
           QT_PLUGIN_PATH=$(qtpaths --plugin-dir 2>/dev/null || echo "/usr/lib/x86_64-linux-gnu/qt6/plugins")
           if [ -d "${QT_PLUGIN_PATH}/platforms" ]; then
             cp -r "${QT_PLUGIN_PATH}/platforms"/* "${LIB_DIR}/platforms/"
@@ -108,7 +108,7 @@ jobs:
             fi
           done
 
-          # Write DEBIAN/control File (No local dependencies specified)
+          # DEBIAN/control file
           cat <<EOF > ${PKG_DIR}/DEBIAN/control
           Package: ${APP_NAME}
           Version: ${VERSION}
@@ -140,10 +140,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # ==========================================
-  # 2. WINDOWS ZIP BUILD
+  # 2. WINDOWS ZIP BUILD (STABLE QT FIX)
   # ==========================================
   build-windows:
-    runs-on: windows-latest
+    runs-on: windows-2022
     permissions:
       contents: write
 
@@ -151,36 +151,43 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      # Install Qt 6 using stable qtinstall action with fallback mirror
       - name: Install Qt 6 (Windows)
-        uses: jurplel/install-qt-action@v4
+        uses: jurplel/install-qt-action@v3
         with:
-          version: '6.8.0'
+          version: '6.5.3' # Using LTS 6.5.3 prevents mirror XML index missing errors on Windows
           arch: 'win64_msvc2019_64'
+
+      - name: Setup MSVC Compiler
+        uses: ilammy/msvc-dev-cmd@v1
 
       - name: Build Application (Windows)
         run: |
           cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
           cmake --build build --config Release
 
-      - name: Package Windows Portable Zip (windeployqt)
+      - name: Package Windows Portable Zip
         shell: pwsh
         run: |
           $APP_NAME = "graber"
           $VERSION = "${env:GITHUB_REF_NAME}".TrimStart("v")
           if ([string]::IsNullOrWhiteSpace($VERSION)) { $VERSION = "latest" }
 
-          $BUILD_DIR = "build/Release"
-          if (-not (Test-Path "$BUILD_DIR/$APP_NAME.exe")) {
-              $BUILD_DIR = "build"
+          # Locate binary inside build tree
+          $EXE_PATH = Get-ChildItem -Path "build" -Filter "$APP_NAME.exe" -Recurse | Select-Object -First 1 -ExpandProperty FullName
+
+          if (-not $EXE_PATH) {
+              Write-Error "Could not find $APP_NAME.exe in build folder!"
+              exit 1
           }
 
           mkdir windows-package
-          Copy-Item "$BUILD_DIR/$APP_NAME.exe" -Destination "windows-package/"
+          Copy-Item $EXE_PATH -Destination "windows-package/"
 
-          # Deploy required Qt DLLs automatically
+          # Run windeployqt to automatically bundle all required Qt .dll files
           windeployqt --release --no-compiler-runtime "windows-package/$APP_NAME.exe"
 
-          # Zip the portable folder
+          # Zip package
           Compress-Archive -Path "windows-package/*" -DestinationPath "${APP_NAME}_${VERSION}_windows_x64.zip"
 
       - name: Upload Windows Zip Artifact
