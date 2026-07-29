@@ -45,24 +45,27 @@ jobs:
           APP_NAME="graber"
           PKG_DIR="package-root"
           VERSION="${GITHUB_REF_NAME#v}"
+          if [ -z "$VERSION" ]; then VERSION="1.0.0"; fi
 
+          # Directory Structure
           mkdir -p ${PKG_DIR}/DEBIAN
           mkdir -p ${PKG_DIR}/usr/bin
           mkdir -p ${PKG_DIR}/usr/lib/${APP_NAME}
           mkdir -p ${PKG_DIR}/usr/lib/${APP_NAME}/platforms
 
-          cp build/${APP_NAME} ${PKG_DIR}/usr/bin/
-
-          BIN_PATH="${PKG_DIR}/usr/bin/${APP_NAME}"
+          BIN_PATH="${PKG_DIR}/usr/lib/${APP_NAME}/${APP_NAME}-bin"
           LIB_DIR="${PKG_DIR}/usr/lib/${APP_NAME}"
 
-          # Copy Qt Platform Plugins
+          # Copy Real Executable to /usr/lib/graber/
+          cp build/${APP_NAME} "${BIN_PATH}"
+
+          # Copy Qt Platform Plugins (libqxcb.so and X11 plugins)
           QT_PLUGIN_PATH=$(qtpaths --plugin-dir 2>/dev/null || echo "/usr/lib/x86_64-linux-gnu/qt6/plugins")
           if [ -d "${QT_PLUGIN_PATH}/platforms" ]; then
             cp -r "${QT_PLUGIN_PATH}/platforms"/* "${LIB_DIR}/platforms/"
           fi
 
-          # Copy Shared Library Dependencies
+          # Copy Shared Library Dependencies for Binary
           ldd "${BIN_PATH}" | grep "=>" | awk '{print $3}' | grep -v '^$' | while read -r lib; do
             if [ -f "$lib" ]; then
               case "$(basename "$lib")" in
@@ -75,7 +78,7 @@ jobs:
             fi
           done
 
-          # Copy plugin dependencies
+          # Copy Dependencies for Platform Plugins (Crucial for libqxcb.so)
           for plugin in "${LIB_DIR}"/platforms/*.so; do
             if [ -f "$plugin" ]; then
               ldd "$plugin" | grep "=>" | awk '{print $3}' | grep -v '^$' | while read -r lib; do
@@ -92,13 +95,22 @@ jobs:
             fi
           done
 
-          # Patch RPATH to use bundled /usr/lib/graber/ libraries
-          patchelf --set-rpath "\$ORIGIN/../lib/${APP_NAME}" "${BIN_PATH}"
+          # Patch RPATH using patchelf ($ORIGIN resolves to /usr/lib/graber/)
+          patchelf --set-rpath "\$ORIGIN" "${BIN_PATH}"
           for lib in "${LIB_DIR}"/*.so* "${LIB_DIR}"/platforms/*.so*; do
             if [ -f "$lib" ]; then
               patchelf --set-rpath "\$ORIGIN" "$lib" 2>/dev/null || true
             fi
           done
+
+          # Create Entry Point Wrapper Script in /usr/bin/graber
+          cat <<'EOF' > ${PKG_DIR}/usr/bin/${APP_NAME}
+#!/bin/bash
+DIR="/usr/lib/graber"
+export QT_PLUGIN_PATH="${DIR}/platforms:${DIR}"
+export LD_LIBRARY_PATH="${DIR}:${LD_LIBRARY_PATH}"
+exec "${DIR}/graber-bin" "$@"
+EOF
 
           # Strip Debug Symbols
           strip --strip-unneeded "${BIN_PATH}" 2>/dev/null || true
@@ -110,16 +122,18 @@ jobs:
 
           # DEBIAN/control file
           cat <<EOF > ${PKG_DIR}/DEBIAN/control
-          Package: ${APP_NAME}
-          Version: ${VERSION}
-          Architecture: amd64
-          Maintainer: Developer <emran.blue.120@gmail.com>
-          Section: utils
-          Priority: optional
-          Description: Fully self-contained ${APP_NAME} application.
-          EOF
+Package: ${APP_NAME}
+Version: ${VERSION}
+Architecture: amd64
+Maintainer: Developer <emran.blue.120@gmail.com>
+Section: utils
+Priority: optional
+Description: Fully self-contained ${APP_NAME} application.
+EOF
 
+          # Set Permissions
           chmod -R 755 ${PKG_DIR}/DEBIAN
+          chmod 755 ${PKG_DIR}/usr/bin/${APP_NAME}
           chmod 755 ${BIN_PATH}
           chmod -R 644 ${LIB_DIR}/*.so* 2>/dev/null || true
 
@@ -151,11 +165,11 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # Install Qt 6 using stable qtinstall action with fallback mirror
+      # Install Qt 6 using stable qtinstall action (Qt LTS 6.5.3)
       - name: Install Qt 6 (Windows)
         uses: jurplel/install-qt-action@v3
         with:
-          version: '6.5.3' # Using LTS 6.5.3 prevents mirror XML index missing errors on Windows
+          version: '6.5.3'
           arch: 'win64_msvc2019_64'
 
       - name: Setup MSVC Compiler
