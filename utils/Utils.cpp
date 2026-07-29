@@ -10,6 +10,18 @@
 #include <QStringList>
 #include <QStandardPaths>
 
+static QString s_featherFontFamily = "icomoon";
+
+void set_feather_font_family(const QString &familyName) {
+    if (!familyName.isEmpty()) {
+        s_featherFontFamily = familyName;
+    }
+}
+
+QString get_feather_font_family() {
+    return s_featherFontFamily;
+}
+
 void debugLog(const QString &msg) {
     QString log_dir = QStandardPaths::writableLocation(QStandardPaths::HomeLocation) + QDir::separator() + "GraberNotes";
     QDir dir(log_dir);
@@ -52,7 +64,7 @@ QIcon get_feather_icon(const QChar &code, const QColor &color, int size) {
     painter.setRenderHint(QPainter::Antialiasing);
     painter.setRenderHint(QPainter::TextAntialiasing);
     
-    QFont font("feather");
+    QFont font(get_feather_font_family());
     font.setPixelSize(size - 2);
     painter.setFont(font);
     painter.setPen(color);

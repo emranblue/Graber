@@ -1,6 +1,7 @@
 #include <QApplication>
 #include <QFontDatabase>
 #include "ClipboardGrabber.h"
+#include "Utils.h"
 
 int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
@@ -30,8 +31,14 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    // Add the Feather font
-    QFontDatabase::addApplicationFont(":/feather.ttf");
+    // Add the Feather font dynamically
+    int featherFontId = QFontDatabase::addApplicationFont(":/feather.ttf");
+    if (featherFontId != -1) {
+        QStringList fontFamilies = QFontDatabase::applicationFontFamilies(featherFontId);
+        if (!fontFamilies.isEmpty()) {
+            set_feather_font_family(fontFamilies.at(0));
+        }
+    }
 
     ClipboardGrabber window;
     window.show();
