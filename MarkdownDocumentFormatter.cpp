@@ -1,0 +1,418 @@
+#include "MarkdownDocumentFormatter.h"
+#include "MarkdownUtils.h"
+#include <QRegularExpression>
+#include <QTextStream>
+#include <QFile>
+
+QString MarkdownDocumentFormatter::generateSlug(const QString &text) const {
+    return QString::fromStdString(MarkdownUtils::generate_slug(text));
+}
+
+QString MarkdownDocumentFormatter::detectSectionFromTitle(const QString &title) const {
+    return MarkdownUtils::detect_section_from_title(title);
+}
+
+QString MarkdownDocumentFormatter::normalizeContent(const QString &content) const {
+    int toc_start = content.indexOf("<!-- TOC_START -->");
+    int toc_end = content.indexOf("<!-- TOC_END -->");
+    QString clean_content = content;
+    if (toc_start != -1 && toc_end != -1) {
+        QString pre_toc = content.left(toc_start);
+        QString post_toc = content.mid(toc_end + QString("<!-- TOC_END -->").length());
+        clean_content = pre_toc + post_toc;
+    }
+
+    QStringList lines = clean_content.split('\n');
+    QStringList output_lines;
+
+    QRegularExpression date_regex("^###\\s*(?:\\*\\*\\*)?\\s*([0-9০-৯]{1,2}\\s+(?:January|February|March|April|May|June|July|August|September|October|November|December|জানুয়ারি|ফেব্রুয়ারি|মার্চ|এপ্রিল|মে|জুন|জুলাই|আগস্ট|সেপ্টেম্বর|অক্টোবর|নভেম্বর|ডিসেম্বর)[,\\s]+[0-9০-৯]{4})\\s*(?:\\*\\*\\*)?$", QRegularExpression::CaseInsensitiveOption);
+    QRegularExpression h2_regex("<h2([^>]*)>(.*?)</h2>", QRegularExpression::CaseInsensitiveOption);
+    QRegularExpression md_regex("^(#{1,3})\\s+(?!\\*\\*\\*)(.*?)$");
+    QRegularExpression md_section_regex("<!--\\s*section:([\\w-]+)\\s*-->");
+    QRegularExpression section_attr_regex("data-section=\"([^\"]*)\"", QRegularExpression::CaseInsensitiveOption);
+    QRegularExpression style_regex("style=\"([^\"]*)\"", QRegularExpression::CaseInsensitiveOption);
+
+    for (int i = 0; i < lines.size(); ++i) {
+        QString line = lines[i];
+        QString trimmed_line = line.trimmed();
+
+        QRegularExpressionMatch date_match = date_regex.match(trimmed_line);
+        QRegularExpressionMatch h2_match = h2_regex.match(trimmed_line);
+        QRegularExpressionMatch md_match = md_regex.match(trimmed_line);
+
+        if (trimmed_line.contains("<div") && (trimmed_line.contains("border") || trimmed_line.contains("background-color")) && !trimmed_line.contains("timeline") && !trimmed_line.contains("bullet")) {
+            continue;
+        } else if (trimmed_line == "</div>") {
+            continue;
+        } else if (date_match.hasMatch()) {
+            output_lines.append(line);
+        } else if (h2_match.hasMatch()) {
+            QString attributes = h2_match.captured(1);
+            QString title = h2_match.captured(2).trimmed();
+            QString slug = generateSlug(title);
+
+            QString style = "color: #e74c3c; font-weight: bold; font-style: italic; margin-bottom: 5px;";
+            QRegularExpressionMatch style_match = style_regex.match(attributes);
+            if (style_match.hasMatch()) {
+                style = style_match.captured(1);
+            }
+
+            QString section = detectSectionFromTitle(title);
+            QRegularExpressionMatch section_match = section_attr_regex.match(attributes);
+            if (section_match.hasMatch()) {
+                section = section_match.captured(1);
+            }
+
+            QString rewritten_line = QString("<h2 id=\"%1\" data-section=\"%2\" style=\"%3\">%4</h2>")
+                                     .arg(slug, section, style, title);
+            output_lines.append(rewritten_line);
+        } else if (md_match.hasMatch()) {
+            int level = md_match.captured(1).length();
+            if (level == 3 && trimmed_line.contains("***")) {
+                output_lines.append(line);
+                continue;
+            }
+
+            QString rest = md_match.captured(2).trimmed();
+            QString section = detectSectionFromTitle(rest);
+            QRegularExpressionMatch section_match = md_section_regex.match(rest);
+            QString title = rest;
+            if (section_match.hasMatch()) {
+                section = section_match.captured(1);
+                title = rest.left(section_match.capturedStart()).trimmed();
+            }
+
+            QString slug = generateSlug(title);
+
+            if (level == 2) {
+                QString style = "color: #e74c3c; font-weight: bold; font-style: italic; margin-bottom: 5px;";
+                QString html_heading = QString("<h2 id=\"%1\" data-section=\"%2\" style=\"%3\">%4</h2>")
+                                       .arg(slug, section, style, title);
+                output_lines.append(html_heading);
+            } else if (level == 3) {
+                QString style = "color: #2980b9; font-weight: bold; font-style: italic; margin-top: 10px; margin-bottom: 5px;";
+                QString html_subheading = QString("<h3 id=\"%1\" style=\"%2\">%3</h3>")
+                                          .arg(slug, style, title);
+                output_lines.append(html_subheading);
+            }
+        } else {
+            output_lines.append(line);
+        }
+    }
+
+    return output_lines.join('\n');
+}
+
+QString MarkdownDocumentFormatter::generateToc(const QString &content, const QList<SectionItem> &sections) const {
+    Q_UNUSED(content);
+    Q_UNUSED(sections);
+    return "";
+}
+
+QString MarkdownDocumentFormatter::updateTocInContent(const QString &content, const QList<SectionItem> &sections) const {
+    QString clean_content = content;
+    while (true) {
+        int toc_start = clean_content.indexOf("<!-- TOC_START -->");
+        int toc_end = clean_content.indexOf("<!-- TOC_END -->");
+        if (toc_start != -1 && toc_end != -1 && toc_end > toc_start) {
+            QString pre_toc = clean_content.left(toc_start);
+            QString post_toc = clean_content.mid(toc_end + QString("<!-- TOC_END -->").length());
+            clean_content = pre_toc + post_toc;
+        } else {
+            break;
+        }
+    }
+
+    QStringList lines = clean_content.split('\n');
+
+    struct HeadingInfo {
+        int index;
+        QString title;
+        QString slug;
+        QString date;
+        bool is_html;
+        QString style;
+        int level;
+        QString section;
+    };
+
+    QList<HeadingInfo> headings;
+    QString current_date = "";
+
+    QRegularExpression date_regex("^###\\s*(?:\\*\\*\\*)?\\s*([0-9০-৯]{1,2}\\s+(?:January|February|March|April|May|June|July|August|September|October|November|December|জানুয়ারি|ফেব্রুয়ারি|মার্চ|এপ্রিল|মে|জুন|জুলাই|আগস্ট|সেপ্টেম্বর|অক্টোবর|নভেম্বর|ডিসেম্বর)[,\\s]+[0-9০-৯]{4})\\s*(?:\\*\\*\\*)?$", QRegularExpression::CaseInsensitiveOption);
+    QRegularExpression h2_regex("<h2([^>]*)>(.*?)</h2>", QRegularExpression::CaseInsensitiveOption);
+    QRegularExpression h3_regex("<h3([^>]*)>(.*?)</h3>", QRegularExpression::CaseInsensitiveOption);
+    QRegularExpression style_regex("style=\"([^\"]*)\"", QRegularExpression::CaseInsensitiveOption);
+    QRegularExpression section_attr_regex("data-section=\"([^\"]*)\"", QRegularExpression::CaseInsensitiveOption);
+    QRegularExpression md_regex("^(#{2})\\s+(.*?)$");
+    QRegularExpression md_sub_regex("^(#{3})\\s+(?!\\*\\*\\*)(.*?)$");
+    QRegularExpression md_section_regex("<!--\\s*section:([\\w-]+)\\s*-->");
+
+    QStringList processed_lines;
+    int heading_counter = 0;
+
+    for (int i = 0; i < lines.size(); ++i) {
+        QString line = lines[i];
+        QString trimmed_line = line.trimmed();
+
+        QRegularExpressionMatch date_match = date_regex.match(trimmed_line);
+        QRegularExpressionMatch h2_match = h2_regex.match(trimmed_line);
+        QRegularExpressionMatch h3_match = h3_regex.match(trimmed_line);
+        QRegularExpressionMatch md_match = md_regex.match(trimmed_line);
+        QRegularExpressionMatch md_sub_match = md_sub_regex.match(trimmed_line);
+
+        if (date_match.hasMatch()) {
+            current_date = date_match.captured(1).trimmed();
+            processed_lines.append(line);
+        } else if (h2_match.hasMatch()) {
+            heading_counter++;
+            QString attributes = h2_match.captured(1);
+            QString title = h2_match.captured(2).trimmed();
+            QString slug = generateSlug(title);
+
+            QString style = "color: #e74c3c; font-weight: bold; font-style: italic; margin-bottom: 5px;";
+            QRegularExpressionMatch style_match = style_regex.match(attributes);
+            if (style_match.hasMatch()) {
+                style = style_match.captured(1);
+            }
+
+            QString section = "others";
+            QRegularExpressionMatch section_match = section_attr_regex.match(attributes);
+            if (section_match.hasMatch()) {
+                section = section_match.captured(1);
+            }
+
+            if (section.trimmed().isEmpty()) {
+                section = "others";
+            }
+
+            HeadingInfo info;
+            info.index = heading_counter;
+            info.title = title;
+            info.slug = slug;
+            info.date = current_date;
+            info.is_html = true;
+            info.style = style;
+            info.level = 2;
+            info.section = section;
+            headings.append(info);
+
+            QString rewritten_line = QString("<h2 id=\"%1\" data-section=\"%2\" style=\"%3\">%4</h2>")
+                                     .arg(slug, section, style, title);
+            processed_lines.append(rewritten_line);
+        } else if (h3_match.hasMatch()) {
+            QString attributes = h3_match.captured(1);
+            QString title = h3_match.captured(2).trimmed();
+            QString slug = generateSlug(title);
+            QString style = "color: #2980b9; font-weight: bold; font-style: italic; margin-top: 10px; margin-bottom: 5px;";
+            QRegularExpressionMatch style_match = style_regex.match(attributes);
+            if (style_match.hasMatch()) {
+                style = style_match.captured(1);
+            }
+
+            QString rewritten_line = QString("<h3 id=\"%1\" style=\"%2\">%3</h3>")
+                                     .arg(slug, style, title);
+            processed_lines.append(rewritten_line);
+        } else if (md_match.hasMatch()) {
+            heading_counter++;
+            QString rest = md_match.captured(2).trimmed();
+
+            QString section = "others";
+            QRegularExpressionMatch section_match = md_section_regex.match(rest);
+            QString title = rest;
+            if (section_match.hasMatch()) {
+                section = section_match.captured(1);
+                title = rest.left(section_match.capturedStart()).trimmed();
+            }
+
+            if (section.trimmed().isEmpty()) {
+                section = "others";
+            }
+
+            QString slug = generateSlug(title);
+
+            HeadingInfo info;
+            info.index = heading_counter;
+            info.title = title;
+            info.slug = slug;
+            info.date = current_date;
+            info.is_html = false;
+            info.style = "";
+            info.level = 2;
+            info.section = section;
+            headings.append(info);
+
+            processed_lines.append(line);
+        } else if (md_sub_match.hasMatch()) {
+            processed_lines.append(line);
+        } else {
+            processed_lines.append(line);
+        }
+    }
+
+    QString toc_block = "";
+    if (!headings.isEmpty()) {
+        toc_block += "<!-- TOC_START -->\n";
+        toc_block += "## সূচিপত্র (Table of Contents)\n\n";
+
+        QList<SectionItem> effective_sections = sections;
+        if (effective_sections.isEmpty()) {
+            effective_sections = MarkdownUtils::get_default_sections();
+        }
+
+        bool has_others = false;
+        for (const auto &sec : effective_sections) {
+            if (sec.slug == "others") {
+                has_others = true;
+                break;
+            }
+        }
+        if (!has_others) {
+            effective_sections.append(SectionItem{"অন্যান্য (Others)", "others"});
+        }
+
+        for (const auto &sec : effective_sections) {
+            QList<HeadingInfo> category_headings;
+            for (const HeadingInfo &h : headings) {
+                if (h.section == sec.slug) {
+                    category_headings.append(h);
+                }
+            }
+
+            if (!category_headings.isEmpty()) {
+                toc_block += QString("### %1\n").arg(sec.displayName);
+                for (const HeadingInfo &h : category_headings) {
+                    QString date_str = h.date.isEmpty() ? "" : QString(" *(%1)*").arg(h.date);
+                    toc_block += QString("- [%1. %2](#%3)%4\n").arg(QString::number(h.index), h.title, h.slug, date_str);
+                }
+                toc_block += "\n";
+            }
+        }
+        toc_block += "<!-- TOC_END -->\n\n";
+    }
+
+    return toc_block + processed_lines.join('\n');
+}
+
+QList<NoteItem> MarkdownDocumentFormatter::parseNoteStructure(const QString &content, const QList<SectionItem> &availableSections, QSet<QString> &outCustomSections) const {
+    QList<NoteItem> items;
+    QStringList lines = content.split('\n');
+
+    QRegularExpression h2_regex("<h2([^>]*)>(.*?)</h2>", QRegularExpression::CaseInsensitiveOption);
+    QRegularExpression h3_regex("<h3([^>]*)>(.*?)</h3>", QRegularExpression::CaseInsensitiveOption);
+    QRegularExpression section_attr_regex("data-section=\"([^\"]*)\"", QRegularExpression::CaseInsensitiveOption);
+    QRegularExpression md_regex("^(#{2})\\s+(.*?)$");
+    QRegularExpression md_sub_regex("^(#{3})\\s+(?!\\*\\*\\*)(.*?)$");
+    QRegularExpression md_section_regex("<!--\\s*section:([\\w-]+)\\s*-->");
+
+    QString current_parent_slug = "";
+
+    QSet<QString> known_slugs;
+    for (const auto &sec : availableSections) {
+        known_slugs.insert(sec.slug);
+    }
+
+    for (int i = 0; i < lines.size(); ++i) {
+        QString line = lines[i].trimmed();
+        QRegularExpressionMatch h2_match = h2_regex.match(line);
+        QRegularExpressionMatch h3_match = h3_regex.match(line);
+        QRegularExpressionMatch md_match = md_regex.match(line);
+        QRegularExpressionMatch md_sub_match = md_sub_regex.match(line);
+
+        if (h2_match.hasMatch()) {
+            QString attributes = h2_match.captured(1);
+            QString title = h2_match.captured(2).trimmed();
+            QString slug = generateSlug(title);
+
+            QString section = "others";
+            QRegularExpressionMatch section_match = section_attr_regex.match(attributes);
+            if (section_match.hasMatch()) {
+                section = section_match.captured(1);
+            }
+
+            if (!known_slugs.contains(section) && section != "others") {
+                outCustomSections.insert(section);
+            }
+
+            NoteItem item;
+            item.title = title;
+            item.slug = slug;
+            item.type = "heading";
+            item.section = section;
+            item.parent_slug = "";
+
+            items.append(item);
+            current_parent_slug = slug;
+        } else if (h3_match.hasMatch()) {
+            QString title = h3_match.captured(2).trimmed();
+            QString slug = generateSlug(title);
+
+            NoteItem item;
+            item.title = title;
+            item.slug = slug;
+            item.type = "subheading";
+            item.section = "";
+            item.parent_slug = current_parent_slug;
+
+            items.append(item);
+        } else if (md_match.hasMatch()) {
+            QString rest = md_match.captured(2).trimmed();
+            QString section = "others";
+            QRegularExpressionMatch section_match = md_section_regex.match(rest);
+            QString title = rest;
+            if (section_match.hasMatch()) {
+                section = section_match.captured(1);
+                title = rest.left(section_match.capturedStart()).trimmed();
+            }
+
+            if (!known_slugs.contains(section) && section != "others") {
+                outCustomSections.insert(section);
+            }
+
+            QString slug = generateSlug(title);
+
+            NoteItem item;
+            item.title = title;
+            item.slug = slug;
+            item.type = "heading";
+            item.section = section;
+            item.parent_slug = "";
+
+            items.append(item);
+            current_parent_slug = slug;
+        } else if (md_sub_match.hasMatch()) {
+            QString title = md_sub_match.captured(2).trimmed();
+            QString slug = generateSlug(title);
+
+            NoteItem item;
+            item.title = title;
+            item.slug = slug;
+            item.type = "subheading";
+            item.section = "";
+            item.parent_slug = current_parent_slug;
+
+            items.append(item);
+        }
+    }
+
+    return items;
+}
+
+void MarkdownDocumentFormatter::saveStructureTree(const QString &treeFilePath, const QList<NoteItem> &items) const {
+    MarkdownUtils::save_tree_file(treeFilePath, items);
+}
+
+QString MarkdownDocumentFormatter::restoreStateFromContent(const QString &content) const {
+    QTextStream in(const_cast<QString*>(&content));
+    QRegularExpression date_regex("^###\\s*(?:\\*\\*\\*)?\\s*([0-9০-৯]{1,2}\\s+(?:January|February|March|April|May|June|July|August|September|October|November|December|জানুয়ারি|ফেব্রুয়ারি|মার্চ|এপ্রিল|মে|জুন|জুলাই|আগস্ট|সেপ্টেম্বর|অক্টোবর|নভেম্বর|ডিসেম্বর)[,\\s]+[0-9০-৯]{4})\\s*(?:\\*\\*\\*)?$", QRegularExpression::CaseInsensitiveOption);
+    
+    QString last_found_date = "";
+    while (!in.atEnd()) {
+        QString line = in.readLine().trimmed();
+        QRegularExpressionMatch match = date_regex.match(line);
+        if (match.hasMatch()) {
+            last_found_date = match.captured(1).trimmed();
+        }
+    }
+    return last_found_date;
+}

@@ -1,4 +1,6 @@
 #include "NoteRepository.h"
+#include "MarkdownDocumentFormatter.h"
+#include "IniSectionRepository.h"
 #include "Utils.h"
 #include "MarkdownUtils.h"
 
@@ -7,14 +9,24 @@
 #include <QFileInfo>
 #include <QFile>
 #include <QTextStream>
-#include <QSettings>
 #include <QDateTime>
 #include <QStandardPaths>
-#include <QRegularExpression>
 #include <fstream>
-#include <iostream>
 
-NoteRepository::NoteRepository() {
+NoteRepository::NoteRepository() 
+    : formatter_(std::make_shared<MarkdownDocumentFormatter>()),
+      section_repo_(std::make_shared<IniSectionRepository>()) {
+    notes_dir_path_ = QStandardPaths::writableLocation(QStandardPaths::HomeLocation) + QDir::separator() + "GraberNotes";
+    QDir dir(notes_dir_path_);
+    if (!dir.exists()) {
+        dir.mkpath(".");
+    }
+}
+
+NoteRepository::NoteRepository(std::shared_ptr<IDocumentFormatter> formatter,
+                               std::shared_ptr<ISectionRepository> sectionRepo)
+    : formatter_(std::move(formatter)),
+      section_repo_(std::move(sectionRepo)) {
     notes_dir_path_ = QStandardPaths::writableLocation(QStandardPaths::HomeLocation) + QDir::separator() + "GraberNotes";
     QDir dir(notes_dir_path_);
     if (!dir.exists()) {
@@ -26,7 +38,7 @@ QString NoteRepository::notesDirPath() const {
     return notes_dir_path_;
 }
 
-QStringList NoteRepository::populateSubjectsFromDisk(QComboBox *sectionDropdown) {
+QStringList NoteRepository::populateSubjectsFromDisk(const QList<SectionItem> &sections) {
     QStringList all_subjects;
     QDirIterator it(notes_dir_path_, QStringList() << "*.md", QDir::Files, QDirIterator::Subdirectories);
     QDir base_dir(notes_dir_path_);
@@ -38,8 +50,8 @@ QStringList NoteRepository::populateSubjectsFromDisk(QComboBox *sectionDropdown)
             continue;
         }
         
-        normalizeMarkdownFile(filepath);
-        updateTocInFile(filepath, sectionDropdown);
+        normalizeNoteFile(filepath);
+        updateTocInFile(filepath, sections);
         
         relative_path.chop(3); // Remove ".md"
         all_subjects << relative_path;
@@ -78,85 +90,12 @@ bool NoteRepository::createFolder(const QString &folderPath, QString &outStatusM
     }
 }
 
-void NoteRepository::saveSectionsForSubject(const QString &subjectName, QComboBox *sectionDropdown) {
-    if (subjectName.isEmpty() || subjectName == "নির্বাচিত নয়" || !sectionDropdown) return;
-
-    QString ini_path = notes_dir_path_ + QDir::separator() + subjectName + ".ini";
-    QFileInfo fileInfo(ini_path);
-    QDir().mkpath(fileInfo.absolutePath());
-
-    QSettings settings(ini_path, QSettings::IniFormat);
-    settings.beginGroup("Sections");
-    settings.remove("");
-
-    QStringList order;
-    for (int i = 0; i < sectionDropdown->count(); ++i) {
-        QString slug = sectionDropdown->itemData(i).toString();
-        QString display_name = sectionDropdown->itemText(i);
-        order.append(slug);
-        settings.setValue(slug, display_name);
-    }
-    settings.setValue("_order", order.join(","));
-    settings.endGroup();
+QList<SectionItem> NoteRepository::loadSectionsForSubject(const QString &subjectName) {
+    return section_repo_->loadSectionsForSubject(notes_dir_path_, subjectName);
 }
 
-void NoteRepository::loadSectionsForSubject(const QString &subjectName, QComboBox *sectionDropdown) {
-    if (!sectionDropdown) return;
-    sectionDropdown->clear();
-
-    if (subjectName.isEmpty() || subjectName == "নির্বাচিত নয়") {
-        sectionDropdown->addItem("অন্যান্য (Others)", "others");
-        return;
-    }
-
-    QString ini_path = notes_dir_path_ + QDir::separator() + subjectName + ".ini";
-    QFileInfo fileInfo(ini_path);
-
-    if (!fileInfo.exists()) {
-        sectionDropdown->addItem("অন্যান্য (Others)", "others");
-        saveSectionsForSubject(subjectName, sectionDropdown);
-        return;
-    }
-
-    QSettings settings(ini_path, QSettings::IniFormat);
-    settings.beginGroup("Sections");
-    
-    QString order_str = settings.value("_order").toString();
-    QStringList order = order_str.split(',', Qt::SkipEmptyParts);
-
-    if (!order.isEmpty()) {
-        for (const QString &slug : order) {
-            QString trimmed_slug = slug.trimmed();
-            if (settings.contains(trimmed_slug)) {
-                QString display_name = settings.value(trimmed_slug).toString();
-                sectionDropdown->addItem(display_name, trimmed_slug);
-            }
-        }
-    } else {
-        QStringList keys = settings.childKeys();
-        for (const QString &slug : keys) {
-            if (slug == "_order") continue;
-            QString display_name = settings.value(slug).toString();
-            sectionDropdown->addItem(display_name, slug);
-        }
-    }
-    settings.endGroup();
-
-    bool has_others = false;
-    for (int i = 0; i < sectionDropdown->count(); ++i) {
-        if (sectionDropdown->itemData(i).toString() == "others") {
-            has_others = true;
-            break;
-        }
-    }
-    if (!has_others) {
-        sectionDropdown->addItem("অন্যান্য (Others)", "others");
-    }
-
-    if (sectionDropdown->count() == 0) {
-        sectionDropdown->addItem("অন্যান্য (Others)", "others");
-        saveSectionsForSubject(subjectName, sectionDropdown);
-    }
+void NoteRepository::saveSectionsForSubject(const QString &subjectName, const QList<SectionItem> &sections) {
+    section_repo_->saveSectionsForSubject(notes_dir_path_, subjectName, sections);
 }
 
 QString NoteRepository::getTargetFilePath(const QString &subjectName) const {
@@ -166,372 +105,7 @@ QString NoteRepository::getTargetFilePath(const QString &subjectName) const {
     return notes_dir_path_ + QDir::separator() + subjectName + ".md";
 }
 
-void NoteRepository::normalizeMarkdownFile(const QString &filePath) {
-    QFile file(filePath);
-    if (!file.open(QIODevice::ReadWrite | QIODevice::Text)) {
-        return;
-    }
-
-    QTextStream in(&file);
-    QString content = in.readAll();
-    file.close();
-
-    int toc_start = content.indexOf("<!-- TOC_START -->");
-    int toc_end = content.indexOf("<!-- TOC_END -->");
-    QString clean_content = content;
-    if (toc_start != -1 && toc_end != -1) {
-        QString pre_toc = content.left(toc_start);
-        QString post_toc = content.mid(toc_end + QString("<!-- TOC_END -->").length());
-        clean_content = pre_toc + post_toc;
-    }
-
-    QStringList lines = clean_content.split('\n');
-    QStringList output_lines;
-
-    QRegularExpression date_regex("^###\\s*(?:\\*\\*\\*)?\\s*([0-9০-৯]{1,2}\\s+(?:January|February|March|April|May|June|July|August|September|October|November|December|জানুয়ারি|ফেব্রুয়ারি|মার্চ|এপ্রিল|মে|জুন|জুলাই|আগস্ট|সেপ্টেম্বর|অক্টোবর|নভেম্বর|ডিসেম্বর)[,\\s]+[0-9০-৯]{4})\\s*(?:\\*\\*\\*)?$", QRegularExpression::CaseInsensitiveOption);
-    QRegularExpression h2_regex("<h2([^>]*)>(.*?)</h2>", QRegularExpression::CaseInsensitiveOption);
-    QRegularExpression md_regex("^(#{1,3})\\s+(?!\\*\\*\\*)(.*?)$");
-    QRegularExpression md_section_regex("<!--\\s*section:([\\w-]+)\\s*-->");
-    QRegularExpression section_attr_regex("data-section=\"([^\"]*)\"", QRegularExpression::CaseInsensitiveOption);
-    QRegularExpression style_regex("style=\"([^\"]*)\"", QRegularExpression::CaseInsensitiveOption);
-
-    for (int i = 0; i < lines.size(); ++i) {
-        QString line = lines[i];
-        QString trimmed_line = line.trimmed();
-
-        QRegularExpressionMatch date_match = date_regex.match(trimmed_line);
-        QRegularExpressionMatch h2_match = h2_regex.match(trimmed_line);
-        QRegularExpressionMatch md_match = md_regex.match(trimmed_line);
-
-        if (trimmed_line.contains("<div") && (trimmed_line.contains("border") || trimmed_line.contains("background-color")) && !trimmed_line.contains("timeline") && !trimmed_line.contains("bullet")) {
-            continue;
-        } else if (trimmed_line == "</div>") {
-            continue;
-        } else if (date_match.hasMatch()) {
-            output_lines.append(line);
-        } else if (h2_match.hasMatch()) {
-            QString attributes = h2_match.captured(1);
-            QString title = h2_match.captured(2).trimmed();
-            QString slug = QString::fromStdString(MarkdownUtils::generate_slug(title));
-
-            QString style = "color: #e74c3c; font-weight: bold; font-style: italic; margin-bottom: 5px;";
-            QRegularExpressionMatch style_match = style_regex.match(attributes);
-            if (style_match.hasMatch()) {
-                style = style_match.captured(1);
-            }
-
-            QString section = MarkdownUtils::detect_section_from_title(title);
-            QRegularExpressionMatch section_match = section_attr_regex.match(attributes);
-            if (section_match.hasMatch()) {
-                section = section_match.captured(1);
-            }
-
-            QString rewritten_line = QString("<h2 id=\"%1\" data-section=\"%2\" style=\"%3\">%4</h2>")
-                                     .arg(slug, section, style, title);
-            output_lines.append(rewritten_line);
-        } else if (md_match.hasMatch()) {
-            int level = md_match.captured(1).length();
-            if (level == 3 && trimmed_line.contains("***")) {
-                output_lines.append(line);
-                continue;
-            }
-
-            QString rest = md_match.captured(2).trimmed();
-            QString section = MarkdownUtils::detect_section_from_title(rest);
-            QRegularExpressionMatch section_match = md_section_regex.match(rest);
-            QString title = rest;
-            if (section_match.hasMatch()) {
-                section = section_match.captured(1);
-                title = rest.left(section_match.capturedStart()).trimmed();
-            }
-
-            QString slug = QString::fromStdString(MarkdownUtils::generate_slug(title));
-
-            if (level == 2) {
-                QString style = "color: #e74c3c; font-weight: bold; font-style: italic; margin-bottom: 5px;";
-                QString html_heading = QString("<h2 id=\"%1\" data-section=\"%2\" style=\"%3\">%4</h2>")
-                                       .arg(slug, section, style, title);
-                output_lines.append(html_heading);
-            } else if (level == 3) {
-                QString style = "color: #2980b9; font-weight: bold; font-style: italic; margin-top: 10px; margin-bottom: 5px;";
-                QString html_subheading = QString("<h3 id=\"%1\" style=\"%2\">%3</h3>")
-                                          .arg(slug, style, title);
-                output_lines.append(html_subheading);
-            }
-        } else {
-            output_lines.append(line);
-        }
-    }
-
-    QString final_content = output_lines.join('\n');
-
-    if (file.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
-        QTextStream out(&file);
-        out << final_content << "\n";
-        file.close();
-    }
-}
-
-void NoteRepository::updateTocInFile(const QString &filePath, QComboBox *sectionDropdown) {
-    QFile file(filePath);
-    if (!file.open(QIODevice::ReadWrite | QIODevice::Text)) {
-        return;
-    }
-
-    QTextStream in(&file);
-    QString content = in.readAll();
-    file.close();
-
-    QString clean_content = content;
-    while (true) {
-        int toc_start = clean_content.indexOf("<!-- TOC_START -->");
-        int toc_end = clean_content.indexOf("<!-- TOC_END -->");
-        if (toc_start != -1 && toc_end != -1 && toc_end > toc_start) {
-            QString pre_toc = clean_content.left(toc_start);
-            QString post_toc = clean_content.mid(toc_end + QString("<!-- TOC_END -->").length());
-            clean_content = pre_toc + post_toc;
-        } else {
-            break;
-        }
-    }
-
-    QStringList lines = clean_content.split('\n');
-    
-    struct HeadingInfo {
-        int index;
-        QString title;
-        QString slug;
-        QString date;
-        bool is_html;
-        QString style;
-        int level;
-        QString section;
-    };
-    
-    QList<HeadingInfo> headings;
-    QString current_date = "";
-    
-    QRegularExpression date_regex("^###\\s*(?:\\*\\*\\*)?\\s*([0-9০-৯]{1,2}\\s+(?:January|February|March|April|May|June|July|August|September|October|November|December|জানুয়ারি|ফেব্রুয়ারি|মার্চ|এপ্রিল|মে|জুন|জুলাই|আগস্ট|সেপ্টেম্বর|অক্টোবর|নভেম্বর|ডিসেম্বর)[,\\s]+[0-9০-৯]{4})\\s*(?:\\*\\*\\*)?$", QRegularExpression::CaseInsensitiveOption);
-    QRegularExpression h2_regex("<h2([^>]*)>(.*?)</h2>", QRegularExpression::CaseInsensitiveOption);
-    QRegularExpression h3_regex("<h3([^>]*)>(.*?)</h3>", QRegularExpression::CaseInsensitiveOption);
-    QRegularExpression style_regex("style=\"([^\"]*)\"", QRegularExpression::CaseInsensitiveOption);
-    QRegularExpression section_attr_regex("data-section=\"([^\"]*)\"", QRegularExpression::CaseInsensitiveOption);
-    QRegularExpression md_regex("^(#{2})\\s+(.*?)$");
-    QRegularExpression md_sub_regex("^(#{3})\\s+(?!\\*\\*\\*)(.*?)$");
-    QRegularExpression md_section_regex("<!--\\s*section:([\\w-]+)\\s*-->");
-
-    QStringList processed_lines;
-    int heading_counter = 0;
-
-    for (int i = 0; i < lines.size(); ++i) {
-        QString line = lines[i];
-        QString trimmed_line = line.trimmed();
-
-        QRegularExpressionMatch date_match = date_regex.match(trimmed_line);
-        QRegularExpressionMatch h2_match = h2_regex.match(trimmed_line);
-        QRegularExpressionMatch h3_match = h3_regex.match(trimmed_line);
-        QRegularExpressionMatch md_match = md_regex.match(trimmed_line);
-        QRegularExpressionMatch md_sub_match = md_sub_regex.match(trimmed_line);
-
-        if (date_match.hasMatch()) {
-            current_date = date_match.captured(1).trimmed();
-            processed_lines.append(line);
-        } else if (h2_match.hasMatch()) {
-            heading_counter++;
-            QString attributes = h2_match.captured(1);
-            QString title = h2_match.captured(2).trimmed();
-            QString slug = QString::fromStdString(MarkdownUtils::generate_slug(title));
-
-            QString style = "color: #e74c3c; font-weight: bold; font-style: italic; margin-bottom: 5px;";
-            QRegularExpressionMatch style_match = style_regex.match(attributes);
-            if (style_match.hasMatch()) {
-                style = style_match.captured(1);
-            }
-
-            QString section = "others";
-            QRegularExpressionMatch section_match = section_attr_regex.match(attributes);
-            if (section_match.hasMatch()) {
-                section = section_match.captured(1);
-            }
-
-            if (section.trimmed().isEmpty()) {
-                section = "others";
-            }
-
-            HeadingInfo info;
-            info.index = heading_counter;
-            info.title = title;
-            info.slug = slug;
-            info.date = current_date;
-            info.is_html = true;
-            info.style = style;
-            info.level = 2;
-            info.section = section;
-            headings.append(info);
-
-            QString rewritten_line = QString("<h2 id=\"%1\" data-section=\"%2\" style=\"%3\">%4</h2>")
-                                     .arg(slug, section, style, title);
-            processed_lines.append(rewritten_line);
-        } else if (h3_match.hasMatch()) {
-            QString attributes = h3_match.captured(1);
-            QString title = h3_match.captured(2).trimmed();
-            QString slug = QString::fromStdString(MarkdownUtils::generate_slug(title));
-            QString style = "color: #2980b9; font-weight: bold; font-style: italic; margin-top: 10px; margin-bottom: 5px;";
-            QRegularExpressionMatch style_match = style_regex.match(attributes);
-            if (style_match.hasMatch()) {
-                style = style_match.captured(1);
-            }
-            
-            QString rewritten_line = QString("<h3 id=\"%1\" style=\"%2\">%3</h3>")
-                                     .arg(slug, style, title);
-            processed_lines.append(rewritten_line);
-        } else if (md_match.hasMatch()) {
-            heading_counter++;
-            QString rest = md_match.captured(2).trimmed();
-
-            QString section = "others";
-            QRegularExpressionMatch section_match = md_section_regex.match(rest);
-            QString title = rest;
-            if (section_match.hasMatch()) {
-                section = section_match.captured(1);
-                title = rest.left(section_match.capturedStart()).trimmed();
-            }
-
-            if (section.trimmed().isEmpty()) {
-                section = "others";
-            }
-
-            QString slug = QString::fromStdString(MarkdownUtils::generate_slug(title));
-
-            HeadingInfo info;
-            info.index = heading_counter;
-            info.title = title;
-            info.slug = slug;
-            info.date = current_date;
-            info.is_html = false;
-            info.style = "";
-            info.level = 2;
-            info.section = section;
-            headings.append(info);
-
-            processed_lines.append(line);
-        } else if (md_sub_match.hasMatch()) {
-            processed_lines.append(line);
-        } else {
-            processed_lines.append(line);
-        }
-    }
-
-    QString toc_block = "";
-    if (!headings.isEmpty()) {
-        toc_block += "<!-- TOC_START -->\n";
-        toc_block += "## সূচিপত্র (Table of Contents)\n\n";
-
-        struct SectionDef {
-            QString key;
-            QString bangla;
-            QString english;
-        };
-
-        QList<SectionDef> sections_list = {
-            {"environment", "পরিবেশ", "Environment"},
-            {"energy", "জ্বালানি", "Energy"},
-            {"economy", "অর্থনীতি", "Economy"},
-            {"culture", "সংস্কৃতি", "Culture"},
-            {"geography", "ভূগোল", "Geography"},
-            {"population", "জনসংখ্যা", "Population"},
-            {"law-constitution", "আইন ও সংবিধান", "Law-Constitution"},
-            {"politics", "রাজনীতি", "Politics"},
-            {"freedom-fight", "মুক্তিযুদ্ধ", "Freedom-Fight"},
-            {"agriculture", "কৃষি", "Agriculture"},
-            {"history", "ইতিহাস", "History"},
-            {"education", "শিক্ষা", "Education"},
-            {"health", "স্বাস্থ্য", "Health"},
-            {"science-tech", "বিজ্ঞান ও প্রযুক্তি", "Science-Tech"},
-            {"foreign-policy", "পররাষ্ট্রনীতি", "Foreign-Policy"},
-            {"administration", "প্রশাসন", "Administration"}
-        };
-
-        for (const HeadingInfo &info : headings) {
-            if (info.section.isEmpty() || info.section == "others") continue;
-            bool exists = false;
-            for (const SectionDef &sec : sections_list) {
-                if (sec.key == info.section) {
-                    exists = true;
-                    break;
-                }
-            }
-            if (!exists) {
-                QString bangla_name = info.section;
-                QString english_name = info.section;
-                if (sectionDropdown) {
-                    for (int d_idx = 0; d_idx < sectionDropdown->count(); ++d_idx) {
-                        if (sectionDropdown->itemData(d_idx).toString() == info.section) {
-                            QString full_text = sectionDropdown->itemText(d_idx);
-                            int paren_idx = full_text.indexOf('(');
-                            if (paren_idx != -1) {
-                                bangla_name = full_text.left(paren_idx).trimmed();
-                                QString eng = full_text.mid(paren_idx + 1);
-                                if (eng.endsWith(')')) eng.chop(1);
-                                english_name = eng.trimmed();
-                            } else {
-                                bangla_name = full_text;
-                                english_name = full_text;
-                            }
-                            break;
-                        }
-                    }
-                }
-                sections_list.append({info.section, bangla_name, english_name});
-            }
-        }
-        
-        sections_list.append({"others", "অন্যান্য", "Others"});
-
-        for (const SectionDef &sec : sections_list) {
-            QList<HeadingInfo> sec_headings;
-            for (const HeadingInfo &info : headings) {
-                if (info.section == sec.key) {
-                    sec_headings.append(info);
-                }
-            }
-
-            if (!sec_headings.isEmpty()) {
-                toc_block += QString("### %1 (%2)\n").arg(sec.bangla, sec.english);
-                toc_block += "| পৃষ্ঠা (Page) | তারিখ (Date) | আইডি (ID) | শিরোনাম (Chapter/Topic) |\n";
-                toc_block += "| :---: | :---: | :---: | :--- |\n";
-
-                for (const HeadingInfo &info : sec_headings) {
-                    QString date_str = info.date.isEmpty() ? "---" : info.date;
-                    toc_block += QString("| **%1** | %2 | `%3` | [%4](#%5) |\n")
-                                 .arg(QString::number(info.index), date_str, info.slug, info.title, info.slug);
-                }
-                toc_block += "\n";
-            }
-        }
-
-        toc_block += "---\n";
-        toc_block += "<!-- TOC_END -->\n";
-    }
-
-    QString final_content = "";
-    QString body_content = processed_lines.join('\n').trimmed();
-    
-    if (!toc_block.isEmpty()) {
-        final_content = toc_block + "\n\n" + body_content;
-    } else {
-        final_content = body_content;
-    }
-    
-    if (file.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
-        QTextStream out(&file);
-        out << final_content << "\n";
-        file.close();
-    }
-}
-
-void NoteRepository::parseNoteStructure(const QString &filePath, QList<NoteItem> &items, QComboBox *sectionDropdown, const QSet<QString> &customAddedSections, const QString &subjectName) {
-    items.clear();
+void NoteRepository::normalizeNoteFile(const QString &filePath) {
     QFile file(filePath);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         return;
@@ -541,134 +115,50 @@ void NoteRepository::parseNoteStructure(const QString &filePath, QList<NoteItem>
     QString content = in.readAll();
     file.close();
 
-    int toc_start = content.indexOf("<!-- TOC_START -->");
-    int toc_end = content.indexOf("<!-- TOC_END -->");
-    QString clean_content = content;
-    if (toc_start != -1 && toc_end != -1) {
-        QString pre_toc = content.left(toc_start);
-        QString post_toc = content.mid(toc_end + QString("<!-- TOC_END -->").length());
-        clean_content = pre_toc + post_toc;
+    QString normalized = formatter_->normalizeContent(content);
+
+    if (file.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
+        QTextStream out(&file);
+        out << normalized << "\n";
+        file.close();
+    }
+}
+
+void NoteRepository::updateTocInFile(const QString &filePath, const QList<SectionItem> &sections) {
+    QFile file(filePath);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return;
     }
 
-    QStringList lines = clean_content.split('\n');
+    QTextStream in(&file);
+    QString content = in.readAll();
+    file.close();
+
+    QString updated_content = formatter_->updateTocInContent(content, sections);
+
+    if (file.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
+        QTextStream out(&file);
+        out << updated_content << "\n";
+        file.close();
+    }
+}
+
+QList<NoteItem> NoteRepository::parseNoteStructure(const QString &filePath, const QList<SectionItem> &sections, QSet<QString> &customAddedSections, const QString &subjectName) {
+    QFile file(filePath);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return {};
+    }
+
+    QTextStream in(&file);
+    QString content = in.readAll();
+    file.close();
+
+    QList<NoteItem> items = formatter_->parseNoteStructure(content, sections, customAddedSections);
     
-    QRegularExpression h2_regex("<h2([^>]*)>(.*?)</h2>", QRegularExpression::CaseInsensitiveOption);
-    QRegularExpression h3_regex("<h3([^>]*)>(.*?)</h3>", QRegularExpression::CaseInsensitiveOption);
-    QRegularExpression md_regex("^(#{2})\\s+(.*?)$");
-    QRegularExpression md_sub_regex("^(#{3})\\s+(?!\\*\\*\\*)(.*?)$");
-    QRegularExpression section_attr_regex("data-section=\"([^\"]*)\"", QRegularExpression::CaseInsensitiveOption);
+    QString tree_path = filePath;
+    formatter_->saveStructureTree(tree_path, items);
 
-    QString current_h2_slug = "";
-    bool new_section_added = false;
-
-    for (int i = 0; i < lines.size(); ++i) {
-        QString line = lines[i];
-        QString trimmed_line = line.trimmed();
-
-        QRegularExpressionMatch h2_match = h2_regex.match(trimmed_line);
-        QRegularExpressionMatch h3_match = h3_regex.match(trimmed_line);
-        QRegularExpressionMatch md_match = md_regex.match(trimmed_line);
-        QRegularExpressionMatch md_sub_match = md_sub_regex.match(trimmed_line);
-
-        if (h2_match.hasMatch()) {
-            QString attributes = h2_match.captured(1);
-            QString title = h2_match.captured(2).trimmed().normalized(QString::NormalizationForm_C);
-            QString slug = QString::fromStdString(MarkdownUtils::generate_slug(title)).normalized(QString::NormalizationForm_C);
-            
-            QString section = "others";
-            QRegularExpressionMatch section_match = section_attr_regex.match(attributes);
-            if (section_match.hasMatch()) {
-                section = section_match.captured(1);
-            }
-            section = section.normalized(QString::NormalizationForm_C);
-
-            if (sectionDropdown && !section.isEmpty() && section != "others") {
-                bool exists = false;
-                for (int idx = 0; idx < sectionDropdown->count(); ++idx) {
-                    if (sectionDropdown->itemData(idx).toString() == section) {
-                        exists = true;
-                        break;
-                    }
-                }
-                if (!exists) {
-                    QString display_name = section;
-                    if (display_name.length() > 0) {
-                        display_name[0] = display_name[0].toUpper();
-                    }
-                    sectionDropdown->addItem(QString("%1 (%2)").arg(display_name, section.toUpper()), section);
-                    new_section_added = true;
-                }
-            }
-
-            NoteItem item = {title, slug, "heading", section, ""};
-            items.append(item);
-            current_h2_slug = slug;
-        } else if (md_match.hasMatch()) {
-            QString title = md_match.captured(2).trimmed().normalized(QString::NormalizationForm_C);
-            QString slug = QString::fromStdString(MarkdownUtils::generate_slug(title)).normalized(QString::NormalizationForm_C);
-            QString section = MarkdownUtils::detect_section_from_title(title).normalized(QString::NormalizationForm_C);
-
-            if (sectionDropdown && !section.isEmpty() && section != "others") {
-                bool exists = false;
-                for (int idx = 0; idx < sectionDropdown->count(); ++idx) {
-                    if (sectionDropdown->itemData(idx).toString() == section) {
-                        exists = true;
-                        break;
-                    }
-                }
-                if (!exists) {
-                    QString display_name = section;
-                    if (display_name.length() > 0) {
-                        display_name[0] = display_name[0].toUpper();
-                    }
-                    sectionDropdown->addItem(QString("%1 (%2)").arg(display_name, section.toUpper()), section);
-                    new_section_added = true;
-                }
-            }
-
-            NoteItem item = {title, slug, "heading", section, ""};
-            items.append(item);
-            current_h2_slug = slug;
-        } else if (h3_match.hasMatch()) {
-            QString title = h3_match.captured(2).trimmed().normalized(QString::NormalizationForm_C);
-            QString slug = QString::fromStdString(MarkdownUtils::generate_slug(title)).normalized(QString::NormalizationForm_C);
-
-            NoteItem item = {title, slug, "subheading", "others", current_h2_slug};
-            items.append(item);
-        } else if (md_sub_match.hasMatch()) {
-            QString title = md_sub_match.captured(2).trimmed().normalized(QString::NormalizationForm_C);
-            QString slug = QString::fromStdString(MarkdownUtils::generate_slug(title)).normalized(QString::NormalizationForm_C);
-
-            NoteItem item = {title, slug, "subheading", "others", current_h2_slug};
-            items.append(item);
-        }
-    }
-
-    if (sectionDropdown) {
-        QSet<QString> used_sections;
-        used_sections.insert("others");
-        for (const NoteItem &item : items) {
-            if (!item.section.isEmpty()) {
-                used_sections.insert(item.section);
-            }
-        }
-        for (const QString &custom_sec : customAddedSections) {
-            used_sections.insert(custom_sec);
-        }
-
-        bool sections_pruned = false;
-        for (int i = sectionDropdown->count() - 1; i >= 0; --i) {
-            QString slug = sectionDropdown->itemData(i).toString();
-            if (!used_sections.contains(slug)) {
-                sectionDropdown->removeItem(i);
-                sections_pruned = true;
-            }
-        }
-
-        if ((new_section_added || sections_pruned) && !subjectName.isEmpty()) {
-            saveSectionsForSubject(subjectName, sectionDropdown);
-        }
-    }
+    return items;
 }
 
 bool NoteRepository::appendContentToHeading(const QString &filePath, const QString &slug, const QString &processedText, int formatIndex, const QString &section) {
@@ -688,11 +178,11 @@ bool NoteRepository::appendContentToHeading(const QString &filePath, const QStri
     if (MarkdownUtils::get_heading_bounds(content, slug, start_pos, end_pos, is_html)) {
         QString to_append = "";
         if (formatIndex == 2) {
-            QString sub_slug = QString::fromStdString(MarkdownUtils::generate_slug(processedText));
+            QString sub_slug = formatter_->generateSlug(processedText);
             to_append = QString("\n<h3 id=\"%1\" style=\"color: #2980b9; font-weight: bold; font-style: italic; margin-top: 10px; margin-bottom: 5px;\">%2</h3>\n")
                         .arg(sub_slug, processedText.trimmed());
         } else if (formatIndex == 1) {
-            QString main_slug = QString::fromStdString(MarkdownUtils::generate_slug(processedText));
+            QString main_slug = formatter_->generateSlug(processedText);
             to_append = QString("\n<h2 id=\"%1\" data-section=\"%2\" style=\"color: #e74c3c; font-weight: bold; font-style: italic; margin-bottom: 5px;\">%3</h2>\n")
                         .arg(main_slug, section, processedText.trimmed());
         } else if (formatIndex == 3) {
@@ -723,11 +213,11 @@ bool NoteRepository::appendContentToHeading(const QString &filePath, const QStri
         if (MarkdownUtils::get_subheading_insert_pos(content, slug, insert_pos)) {
             QString to_append = "";
             if (formatIndex == 2) {
-                QString sub_slug = QString::fromStdString(MarkdownUtils::generate_slug(processedText));
+                QString sub_slug = formatter_->generateSlug(processedText);
                 to_append = QString("\n<h3 id=\"%1\" style=\"color: #2980b9; font-weight: bold; font-style: italic; margin-top: 10px; margin-bottom: 5px;\">%2</h3>\n")
                             .arg(sub_slug, processedText.trimmed());
             } else if (formatIndex == 1) {
-                QString main_slug = QString::fromStdString(MarkdownUtils::generate_slug(processedText));
+                QString main_slug = formatter_->generateSlug(processedText);
                 to_append = QString("\n<h2 id=\"%1\" data-section=\"%2\" style=\"color: #e74c3c; font-weight: bold; font-style: italic; margin-bottom: 5px;\">%3</h2>\n")
                             .arg(main_slug, section, processedText.trimmed());
             } else if (formatIndex == 3) {
@@ -788,12 +278,12 @@ bool NoteRepository::writeToNote(const QString &targetFile, const QString &proce
         if (!processedText.isEmpty()) {
             if (formatIndex == 1) {
                 QString title = processedText.trimmed();
-                std::string slug = MarkdownUtils::generate_slug(title);
+                std::string slug = formatter_->generateSlug(title).toStdString();
                 outfile << "\n<h2 id=\"" << slug << "\" data-section=\"" << section.toStdString() << "\" style=\"color: #e74c3c; font-weight: bold; font-style: italic; margin-bottom: 5px;\">" 
                         << title.toStdString() << "</h2>\n";
             } else if (formatIndex == 2) {
                 QString title = processedText.trimmed();
-                std::string slug = MarkdownUtils::generate_slug(title);
+                std::string slug = formatter_->generateSlug(title).toStdString();
                 outfile << "\n<h3 id=\"" << slug << "\" style=\"color: #2980b9; font-weight: bold; font-style: italic; margin-top: 10px; margin-bottom: 5px;\">" 
                         << title.toStdString() << "</h3>\n";
             } else if (formatIndex == 3) {
@@ -857,7 +347,7 @@ bool NoteRepository::injectHeadingToNote(const QString &targetFile, const QStrin
         }
         
         QString title = simplifiedText.trimmed();
-        std::string slug = MarkdownUtils::generate_slug(title);
+        std::string slug = formatter_->generateSlug(title).toStdString();
         
         outfile << "\n<h2 id=\"" << slug << "\" data-section=\"" << section.toStdString() << "\" style=\"color: #e74c3c; font-weight: bold; font-style: italic; margin-bottom: 5px;\">" 
                 << title.toStdString() << "</h2>\n";
@@ -930,6 +420,7 @@ bool NoteRepository::deleteHeadingSection(const QString &targetFile, const QStri
 }
 
 bool NoteRepository::shiftHeadingSection(const QString &targetFile, const QString &sourceSlug, const QString &targetSlug, const QList<NoteItem> &allHeadings, QString &outCapturedLabelText) {
+    Q_UNUSED(allHeadings);
     QFile file(targetFile);
     if (!file.open(QIODevice::ReadWrite | QIODevice::Text)) {
         outCapturedLabelText = "ত্রুটি: ফাইলটি খোলা যায়নি!";

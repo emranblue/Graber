@@ -12,11 +12,20 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
+include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/interfaces)
+
 # Create the executable
 add_executable(graber
+    interfaces/IClipboardMonitor.h
+    interfaces/IDocumentFormatter.h
+    interfaces/INoteRepository.h
+    interfaces/ISectionRepository.h
     main.cpp
     Utils.cpp
     MarkdownUtils.cpp
+    IniSectionRepository.cpp
+    MarkdownDocumentFormatter.cpp
+    NoteService.cpp
     ShortcutsSettingsDialog.cpp
     HeadingSelectDialog.cpp
     ClipboardMonitor.cpp

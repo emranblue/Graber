@@ -1,27 +1,22 @@
 #ifndef CLIPBOARDMONITOR_H
 #define CLIPBOARDMONITOR_H
 
-#include <QObject>
+#include "interfaces/IClipboardMonitor.h"
 #include <QTimer>
-#include <QClipboard>
-#include <QImage>
 
-class ClipboardMonitor : public QObject {
+class ClipboardMonitor : public IClipboardMonitor {
     Q_OBJECT
 
 public:
     explicit ClipboardMonitor(QObject *parent = nullptr);
+    ~ClipboardMonitor() override = default;
 
-    void start(QClipboard::Mode mode, int intervalMs = 1000);
-    void stop();
-    bool isRunning() const;
+    void start(QClipboard::Mode mode, int intervalMs = 1000) override;
+    void stop() override;
+    bool isRunning() const override;
 
-    void setMode(QClipboard::Mode mode);
-    QClipboard::Mode mode() const;
-
-signals:
-    void textCaptured(const QString &text);
-    void imageCaptured(const QImage &image);
+    void setMode(QClipboard::Mode mode) override;
+    QClipboard::Mode mode() const override;
 
 private slots:
     void checkClipboard();

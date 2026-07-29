@@ -12,7 +12,6 @@
 #include <QDesktopServices>
 #include <QUrl>
 #include <QDateTime>
-#include <iostream>
 
 ClipboardGrabber::ClipboardGrabber(QWidget *parent) : QWidget(parent) {
     // --- Setup UI ---
@@ -24,11 +23,11 @@ ClipboardGrabber::ClipboardGrabber(QWidget *parent) : QWidget(parent) {
 
     // --- Modular Component Initialization ---
     clipboard_monitor_ = new ClipboardMonitor(this);
-    connect(clipboard_monitor_, &ClipboardMonitor::textCaptured, this, &ClipboardGrabber::handle_text_captured);
-    connect(clipboard_monitor_, &ClipboardMonitor::imageCaptured, this, &ClipboardGrabber::handle_image_captured);
+    connect(clipboard_monitor_, &IClipboardMonitor::textCaptured, this, &ClipboardGrabber::handle_text_captured);
+    connect(clipboard_monitor_, &IClipboardMonitor::imageCaptured, this, &ClipboardGrabber::handle_image_captured);
 
     connect(&shortcut_manager_, &ShortcutManager::actionTriggered, this, &ClipboardGrabber::trigger_shortcut_action);
-    QString settings_file_path = note_repository_.notesDirPath() + QDir::separator() + "settings.ini";
+    QString settings_file_path = note_service_.notesDirPath() + QDir::separator() + "settings.ini";
     shortcut_manager_.loadSettings(settings_file_path);
     shortcut_manager_.setupShortcuts(this);
 
@@ -61,6 +60,23 @@ void ClipboardGrabber::closeEvent(QCloseEvent *event) {
     QWidget::closeEvent(event);
 }
 
+QList<SectionItem> ClipboardGrabber::get_sections_from_ui() const {
+    QList<SectionItem> sections;
+    for (int i = 0; i < ui_.section_dropdown->count(); ++i) {
+        sections.append({ui_.section_dropdown->itemText(i), ui_.section_dropdown->itemData(i).toString()});
+    }
+    return sections;
+}
+
+void ClipboardGrabber::populate_sections_ui(const QList<SectionItem> &sections) {
+    ui_.section_dropdown->blockSignals(true);
+    ui_.section_dropdown->clear();
+    for (const auto &sec : sections) {
+        ui_.section_dropdown->addItem(sec.displayName, sec.slug);
+    }
+    ui_.section_dropdown->blockSignals(false);
+}
+
 void ClipboardGrabber::toggle_subject() {
     if (ui_.subject_dropdown->isEnabled() && ui_.subject_dropdown->count() > 0) {
         int count = ui_.subject_dropdown->count();
@@ -78,7 +94,7 @@ void ClipboardGrabber::start_monitoring() {
     is_running_ = true;
     
     last_date_ = MarkdownUtils::restore_state_from_file(get_current_target_file());
-    note_repository_.updateTocInFile(get_current_target_file(), ui_.section_dropdown);
+    note_service_.updateTocInFile(get_current_target_file(), get_sections_from_ui());
     
     QClipboard::Mode mode = (ui_.mode_dropdown->currentIndex() == 0) ? QClipboard::Clipboard : QClipboard::Selection;
     clipboard_monitor_->start(mode, 1000);
@@ -96,7 +112,7 @@ void ClipboardGrabber::start_monitoring() {
 void ClipboardGrabber::stop_monitoring() {
     is_running_ = false;
     clipboard_monitor_->stop();
-    note_repository_.updateTocInFile(get_current_target_file(), ui_.section_dropdown);
+    note_service_.updateTocInFile(get_current_target_file(), get_sections_from_ui());
     ui_.start_button->setEnabled(true);
     ui_.stop_button->setEnabled(false);
     ui_.subject_dropdown->setEnabled(true);
@@ -115,7 +131,7 @@ void ClipboardGrabber::add_subject() {
     if (ok && !text.isEmpty()) {
         if (ui_.subject_dropdown->findText(text) == -1) {
             ui_.subject_dropdown->addItem(text);
-            note_repository_.createSubject(text);
+            note_service_.createSubject(text);
         }
         ui_.subject_dropdown->setCurrentText(text);
     }
@@ -128,7 +144,7 @@ void ClipboardGrabber::add_folder() {
                                          "", &ok);
     if (ok && !text.isEmpty()) {
         QString status_msg;
-        note_repository_.createFolder(text, status_msg);
+        note_service_.createFolder(text, status_msg);
         ui_.status_label->setText(status_msg);
     }
 }
@@ -144,11 +160,12 @@ void ClipboardGrabber::handle_image_captured(const QImage &image) {
 }
 
 void ClipboardGrabber::save_sections_for_subject(const QString &subject_name) {
-    note_repository_.saveSectionsForSubject(subject_name, ui_.section_dropdown);
+    note_service_.saveSectionsForSubject(subject_name, get_sections_from_ui());
 }
 
 void ClipboardGrabber::load_sections_for_subject(const QString &subject_name) {
-    note_repository_.loadSectionsForSubject(subject_name, ui_.section_dropdown);
+    QList<SectionItem> sections = note_service_.loadSectionsForSubject(subject_name);
+    populate_sections_ui(sections);
 }
 
 void ClipboardGrabber::on_subject_changed(const QString &text) {
@@ -173,8 +190,8 @@ void ClipboardGrabber::inject_heading_from_clipboard() {
     if (target_file == "নির্বাচিত নয়") return;
 
     QString current_section = ui_.section_dropdown->currentData().toString();
-    if (note_repository_.injectHeadingToNote(target_file, simplified_text, current_section, last_date_)) {
-        note_repository_.updateTocInFile(target_file, ui_.section_dropdown);
+    if (note_service_.injectHeadingToNote(target_file, simplified_text, current_section, last_date_)) {
+        note_service_.updateTocInFile(target_file, get_sections_from_ui());
         ui_.last_captured_label->setText("ইনজেক্ট করা হয়েছে: " + simplified_text);
         populate_headings_from_file();
     } else {
@@ -212,8 +229,8 @@ void ClipboardGrabber::add_clipboard_image() {
     QString image_filepath = images_dir.filePath(image_filename);
 
     if (image.save(image_filepath, "PNG")) {
-        note_repository_.writeImageToNote(target_file, image_filename, last_date_);
-        note_repository_.updateTocInFile(target_file, ui_.section_dropdown);
+        note_service_.writeImageToNote(target_file, image_filename, last_date_);
+        note_service_.updateTocInFile(target_file, get_sections_from_ui());
         ui_.last_captured_label->setText("ছবি সফলভাবে যুক্ত করা হয়েছে: " + image_filename);
     } else {
         ui_.last_captured_label->setText("ছবি সংরক্ষণ করতে ব্যর্থ!");
@@ -305,8 +322,8 @@ void ClipboardGrabber::shift_selected_heading_section() {
     QString target_slug = target_slugs.at(selected_idx);
     QString out_label_text;
 
-    if (note_repository_.shiftHeadingSection(target_file, source_slug, target_slug, all_headings_, out_label_text)) {
-        note_repository_.updateTocInFile(target_file, ui_.section_dropdown);
+    if (note_service_.shiftHeadingSection(target_file, source_slug, target_slug, all_headings_, out_label_text)) {
+        note_service_.updateTocInFile(target_file, get_sections_from_ui());
         ui_.last_captured_label->setText(out_label_text);
         populate_headings_from_file();
     } else {
@@ -331,8 +348,8 @@ void ClipboardGrabber::manual_append_to_heading() {
     QString target_file = get_current_target_file();
     QString slug = selected_heading_slug_;
     
-    if (note_repository_.appendContentToHeading(target_file, slug, simplified_text, ui_.format_dropdown->currentIndex(), ui_.section_dropdown->currentData().toString())) {
-        note_repository_.updateTocInFile(target_file, ui_.section_dropdown);
+    if (note_service_.appendContentToHeading(target_file, slug, simplified_text, ui_.format_dropdown->currentIndex(), ui_.section_dropdown->currentData().toString())) {
+        note_service_.updateTocInFile(target_file, get_sections_from_ui());
         ui_.last_captured_label->setText("শেষ ক্যাপচার (নির্বাচিত শিরোনামে ম্যানুয়ালি যুক্ত করা হয়েছে): " + simplified_text);
     } else {
         ui_.last_captured_label->setText("ত্রুটি: নির্বাচিত শিরোনামে যুক্ত করা যায়নি!");
@@ -347,8 +364,8 @@ void ClipboardGrabber::delete_selected_heading_section() {
     QString target_file = get_current_target_file();
     QString out_label_text;
 
-    if (note_repository_.deleteHeadingSection(target_file, slug, ui_.subject_dropdown->currentText(), out_label_text)) {
-        note_repository_.updateTocInFile(target_file, ui_.section_dropdown);
+    if (note_service_.deleteHeadingSection(target_file, slug, ui_.subject_dropdown->currentText(), out_label_text)) {
+        note_service_.updateTocInFile(target_file, get_sections_from_ui());
         ui_.last_captured_label->setText(out_label_text);
         selected_heading_slug_ = "";
         selected_heading_title_ = "";
@@ -363,7 +380,7 @@ void ClipboardGrabber::populate_subjects_from_disk() {
     QString current = ui_.subject_dropdown->currentText();
     ui_.subject_dropdown->blockSignals(true);
     ui_.subject_dropdown->clear();
-    QStringList subjects = note_repository_.populateSubjectsFromDisk(ui_.section_dropdown);
+    QStringList subjects = note_service_.populateSubjects(get_sections_from_ui());
     ui_.subject_dropdown->addItems(subjects);
     if (!current.isEmpty() && subjects.contains(current)) {
         ui_.subject_dropdown->setCurrentText(current);
@@ -375,7 +392,7 @@ void ClipboardGrabber::populate_subjects_from_disk() {
 }
 
 QString ClipboardGrabber::get_current_target_file() {
-    return note_repository_.getTargetFilePath(ui_.subject_dropdown->currentText());
+    return note_service_.getTargetFilePath(ui_.subject_dropdown->currentText());
 }
 
 void ClipboardGrabber::update_status_label() {
@@ -392,12 +409,12 @@ void ClipboardGrabber::write_to_file(const QString &processed_text, const QStrin
 
     QString out_captured_label_text;
     int format_index = ui_.format_dropdown->currentIndex();
-    bool success = note_repository_.writeToNote(target_file, processed_text, format_index, section, selected_heading_slug_, last_date_, out_captured_label_text);
+    bool success = note_service_.writeToNote(target_file, processed_text, format_index, section, selected_heading_slug_, last_date_, out_captured_label_text);
     if (!out_captured_label_text.isEmpty()) {
         ui_.last_captured_label->setText(out_captured_label_text);
     }
     if (success) {
-        note_repository_.updateTocInFile(target_file, ui_.section_dropdown);
+        note_service_.updateTocInFile(target_file, get_sections_from_ui());
         if (format_index == 1) {
             populate_headings_from_file();
         }
@@ -411,7 +428,7 @@ void ClipboardGrabber::populate_headings_from_file() {
         update_button_states();
         return;
     }
-    note_repository_.parseNoteStructure(target_file, all_headings_, ui_.section_dropdown, custom_added_sections_, ui_.subject_dropdown->currentText());
+    all_headings_ = note_service_.parseNoteStructure(target_file, get_sections_from_ui(), custom_added_sections_, ui_.subject_dropdown->currentText());
     update_button_states();
 }
 
@@ -478,7 +495,7 @@ void ClipboardGrabber::trigger_shortcut_action(const QString &action_id) {
 void ClipboardGrabber::open_settings_dialog() {
     ShortcutsSettingsDialog dlg(shortcut_manager_.configs(), this);
     if (dlg.exec() == QDialog::Accepted) {
-        QString settings_file_path = note_repository_.notesDirPath() + QDir::separator() + "settings.ini";
+        QString settings_file_path = note_service_.notesDirPath() + QDir::separator() + "settings.ini";
         shortcut_manager_.saveSettings(settings_file_path);
         shortcut_manager_.setupShortcuts(this);
         ui_.status_label->setText("অবস্থা: শর্টকাটসমূহ সফলভাবে সংরক্ষণ করা হয়েছে!");

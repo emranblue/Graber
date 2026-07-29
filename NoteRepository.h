@@ -1,48 +1,50 @@
 #ifndef NOTEREPOSITORY_H
 #define NOTEREPOSITORY_H
 
-#include <QString>
-#include <QStringList>
-#include <QList>
-#include <QSet>
-#include <QComboBox>
-#include <QImage>
-#include "Types.h"
+#include "interfaces/INoteRepository.h"
+#include "interfaces/IDocumentFormatter.h"
+#include "interfaces/ISectionRepository.h"
+#include <memory>
 
-class NoteRepository {
+class NoteRepository : public INoteRepository {
 public:
     NoteRepository();
-    
-    QString notesDirPath() const;
-    QStringList populateSubjectsFromDisk(QComboBox *sectionDropdown);
-    
-    bool createSubject(const QString &subjectName);
-    bool createFolder(const QString &folderPath, QString &outStatusMsg);
-    
-    void saveSectionsForSubject(const QString &subjectName, QComboBox *sectionDropdown);
-    void loadSectionsForSubject(const QString &subjectName, QComboBox *sectionDropdown);
-    
-    QString getTargetFilePath(const QString &subjectName) const;
-    
-    void normalizeMarkdownFile(const QString &filePath);
-    void updateTocInFile(const QString &filePath, QComboBox *sectionDropdown);
-    
-    void parseNoteStructure(const QString &filePath, QList<NoteItem> &items, QComboBox *sectionDropdown, const QSet<QString> &customAddedSections, const QString &subjectName);
-    
-    bool appendContentToHeading(const QString &filePath, const QString &slug, const QString &processedText, int formatIndex = 0, const QString &section = "others");
-    
-    bool writeToNote(const QString &targetFile, const QString &processedText, int formatIndex, const QString &section, const QString &selectedSlug, QString &lastDate, QString &outCapturedLabelText);
-    
-    bool writeImageToNote(const QString &targetFile, const QString &imageFilename, QString &lastDate);
-    
-    bool injectHeadingToNote(const QString &targetFile, const QString &simplifiedText, const QString &section, QString &lastDate);
-    
-    bool deleteHeadingSection(const QString &targetFile, const QString &slug, const QString &subjectName, QString &outCapturedLabelText);
-    
-    bool shiftHeadingSection(const QString &targetFile, const QString &sourceSlug, const QString &targetSlug, const QList<NoteItem> &allHeadings, QString &outCapturedLabelText);
+    explicit NoteRepository(std::shared_ptr<IDocumentFormatter> formatter,
+                           std::shared_ptr<ISectionRepository> sectionRepo);
+    ~NoteRepository() override = default;
+
+    QString notesDirPath() const override;
+    QStringList populateSubjectsFromDisk(const QList<SectionItem> &sections) override;
+
+    bool createSubject(const QString &subjectName) override;
+    bool createFolder(const QString &folderPath, QString &outStatusMsg) override;
+
+    QList<SectionItem> loadSectionsForSubject(const QString &subjectName) override;
+    void saveSectionsForSubject(const QString &subjectName, const QList<SectionItem> &sections) override;
+
+    QString getTargetFilePath(const QString &subjectName) const override;
+
+    void normalizeNoteFile(const QString &filePath) override;
+    void updateTocInFile(const QString &filePath, const QList<SectionItem> &sections) override;
+
+    QList<NoteItem> parseNoteStructure(const QString &filePath, const QList<SectionItem> &sections, QSet<QString> &customAddedSections, const QString &subjectName) override;
+
+    bool appendContentToHeading(const QString &filePath, const QString &slug, const QString &processedText, int formatIndex = 0, const QString &section = "others") override;
+
+    bool writeToNote(const QString &targetFile, const QString &processedText, int formatIndex, const QString &section, const QString &selectedSlug, QString &lastDate, QString &outCapturedLabelText) override;
+
+    bool writeImageToNote(const QString &targetFile, const QString &imageFilename, QString &lastDate) override;
+
+    bool injectHeadingToNote(const QString &targetFile, const QString &simplifiedText, const QString &section, QString &lastDate) override;
+
+    bool deleteHeadingSection(const QString &targetFile, const QString &slug, const QString &subjectName, QString &outCapturedLabelText) override;
+
+    bool shiftHeadingSection(const QString &targetFile, const QString &sourceSlug, const QString &targetSlug, const QList<NoteItem> &allHeadings, QString &outCapturedLabelText) override;
 
 private:
     QString notes_dir_path_;
+    std::shared_ptr<IDocumentFormatter> formatter_;
+    std::shared_ptr<ISectionRepository> section_repo_;
 };
 
 #endif // NOTEREPOSITORY_H

@@ -6,8 +6,9 @@
 #include <QList>
 #include <QCloseEvent>
 #include "Types.h"
+#include "interfaces/IClipboardMonitor.h"
 #include "ClipboardMonitor.h"
-#include "NoteRepository.h"
+#include "NoteService.h"
 #include "ShortcutManager.h"
 #include "ClipboardGrabberUI.h"
 
@@ -15,7 +16,8 @@ class ClipboardGrabber : public QWidget {
     Q_OBJECT
 
 public:
-    ClipboardGrabber(QWidget *parent = nullptr);
+    explicit ClipboardGrabber(QWidget *parent = nullptr);
+    ~ClipboardGrabber() override = default;
 
 protected:
     void closeEvent(QCloseEvent *event) override;
@@ -42,6 +44,9 @@ private slots:
     void trigger_shortcut_action(const QString &action_id);
 
 private:
+    QList<SectionItem> get_sections_from_ui() const;
+    void populate_sections_ui(const QList<SectionItem> &sections);
+
     void save_sections_for_subject(const QString &subject_name);
     void load_sections_for_subject(const QString &subject_name);
     void populate_subjects_from_disk();
@@ -60,10 +65,10 @@ private:
     QString selected_heading_title_;
     QList<NoteItem> all_headings_;
 
-    // Modular Components & UI
+    // Modular Components & Services
     ClipboardGrabberUI ui_;
-    ClipboardMonitor *clipboard_monitor_;
-    NoteRepository note_repository_;
+    IClipboardMonitor *clipboard_monitor_;
+    NoteService note_service_;
     ShortcutManager shortcut_manager_;
 };
 
