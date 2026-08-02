@@ -1,0 +1,4 @@
+// Windows resource script: sets the icon shown on graber.exe itself
+// (taskbar, Explorer, shortcuts) — separate from the in-app QIcon,
+// which is loaded at runtime from the Qt resource system (see main.cpp).
+IDI_ICON1 ICON "icons/app.ico"

@@ -1,6 +1,7 @@
 #ifndef CLIPBOARDGRABBER_H
 #define CLIPBOARDGRABBER_H
 
+#include "core/QtFixes.h"
 #include <QWidget>
 #include <QSet>
 #include <QList>
@@ -44,6 +45,7 @@ private slots:
     void delete_selected_heading_section();
     void open_settings_dialog();
     void open_wizards_dialog();
+    void toggle_always_on_top();
     void trigger_shortcut_action(const QString &action_id);
 
 private:
@@ -63,9 +65,11 @@ private:
     void update_status_label();
     void write_to_file(const QString &processed_text, const QString &section = "others");
     void populate_headings_from_file();
+    void fit_window_to_content();
 
     // State Variables
     bool is_running_;
+    bool is_always_on_top_;
     QString last_date_;
     QSet<QString> custom_added_sections_;
 

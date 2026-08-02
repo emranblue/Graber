@@ -9,6 +9,7 @@
 #include "FeatureManager.h"
 
 #include <QClipboard>
+#include <QStyle>
 #include <QGuiApplication>
 #include <QInputDialog>
 #include <QFileInfo>
@@ -18,6 +19,9 @@
 #include <QDateTime>
 #include <QMenu>
 #include <QMessageBox>
+#include <QTimer>
+#include <QScreen>
+#include <QLayout>
 
 ClipboardGrabber::ClipboardGrabber(QWidget *parent) : QWidget(parent) {
     // --- Setup UI ---
@@ -25,6 +29,7 @@ ClipboardGrabber::ClipboardGrabber(QWidget *parent) : QWidget(parent) {
 
     // --- State Variables ---
     is_running_ = false;
+    is_always_on_top_ = false;
     last_date_ = "";
 
     // --- Modular Component Initialization ---
@@ -59,8 +64,8 @@ ClipboardGrabber::ClipboardGrabber(QWidget *parent) : QWidget(parent) {
     ActionRegistry::instance().bindButton(ui_.add_section_button, "new_section");
     ActionRegistry::instance().bindButton(ui_.settings_button, "settings");
     ActionRegistry::instance().bindButton(ui_.wizards_button, "wizards");
+    ActionRegistry::instance().bindButton(ui_.select_heading_button, "select_heading");
 
-    connect(ui_.select_heading_button, &QPushButton::clicked, this, [this]() { this->open_heading_select_dialog(); });
     connect(ui_.folder_dropdown, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &ClipboardGrabber::on_folder_changed);
     connect(ui_.subject_dropdown, &QComboBox::currentTextChanged, this, [this](const QString &text) { this->on_subject_changed(text); });
 
@@ -69,6 +74,51 @@ ClipboardGrabber::ClipboardGrabber(QWidget *parent) : QWidget(parent) {
     populate_subjects_from_disk();
     ui_.subject_dropdown->setCurrentIndex(-1); // No initial selection
     update_status_label();
+
+    // Size the window to what it actually contains instead of a guessed
+    // constant, once the event loop has laid everything out.
+    QTimer::singleShot(0, this, &ClipboardGrabber::fit_window_to_content);
+}
+
+void ClipboardGrabber::fit_window_to_content() {
+    // Recompute layouts first so hints reflect whichever cards are currently
+    // visible (full editing view or the collapsed capture view).
+    layout()->invalidate();
+    layout()->activate();
+    ui_.body->layout()->invalidate();
+    ui_.body->layout()->activate();
+
+    // IMPORTANT: don't ask the top-level layout (or the QScrollArea inside
+    // it) for its size hint. QScrollArea hardcodes sizeHint()/minimumSizeHint()
+    // to a small capped value that ignores the widget scrolled inside it, so
+    // going through it silently produced a window too small for the real
+    // content no matter what the outer layout reported. Measuring body and
+    // controls_bar directly gets the real numbers.
+    const QSize body_hint = ui_.body->sizeHint();
+    const QSize controls_hint = ui_.controls_bar->sizeHint();
+
+    const QSize body_min = ui_.body->minimumSizeHint();
+    const QSize controls_min = ui_.controls_bar->minimumSizeHint();
+
+    int target_width = qMax(body_hint.width(), controls_hint.width());
+    int target_height = body_hint.height() + controls_hint.height();
+
+    int min_width = qMax(body_min.width(), controls_min.width());
+    int min_height = body_min.height() + controls_min.height();
+
+    setMinimumSize(qMax(min_width, 360), qMax(min_height, 360));
+
+    // Never propose a window bigger than the screen can actually show.
+    if (QScreen *scr = screen()) {
+        const QRect avail = scr->availableGeometry();
+        target_width = qMin(target_width, avail.width() - 40);
+        target_height = qMin(target_height, avail.height() - 40);
+    }
+
+    target_width = qMax(target_width, minimumWidth());
+    target_height = qMax(target_height, minimumHeight());
+
+    resize(target_width, target_height);
 }
 
 void ClipboardGrabber::setup_services() {
@@ -113,6 +163,10 @@ void ClipboardGrabber::setup_actions() {
         [this](const QVariantMap &) { this->inject_heading_from_clipboard(); },
         [this]() { return ui_.subject_dropdown->currentIndex() != -1; });
 
+    reg.registerFunctionalAction("select_heading", "শিরোনাম নির্বাচন (Select Heading)", "টার্গেট শিরোনাম খুঁজুন ও নির্বাচন করুন", "Heading", QKeySequence("Ctrl+Shift+G"),
+        [this](const QVariantMap &) { this->open_heading_select_dialog(); },
+        [this]() { return ui_.subject_dropdown->currentIndex() != -1; });
+
     reg.registerFunctionalAction("shift", "স্থানান্তর (Shift)", "শিরোনাম অন্য স্থানে স্থানান্তর করুন", "Heading", QKeySequence("Ctrl+Shift+H"),
         [this](const QVariantMap &) { this->shift_selected_heading_section(); },
         [this]() { return ui_.subject_dropdown->currentIndex() != -1 && !selected_heading_slug_.isEmpty(); });
@@ -150,6 +204,23 @@ void ClipboardGrabber::setup_actions() {
 
     reg.registerFunctionalAction("wizards", "উইজার্ড ও টুলস (Wizards & Tools)", "এক্সটেনশন ও উইজার্ড তালিকা খুলুন", "Extensions", QKeySequence(),
         [this](const QVariantMap &) { this->open_wizards_dialog(); });
+
+    reg.registerFunctionalAction("always_on_top", "সর্বদা উপরে (Always On Top)", "উইন্ডো সর্বদা সবার উপরে পিন করুন/সরান", "System", QKeySequence("Ctrl+Shift+Y"),
+        [this](const QVariantMap &) { this->toggle_always_on_top(); });
+}
+
+void ClipboardGrabber::toggle_always_on_top() {
+    is_always_on_top_ = !is_always_on_top_;
+
+    // Changing window flags on a widget hides it on most platforms, so it
+    // has to be shown again immediately afterwards to avoid a visible flicker
+    // or the window disappearing behind others.
+    setWindowFlag(Qt::WindowStaysOnTopHint, is_always_on_top_);
+    show();
+
+    ui_.status_label->setText(is_always_on_top_
+        ? "অবস্থা: উইন্ডো সর্বদা উপরে পিন করা হয়েছে (Always On Top: ON)"
+        : "অবস্থা: উইন্ডো স্বাভাবিক মোডে ফেরত এসেছে (Always On Top: OFF)");
 }
 
 void ClipboardGrabber::setup_features() {
@@ -207,6 +278,17 @@ void ClipboardGrabber::start_monitoring() {
     ui_.mode_dropdown->setEnabled(false);
     update_status_label();
     ActionRegistry::instance().updateBoundButtons();
+
+    // Focused capture view: hide folder/subject browsing, the extra section
+    // & image controls, and heading management — leave just the status/log
+    // card and the format selector visible while actively capturing.
+    ui_.subject_card->setVisible(false);
+    ui_.capture_extra->setVisible(false);
+    ui_.heading_card->setVisible(false);
+
+    // Shrink the window down to the now-smaller capture view instead of
+    // leaving the old, larger size with empty space (or a scrollbar).
+    QTimer::singleShot(0, this, &ClipboardGrabber::fit_window_to_content);
 }
 
 void ClipboardGrabber::stop_monitoring() {
@@ -220,6 +302,14 @@ void ClipboardGrabber::stop_monitoring() {
     ui_.mode_dropdown->setEnabled(true);
     update_status_label();
     ActionRegistry::instance().updateBoundButtons();
+
+    // Back to the full editing view.
+    ui_.subject_card->setVisible(true);
+    ui_.capture_extra->setVisible(true);
+    ui_.heading_card->setVisible(true);
+
+    // Grow the window back to fit the full editing view again.
+    QTimer::singleShot(0, this, &ClipboardGrabber::fit_window_to_content);
 }
 
 void ClipboardGrabber::add_subject() {
@@ -516,12 +606,14 @@ void ClipboardGrabber::populate_folders_from_disk() {
     ui_.folder_dropdown->blockSignals(true);
     ui_.folder_dropdown->clear();
 
-    ui_.folder_dropdown->addItem("সকল ফোল্ডার (All Folders)", "__ALL__");
-    ui_.folder_dropdown->addItem("রুট ফোল্ডার (Root / Base)", "__ROOT__");
+    static const QIcon folder_icon(":/icons/folder.ico");
+
+    ui_.folder_dropdown->addItem(folder_icon, "সকল ফোল্ডার (All Folders)", "__ALL__");
+    ui_.folder_dropdown->addItem(folder_icon, "রুট ফোল্ডার (Root / Base)", "__ROOT__");
 
     QStringList folders = note_service_.populateFolders();
     for (const QString &folder : folders) {
-        ui_.folder_dropdown->addItem("📁 " + folder, folder);
+        ui_.folder_dropdown->addItem(folder_icon, folder, folder);
     }
 
     int found_idx = -1;
@@ -554,11 +646,13 @@ void ClipboardGrabber::populate_subjects_from_disk() {
     ui_.subject_dropdown->blockSignals(true);
     ui_.subject_dropdown->clear();
 
+    static const QIcon file_icon(":/icons/file.ico");
+
     QList<SubjectItem> subject_items = note_service_.populateSubjectItems(get_sections_from_ui(), folder_filter);
     int select_idx = -1;
     for (int i = 0; i < subject_items.size(); ++i) {
         const auto &sub = subject_items.at(i);
-        ui_.subject_dropdown->addItem(sub.displayName, sub.fullPath);
+        ui_.subject_dropdown->addItem(file_icon, sub.displayName, sub.fullPath);
         if (!current_full_name.isEmpty() && sub.fullPath == current_full_name) {
             select_idx = i;
         }
@@ -586,6 +680,9 @@ void ClipboardGrabber::update_status_label() {
     } else {
         ui_.status_label->setText("অবস্থা: বন্ধ");
     }
+    ui_.status_label->setProperty("running", is_running_);
+    ui_.status_label->style()->unpolish(ui_.status_label);
+    ui_.status_label->style()->polish(ui_.status_label);
 }
 
 void ClipboardGrabber::write_to_file(const QString &processed_text, const QString &section) {
@@ -622,8 +719,11 @@ void ClipboardGrabber::trigger_shortcut_action(const QString &action_id) {
 }
 
 void ClipboardGrabber::open_settings_dialog() {
-    ShortcutsSettingsDialog dlg(shortcut_manager_.configs(), this);
+    bool global_hotkeys_enabled = shortcut_manager_.globalHotkeysEnabled();
+    ShortcutsSettingsDialog dlg(shortcut_manager_.configs(), global_hotkeys_enabled,
+                                 shortcut_manager_.globalHotkeysSupported(), this);
     if (dlg.exec() == QDialog::Accepted) {
+        shortcut_manager_.enableGlobalHotkeys(global_hotkeys_enabled);
         QString settings_file_path = note_service_.notesDirPath() + QDir::separator() + "settings.ini";
         shortcut_manager_.saveSettings(settings_file_path);
         shortcut_manager_.setupShortcuts(this);

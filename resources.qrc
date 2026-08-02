@@ -2,5 +2,11 @@
 <qresource>
     <file>Kalpurush.ttf</file>
     <file>feather.ttf</file>
+    <file alias="icons/app.ico">resources/icons/app.ico</file>
+    <file alias="icons/folder.ico">resources/icons/folder.ico</file>
+    <file alias="icons/file.ico">resources/icons/file.ico</file>
+    <file alias="icons/app-1024.png">resources/icons/app-1024.png</file>
+    <file alias="icons/folder-1024.png">resources/icons/folder-1024.png</file>
+    <file alias="icons/file-1024.png">resources/icons/file-1024.png</file>
 </qresource>
 </RCC>
