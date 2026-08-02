@@ -33,7 +33,9 @@ jobs:
             libgl1-mesa-dev \
             libegl1-mesa-dev \
             libxkbcommon-dev \
-            libdbus-1-dev
+            libdbus-1-dev \
+            libx11-dev \
+            libxcb-cursor0
 
       - name: Build Application (Linux)
         run: |
@@ -60,7 +62,7 @@ jobs:
           cp build/${APP_NAME} "${BIN_PATH}"
 
           # Copy Qt Platform Plugins
-          QT_PLUGIN_PATH=$(qtpaths --plugin-dir 2>/dev/null || echo "/usr/lib/x86_64-linux-gnu/qt6/plugins")
+          QT_PLUGIN_PATH=$(qtpaths6 --plugin-dir 2>/dev/null || qtpaths --plugin-dir 2>/dev/null || echo "/usr/lib/x86_64-linux-gnu/qt6/plugins")
           if [ -d "${QT_PLUGIN_PATH}/platforms" ]; then
             cp -r "${QT_PLUGIN_PATH}/platforms"/* "${LIB_DIR}/platforms/"
           fi
