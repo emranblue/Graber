@@ -95,21 +95,21 @@ void ClipboardGrabber::setup_actions() {
         [this](const QVariantMap &) { this->add_clipboard_image(); },
         [this]() { return ui_.subject_dropdown->currentIndex() != -1; });
 
-    reg.registerFunctionalAction("new_subject", "নতুন বিষয় (New Subject)", "নতুন বিষয় তৈরি করুন", "Subject", QKeySequence("Ctrl+Shift+N"),
+    reg.registerFunctionalAction("new_subject", "নতুন বিষয় (New Subject)", "নতুন বিষয় তৈরি করুন", "Subject", QKeySequence("Ctrl+Shift+N"),
         [this](const QVariantMap &) { this->add_subject(); });
 
-    reg.registerFunctionalAction("add_folder", "নতুন ফোল্ডার (New Folder)", "নতুন ফোল্ডার তৈরি করুন", "Subject", QKeySequence("Ctrl+Shift+M"),
+    reg.registerFunctionalAction("add_folder", "নতুন ফোল্ডার (New Folder)", "নতুন ফোল্ডার তৈরি করুন", "Subject", QKeySequence("Ctrl+Shift+B"),
         [this](const QVariantMap &) { this->add_folder(); });
 
-    reg.registerFunctionalAction("open_note", "নোট খুলুন (Open Note)", "সক্রিয় নোট ফাইল ওপেন করুন", "File", QKeySequence("Ctrl+Shift+O"),
+    reg.registerFunctionalAction("open_note", "নোট খুলুন (Open Note)", "সক্রিয় নোট ফাইল ওপেন করুন", "File", QKeySequence("Ctrl+Shift+O"),
         [this](const QVariantMap &) { this->open_selected_file(); },
-        [this]() { return ui_.subject_dropdown->currentIndex() != -1 && ui_.subject_dropdown->currentText() != "নির্বাচিত নয়"; });
+        [this]() { return ui_.subject_dropdown->currentIndex() != -1 && ui_.subject_dropdown->currentText() != "নির্বাচিত নয়"; });
 
     reg.registerFunctionalAction("append", "যুক্ত করুন (Append)", "টার্গেট শিরোনামে কনটেন্ট যুক্ত করুন", "Heading", QKeySequence("Ctrl+Shift+A"),
         [this](const QVariantMap &) { this->manual_append_to_heading(); },
         [this]() { return ui_.subject_dropdown->currentIndex() != -1 && !selected_heading_slug_.isEmpty(); });
 
-    reg.registerFunctionalAction("inject", "ইনজেক্ট করুন (Inject)", "ক্লিপবোর্ডের লেখা নতুন শিরোনাম হিসেবে ইনজেক্ট করুন", "Heading", QKeySequence("Ctrl+Shift+J"),
+    reg.registerFunctionalAction("inject", "ইনজেক্ট করুন (Inject)", "ক্লিপবোর্ডের লেখা নতুন শিরোনাম হিসেবে যুক্ত করুন", "Heading", QKeySequence("Ctrl+Shift+J"),
         [this](const QVariantMap &) { this->inject_heading_from_clipboard(); },
         [this]() { return ui_.subject_dropdown->currentIndex() != -1; });
 
@@ -129,26 +129,26 @@ void ClipboardGrabber::setup_actions() {
             if (ui_.format_dropdown->isEnabled() && ui_.format_dropdown->count() > 0) {
                 int next_idx = (ui_.format_dropdown->currentIndex() + 1) % ui_.format_dropdown->count();
                 ui_.format_dropdown->setCurrentIndex(next_idx);
-                ui_.last_captured_label->setText("ফরম্যাট পরিবর্তন করা হয়েছে: " + ui_.format_dropdown->currentText());
+                ui_.last_captured_label->setText("ফরম্যাট পরিবর্তন করা হয়েছে: " + ui_.format_dropdown->currentText());
             }
         });
 
-    reg.registerFunctionalAction("toggle_section", "বিভাগ পরিবর্তন (Toggle Section)", "বিভাগ ক্যাটগরি সাইকেল করুন", "Section", QKeySequence("Ctrl+Shift+G"),
+    reg.registerFunctionalAction("toggle_section", "বিভাগ পরিবর্তন (Toggle Section)", "বিভাগ ক্যাটগরি সাইকেল করুন", "Section", QKeySequence("Ctrl+Shift+C"),
         [this](const QVariantMap &) {
             if (ui_.section_dropdown->isEnabled() && ui_.section_dropdown->count() > 0) {
                 int next_idx = (ui_.section_dropdown->currentIndex() + 1) % ui_.section_dropdown->count();
                 ui_.section_dropdown->setCurrentIndex(next_idx);
-                ui_.last_captured_label->setText("বিভাগ পরিবর্তন করা হয়েছে: " + ui_.section_dropdown->currentText());
+                ui_.last_captured_label->setText("বিভাগ পরিবর্তন করা হয়েছে: " + ui_.section_dropdown->currentText());
             }
         });
 
-    reg.registerFunctionalAction("toggle_subject", "বিষয় পরিবর্তন (Toggle Subject)", "পরবর্তী বিষয় নির্বাচন করুন", "Subject", QKeySequence("Ctrl+Shift+E"),
+    reg.registerFunctionalAction("toggle_subject", "বিষয় পরিবর্তন (Toggle Subject)", "পরবর��তী বিষয় নির্বাচন করুন", "Subject", QKeySequence("Ctrl+Shift+E"),
         [this](const QVariantMap &) { this->toggle_subject(); });
 
     reg.registerFunctionalAction("settings", "সেটিংস (Settings)", "শর্টকাট সেটিংস খুলুন", "System", QKeySequence("Ctrl+Shift+P"),
         [this](const QVariantMap &) { this->open_settings_dialog(); });
 
-    reg.registerFunctionalAction("wizards", "উইজার্ড ও টুলস (Wizards & Tools)", "এক্সটেনশন ও উইজার্ড তালিকা খুলুন", "Wizards", QKeySequence("Ctrl+Shift+W"),
+    reg.registerFunctionalAction("wizards", "উইজার্ড ও টুলস (Wizards & Tools)", "এক্সটেনশন ও উইজার্ড তালিকা খুলুন", "Extensions", QKeySequence(),
         [this](const QVariantMap &) { this->open_wizards_dialog(); });
 }
 
@@ -189,7 +189,7 @@ void ClipboardGrabber::toggle_subject() {
 
 void ClipboardGrabber::start_monitoring() {
     if (ui_.subject_dropdown->currentIndex() == -1) {
-        ui_.status_label->setText("অবস্থা: অনুগ্রহ করে প্রথমে একটি বিষয় নির্বাচন করুন!");
+        ui_.status_label->setText("অবস্থা: অনুগ্রহ করে প্রথমে একটি বিষয় নির্বাচন করুন!");
         return;
     }
     is_running_ = true;
@@ -230,8 +230,8 @@ void ClipboardGrabber::add_subject() {
         default_prefix = selected_folder + "/";
     }
 
-    QString text = QInputDialog::getText(this, "বিষয় যোগ করুন",
-                                         "নতুন বিষয়ের নাম (ফোল্ডার সহ, যেমন: BCS/Bangla):", QLineEdit::Normal,
+    QString text = QInputDialog::getText(this, "বিষয় যোগ করুন",
+                                         "নতুন বিষয়ের নাম (ফোল্ডার সহ, যেমন: BCS/Bangla):", QLineEdit::Normal,
                                          default_prefix, &ok);
     if (ok && !text.isEmpty()) {
         text = text.trimmed();
@@ -319,21 +319,21 @@ void ClipboardGrabber::inject_heading_from_clipboard() {
     }
 
     QString target_file = get_current_target_file();
-    if (target_file == "নির্বাচিত নয়") return;
+    if (target_file == "নির্বাচিত নয়") return;
 
     QString current_section = ui_.section_dropdown->currentData().toString();
     if (note_service_.injectHeadingToNote(target_file, simplified_text, current_section, last_date_)) {
         note_service_.updateTocInFile(target_file, get_sections_from_ui());
-        ui_.last_captured_label->setText("ইনজেক্ট করা হয়েছে: " + simplified_text);
+        ui_.last_captured_label->setText("ইনজেক্ট করা হয়েছে: " + simplified_text);
         populate_headings_from_file();
     } else {
-        ui_.last_captured_label->setText("ইনজেক্ট ত্রুটি: ফাইলে লেখা যায়নি!");
+        ui_.last_captured_label->setText("ইনজেক্ট ত্রুটি: ফাইলে লেখা যায়নি!");
     }
 }
 
 void ClipboardGrabber::open_selected_file() {
     QString target_file = get_current_target_file();
-    if (target_file != "নির্বাচিত নয়" && QFile::exists(target_file)) {
+    if (target_file != "নির্বাচিত নয়" && QFile::exists(target_file)) {
         QDesktopServices::openUrl(QUrl::fromLocalFile(target_file));
     }
 }
@@ -346,7 +346,7 @@ void ClipboardGrabber::add_clipboard_image() {
     }
 
     QString target_file = get_current_target_file();
-    if (target_file == "নির্বাচিত নয়") return;
+    if (target_file == "নির্বাচিত নয়") return;
 
     QFileInfo file_info(target_file);
     QDir target_dir = file_info.dir();
@@ -363,7 +363,7 @@ void ClipboardGrabber::add_clipboard_image() {
     if (image.save(image_filepath, "PNG")) {
         note_service_.writeImageToNote(target_file, image_filename, last_date_);
         note_service_.updateTocInFile(target_file, get_sections_from_ui());
-        ui_.last_captured_label->setText("ছবি সফলভাবে যুক্ত করা হয়েছে: " + image_filename);
+        ui_.last_captured_label->setText("ছবি সফলভাবে যুক্ত করা হয়েছে: " + image_filename);
     } else {
         ui_.last_captured_label->setText("ছবি সংরক্ষণ করতে ব্যর্থ!");
     }
@@ -374,6 +374,9 @@ void ClipboardGrabber::update_button_states() {
 }
 
 void ClipboardGrabber::open_heading_select_dialog() {
+    // Refresh the heading list from current file before opening dialog
+    populate_headings_from_file();
+    
     HeadingSelectDialog dlg(all_headings_, selected_heading_slug_, this);
     if (dlg.exec() == QDialog::Accepted) {
         selected_heading_slug_ = dlg.get_selected_slug();
@@ -438,7 +441,7 @@ void ClipboardGrabber::shift_selected_heading_section() {
 
     bool ok;
     QString target_selection = QInputDialog::getItem(this, "সেকশন স্থানান্তর", 
-                                                     "কোথায় স্থানান্তর করতে চান তা নির্বাচন করুন:", 
+                                                     "কোথায় স্থানান্তর করতে চান তা নির্বাচন করুন:", 
                                                      target_titles, 0, false, &ok);
     if (!ok) return;
 
@@ -467,7 +470,7 @@ void ClipboardGrabber::manual_append_to_heading() {
     QString simplified_text = current_text.simplified();
 
     if (simplified_text.isEmpty()) {
-        ui_.last_captured_label->setText("শেষ ক্যাপচার: ক্লিপবোর্ডে কোনো লেখা পাওয়া যায়নি।");
+        ui_.last_captured_label->setText("শেষ ক্যাপচার: ক্লিপবোর্ডে কোনো লেখা পাওয়া যায়নি।");
         return;
     }
 
@@ -476,9 +479,9 @@ void ClipboardGrabber::manual_append_to_heading() {
     
     if (note_service_.appendContentToHeading(target_file, slug, simplified_text, ui_.format_dropdown->currentIndex(), ui_.section_dropdown->currentData().toString())) {
         note_service_.updateTocInFile(target_file, get_sections_from_ui());
-        ui_.last_captured_label->setText("শেষ ক্যাপচার (নির্বাচিত শিরোনামে ম্যানুয়ালি যুক্ত করা হয়েছে): " + simplified_text);
+        ui_.last_captured_label->setText("শেষ ক্যাপচার (নির্বাচিত শিরোনামে ম্যানুয়ালি যুক্ত করা হয়েছে): " + simplified_text);
     } else {
-        ui_.last_captured_label->setText("ত্রুটি: নির্বাচিত শিরোনামে যুক্ত করা যায়নি!");
+        ui_.last_captured_label->setText("ত্রুটি: নির্বাচিত শিরোনামে যুক্ত করা যায়নি!");
     }
 }
 
@@ -587,7 +590,7 @@ void ClipboardGrabber::update_status_label() {
 
 void ClipboardGrabber::write_to_file(const QString &processed_text, const QString &section) {
     QString target_file = get_current_target_file();
-    if (target_file == "নির্বাচিত নয়") return;
+    if (target_file == "নির্বাচিত নয়") return;
 
     QString out_captured_label_text;
     int format_index = ui_.format_dropdown->currentIndex();
@@ -605,7 +608,7 @@ void ClipboardGrabber::write_to_file(const QString &processed_text, const QStrin
 
 void ClipboardGrabber::populate_headings_from_file() {
     QString target_file = get_current_target_file();
-    if (target_file == "নির্বাচিত নয়") {
+    if (target_file == "নির্বাচিত নয়") {
         all_headings_.clear();
         update_button_states();
         return;
@@ -624,7 +627,7 @@ void ClipboardGrabber::open_settings_dialog() {
         QString settings_file_path = note_service_.notesDirPath() + QDir::separator() + "settings.ini";
         shortcut_manager_.saveSettings(settings_file_path);
         shortcut_manager_.setupShortcuts(this);
-        ui_.status_label->setText("অবস্থা: শর্টকাটসমূহ সফলভাবে সংরক্ষণ করা হয়েছে!");
+        ui_.status_label->setText("অবস্থা: শর্টকাটসমূহ সফলভাবে সংরক্ষণ করা হয়েছে!");
     }
 }
 
