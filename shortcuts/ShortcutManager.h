@@ -7,6 +7,7 @@
 #include <QWidget>
 #include <QShortcut>
 #include <QAbstractNativeEventFilter>
+#include <QMap>
 #include "Types.h"
 
 #ifdef Q_OS_LINUX
