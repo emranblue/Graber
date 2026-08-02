@@ -39,7 +39,7 @@ QWidget *sectionHeader(const QChar &glyphCode, const QColor &accent, const QStri
 
 void ClipboardGrabberUI::setupUi(QWidget *parent) {
     // --- Window Setup ---
-    parent->setWindowTitle("ক্লিপবোর্ড গ্র্যাবার");
+    parent->setWindowTitle("Graber");
     parent->resize(620, 820); // placeholder, corrected right after layout by fit_window_to_content()
     parent->setObjectName("MainWindow");
 
