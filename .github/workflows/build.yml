@@ -106,13 +106,13 @@ jobs:
           done
 
           # Entry Point Wrapper Script
-          cat << 'EOF' > ${PKG_DIR}/usr/bin/${APP_NAME}
-#!/bin/bash
-DIR="/usr/lib/graber"
-export QT_PLUGIN_PATH="${DIR}/platforms:${DIR}"
-export LD_LIBRARY_PATH="${DIR}:${LD_LIBRARY_PATH}"
-exec "${DIR}/graber-bin" "$@"
-EOF
+          {
+            echo '#!/bin/bash'
+            echo 'DIR="/usr/lib/graber"'
+            echo 'export QT_PLUGIN_PATH="${DIR}/platforms:${DIR}"'
+            echo 'export LD_LIBRARY_PATH="${DIR}:${LD_LIBRARY_PATH}"'
+            echo 'exec "${DIR}/graber-bin" "$@"'
+          } > ${PKG_DIR}/usr/bin/${APP_NAME}
 
           # Strip Debug Symbols
           strip --strip-unneeded "${BIN_PATH}" 2>/dev/null || true
@@ -143,14 +143,6 @@ EOF
         with:
           name: graber-linux-deb
           path: "*.deb"
-
-      - name: Attach Linux DEB to GitHub Release
-        uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
-        with:
-          files: "*.deb"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # ==========================================
   # 2. WINDOWS PORTABLE ZIP BUILD
@@ -202,19 +194,44 @@ EOF
           name: graber-windows-zip
           path: "*.zip"
 
-      - name: Attach Windows Zip to GitHub Release
-        uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+  # ==========================================
+  # 3. CREATE GITHUB RELEASE (single job, avoids race)
+  # ==========================================
+  release:
+    needs: [build-linux-deb, build-windows]
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download Linux DEB Artifact
+        uses: actions/download-artifact@v4
         with:
-          files: "*.zip"
+          name: graber-linux-deb
+          path: dist
+
+      - name: Download Windows Zip Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: graber-windows-zip
+          path: dist
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && github.ref_type != 'tag' && 'nightly' || github.ref_name }}
+          files: |
+            dist/*.deb
+            dist/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # ==========================================
-  # 3. NOTIFY DEVELOPER VIA EMAIL
+  # 4. NOTIFY DEVELOPER VIA EMAIL
   # ==========================================
   notify-developer:
-    needs: [build-linux-deb, build-windows]
+    needs: [build-linux-deb, build-windows, release]
     if: always()
     runs-on: ubuntu-latest
 
