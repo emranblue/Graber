@@ -5,6 +5,8 @@
 #include <QPushButton>
 #include <QRegularExpression>
 #include <QVector>
+#include <QTimer>
+#include <QScrollBar>
 #include "Utils.h"
 
 HeadingSelectDialog::HeadingSelectDialog(const QList<NoteItem> &all_headings, const QString &current_slug, QWidget *parent)
@@ -31,10 +33,14 @@ HeadingSelectDialog::HeadingSelectDialog(const QList<NoteItem> &all_headings, co
     main_layout->setSpacing(10);
     main_layout->setContentsMargins(12, 12, 12, 12);
     
+    // Search input with status info
+    QHBoxLayout *search_layout = new QHBoxLayout();
     search_edit_ = new QLineEdit(this);
-    search_edit_->setPlaceholderText("খুঁজুন... (Type to search...)");
-    search_edit_->installEventFilter(this); // Install event filter
-    main_layout->addWidget(search_edit_);
+    search_edit_->setPlaceholderText("খুঁজুন... (Type to search...) - Fuzzy matching enabled");
+    search_edit_->installEventFilter(this);
+    search_edit_->setFocus();
+    search_layout->addWidget(search_edit_);
+    main_layout->addLayout(search_layout);
     
     list_widget_ = new QListWidget(this);
     list_widget_->setWordWrap(true);
@@ -52,7 +58,16 @@ HeadingSelectDialog::HeadingSelectDialog(const QList<NoteItem> &all_headings, co
     btn_layout->addWidget(cancel_btn);
     main_layout->addLayout(btn_layout);
     
-    connect(search_edit_, &QLineEdit::textChanged, this, &HeadingSelectDialog::on_search_text_changed);
+    // Setup debounce timer for smooth real-time search
+    debounce_timer_ = new QTimer(this);
+    debounce_timer_->setSingleShot(true);
+    connect(debounce_timer_, &QTimer::timeout, this, &HeadingSelectDialog::on_debounce_timer);
+    
+    connect(search_edit_, &QLineEdit::textChanged, this, [this](const QString &text) {
+        pending_search_text_ = text;
+        debounce_timer_->stop();
+        debounce_timer_->start(100); // Wait 100ms before filtering (smooth UX)
+    });
     connect(list_widget_, &QListWidget::itemDoubleClicked, this, &HeadingSelectDialog::on_item_double_clicked);
     connect(select_btn, &QPushButton::clicked, this, &HeadingSelectDialog::on_select_clicked);
     connect(cancel_btn, &QPushButton::clicked, this, &QDialog::reject);
@@ -72,8 +87,6 @@ HeadingSelectDialog::HeadingSelectDialog(const QList<NoteItem> &all_headings, co
     if (!found_current && list_widget_->count() > 0) {
         list_widget_->setCurrentRow(0);
     }
-    
-    search_edit_->setFocus();
 }
 
 bool HeadingSelectDialog::eventFilter(QObject *obj, QEvent *event) {
@@ -90,8 +103,12 @@ bool HeadingSelectDialog::eventFilter(QObject *obj, QEvent *event) {
     return QDialog::eventFilter(obj, event);
 }
 
+void HeadingSelectDialog::on_debounce_timer() {
+    on_search_text_changed(pending_search_text_);
+}
+
 void HeadingSelectDialog::on_search_text_changed(const QString &text) {
-    debugLog(QString("on_search_text_changed: text='%1'").arg(text));
+    debugLog(QString("on_search_text_changed (dynamic): text='%1'").arg(text));
     populate_list(text);
 }
 
@@ -114,8 +131,65 @@ void HeadingSelectDialog::on_select_clicked() {
     }
 }
 
+int HeadingSelectDialog::calculate_relevance(const NoteItem &item, const QStringList &keywords) {
+    if (keywords.isEmpty()) return 0;
+    
+    int score = 0;
+    
+    for (const QString &kw : keywords) {
+        if (kw.isEmpty()) continue;
+        
+        // Exact match in title (highest priority)
+        if (item.title.compare(kw, Qt::CaseInsensitive) == 0) {
+            score += 100;
+        }
+        // Title starts with keyword
+        else if (item.title.startsWith(kw, Qt::CaseInsensitive)) {
+            score += 80;
+        }
+        // Keyword found in title
+        else if (item.title.contains(kw, Qt::CaseInsensitive)) {
+            score += 50;
+        }
+        
+        // Fuzzy match in title
+        if (fuzzy_match(item.title, kw)) {
+            score += 30;
+        }
+        
+        // Slug matches
+        if (item.slug.contains(kw, Qt::CaseInsensitive)) {
+            score += 20;
+        }
+        
+        // Section matches
+        if (item.section.contains(kw, Qt::CaseInsensitive)) {
+            score += 10;
+        }
+    }
+    
+    return score;
+}
+
+bool HeadingSelectDialog::fuzzy_match(const QString &text, const QString &pattern) {
+    if (pattern.isEmpty()) return true;
+    if (text.isEmpty()) return false;
+    
+    int text_idx = 0;
+    int pattern_idx = 0;
+    
+    while (text_idx < text.length() && pattern_idx < pattern.length()) {
+        if (text[text_idx].toLower() == pattern[pattern_idx].toLower()) {
+            pattern_idx++;
+        }
+        text_idx++;
+    }
+    
+    return pattern_idx == pattern.length();
+}
+
 void HeadingSelectDialog::populate_list(const QString &search_text) {
-    debugLog(QString("populate_list: search_text='%1', all_headings_.size()=%2").arg(search_text, QString::number(all_headings_.size())));
+    debugLog(QString("populate_list (dynamic): search_text='%1', all_headings_.size()=%2").arg(search_text, QString::number(all_headings_.size())));
     list_widget_->clear();
     
     QString normalized_search = search_text.normalized(QString::NormalizationForm_C);
@@ -126,7 +200,7 @@ void HeadingSelectDialog::populate_list(const QString &search_text) {
     if (!keywords.isEmpty()) {
         QString append_option_text = "(শেষে নতুন করে যোগ করুন / Append to End)";
         for (const QString &kw : keywords) {
-            if (!append_option_text.contains(kw, Qt::CaseInsensitive)) {
+            if (!append_option_text.contains(kw, Qt::CaseInsensitive) && !fuzzy_match(append_option_text, kw)) {
                 show_append_to_end = false;
                 break;
             }
@@ -156,13 +230,19 @@ void HeadingSelectDialog::populate_list(const QString &search_text) {
         item->setSizeHint(QSize(0, qMax(label->sizeHint().height(), 36)));
     }
     
-    for (const auto &heading : all_headings_) {
+    // Collect results with relevance scores
+    QVector<SearchResult> results;
+    
+    for (int i = 0; i < all_headings_.size(); ++i) {
+        const auto &heading = all_headings_.at(i);
         bool matches = true;
+        
         if (!keywords.isEmpty()) {
             for (const QString &kw : keywords) {
                 bool kw_found = heading.title.contains(kw, Qt::CaseInsensitive) || 
                                 heading.slug.contains(kw, Qt::CaseInsensitive) ||
-                                heading.section.contains(kw, Qt::CaseInsensitive);
+                                heading.section.contains(kw, Qt::CaseInsensitive) ||
+                                fuzzy_match(heading.title, kw);
                 if (!kw_found) {
                     matches = false;
                     break;
@@ -171,47 +251,69 @@ void HeadingSelectDialog::populate_list(const QString &search_text) {
         }
         
         if (matches) {
-            QListWidgetItem *item = new QListWidgetItem(list_widget_);
-            item->setData(Qt::UserRole, heading.slug);
-            item->setData(Qt::UserRole + 1, heading.title);
+            int relevance = calculate_relevance(heading, keywords);
+            results.append({i, relevance, &heading});
+        }
+    }
+    
+    // Sort by relevance score (highest first)
+    std::sort(results.begin(), results.end(), 
+        [](const SearchResult &a, const SearchResult &b) {
+            return a.relevance_score > b.relevance_score;
+        });
+    
+    // Populate sorted results
+    for (const auto &result : results) {
+        const NoteItem *heading = result.item;
+        QListWidgetItem *item = new QListWidgetItem(list_widget_);
+        item->setData(Qt::UserRole, heading->slug);
+        item->setData(Qt::UserRole + 1, heading->title);
+        
+        QLabel *label = new QLabel();
+        label->setAttribute(Qt::WA_TransparentForMouseEvents);
+        label->setTextFormat(Qt::RichText);
+        
+        QString disp_html = "";
+        
+        if (heading->type == "heading") {
+            QString title_part = heading->title;
+            QString slug_part = heading->slug;
+            QString section_part = heading->section;
             
-            QLabel *label = new QLabel();
-            label->setAttribute(Qt::WA_TransparentForMouseEvents);
-            label->setTextFormat(Qt::RichText);
-            
-            QString disp_html = "";
-            
-            if (heading.type == "heading") {
-                QString title_part = heading.title;
-                QString slug_part = heading.slug;
-                QString section_part = heading.section;
-                
-                if (!keywords.isEmpty()) {
-                    title_part = highlight_text(title_part, keywords);
-                    slug_part = highlight_text(slug_part, keywords);
-                }
-                disp_html = QString("<span style=\"font-size: 14px; font-weight: bold; color: #e74c3c;\">%1</span> <span style=\"font-size: 11px; color: #7f8c8d;\">(id: %2) [%3]</span>")
-                            .arg(title_part, slug_part, section_part.toUpper());
-            } else {
-                QString title_part = heading.title;
-                QString slug_part = heading.slug;
-                if (!keywords.isEmpty()) {
-                    title_part = highlight_text(title_part, keywords);
-                    slug_part = highlight_text(slug_part, keywords);
-                }
-                disp_html = QString("<span style=\"padding-left: 15px; font-size: 13px; color: #2980b9;\">↳ %1</span> <span style=\"font-size: 11px; color: #7f8c8d;\">(id: %2)</span>")
-                            .arg(title_part, slug_part);
+            if (!keywords.isEmpty()) {
+                title_part = highlight_text(title_part, keywords);
+                slug_part = highlight_text(slug_part, keywords);
             }
             
-            label->setText(disp_html);
-            label->setStyleSheet("padding: 6px;");
+            // Add relevance indicator if searching
+            QString relevance_indicator = "";
+            if (!keywords.isEmpty() && result.relevance_score > 0) {
+                int stars = qMin(5, (result.relevance_score / 20) + 1);
+                relevance_indicator = QString(" <span style=\"color: #f39c12;\">%1</span>").arg(QString("★").repeated(stars));
+            }
             
-            list_widget_->addItem(item);
-            list_widget_->setItemWidget(item, label);
+            disp_html = QString("<span style=\"font-size: 14px; font-weight: bold; color: #e74c3c;\">%1</span>%2 <span style=\"font-size: 11px; color: #7f8c8d;\">(id: %3) [%4]</span>")
+                        .arg(title_part, relevance_indicator, slug_part, section_part.toUpper());
+        } else {
+            QString title_part = heading->title;
+            QString slug_part = heading->slug;
+            if (!keywords.isEmpty()) {
+                title_part = highlight_text(title_part, keywords);
+                slug_part = highlight_text(slug_part, keywords);
+            }
             
-            label->adjustSize();
-            item->setSizeHint(QSize(0, qMax(label->sizeHint().height(), 36)));
+            disp_html = QString("<span style=\"padding-left: 15px; font-size: 13px; color: #2980b9;\">↳ %1</span> <span style=\"font-size: 11px; color: #7f8c8d;\">(id: %2)</span>")
+                        .arg(title_part, slug_part);
         }
+        
+        label->setText(disp_html);
+        label->setStyleSheet("padding: 6px;");
+        
+        list_widget_->addItem(item);
+        list_widget_->setItemWidget(item, label);
+        
+        label->adjustSize();
+        item->setSizeHint(QSize(0, qMax(label->sizeHint().height(), 36)));
     }
     
     // Auto select first item
