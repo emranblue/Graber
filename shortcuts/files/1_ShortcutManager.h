@@ -37,7 +37,7 @@ private:
     class NativeEventFilter : public QAbstractNativeEventFilter {
     public:
         explicit NativeEventFilter(GlobalHotkeyListener *parent);
-        bool nativeEventFilter(const QByteArray &eventType, void *message, qintptr *result) override;
+        bool nativeEventFilter(const QByteArray &eventType, void *message, long *result) override;
     private:
         GlobalHotkeyListener *parent_;
     };

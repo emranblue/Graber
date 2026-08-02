@@ -22,7 +22,7 @@
 GlobalHotkeyListener::NativeEventFilter::NativeEventFilter(GlobalHotkeyListener *parent)
     : parent_(parent) {}
 
-bool GlobalHotkeyListener::NativeEventFilter::nativeEventFilter(const QByteArray &eventType, void *message, qintptr *result) {
+bool GlobalHotkeyListener::NativeEventFilter::nativeEventFilter(const QByteArray &eventType, void *message, long *result) {
     Q_UNUSED(result);
     if (eventType == "windows_generic_MSG") {
         MSG *msg = static_cast<MSG *>(message);
