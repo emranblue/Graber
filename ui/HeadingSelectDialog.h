@@ -5,6 +5,7 @@
 #include <QLineEdit>
 #include <QListWidget>
 #include <QKeyEvent>
+#include <QEvent>
 #include <QCoreApplication>
 #include <QTimer>
 #include "Types.h"
