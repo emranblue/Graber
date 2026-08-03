@@ -1,65 +1,97 @@
 #ifndef CLIPBOARDGRABBERUI_H
 #define CLIPBOARDGRABBERUI_H
 
-#include "core/QtFixes.h"
 #include <QWidget>
 #include <QLabel>
 #include <QPushButton>
 #include <QComboBox>
+#include <QFrame>
+#include <QScrollArea>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
-#include <QSize>
-#include <QFrame>
-#include <QGraphicsDropShadowEffect>
-#include <QPixmap>
-#include <QColor>
-#include <QScrollArea>
+
+// Exact text of the "Diagram" entry in format_dropdown. Shared between the
+// item that's added to the dropdown and the logic that checks whether it's
+// the current selection, so the two can never drift apart. The format
+// dropdown itself is the only switch for diagram mode — there is no
+// separate checkbox/toggle to keep in sync with it.
+inline const QString kDiagramFormatLabel = QStringLiteral("ডায়াগ্রাম (Diagram)");
 
 class ClipboardGrabberUI {
 public:
+    ClipboardGrabberUI() = default;
+    ~ClipboardGrabberUI() = default;
+
+    /**
+     * @brief Constructs and initializes all UI components, layouts, and card panels.
+     * @param parent Pointer to the target parent QWidget (e.g., ClipboardGrabberWindow).
+     */
     void setupUi(QWidget *parent);
+    void cycleFormat();
 
-    // UI Widgets
-    QLabel *status_label;
-    QLabel *last_captured_label;
-    QPushButton *start_button;
-    QPushButton *stop_button;
-    QPushButton *add_image_button;
-    QComboBox *folder_dropdown;
-    QComboBox *subject_dropdown;
-    QPushButton *toggle_subject_button;
-    QPushButton *add_subject_button;
-    QPushButton *add_folder_button;
-    QPushButton *open_file_button;
-    QComboBox *format_dropdown;
-    QLabel *mode_label;
-    QComboBox *mode_dropdown;
-    QLabel *section_label;
-    QComboBox *section_dropdown;
-    QPushButton *inject_heading_button;
-    QLabel *heading_label;
-    QPushButton *select_heading_button;
-    QPushButton *append_to_heading_button;
-    QPushButton *delete_heading_button;
-    QPushButton *shift_heading_button;
-    QPushButton *add_section_button;
-    QPushButton *settings_button;
-    QPushButton *wizards_button;
+    // =========================================================================
+    // DYNAMIC UI PANELS & LAYOUT CONTAINERS
+    // =========================================================================
+    QWidget *body = nullptr;
+    QWidget *controls_bar = nullptr;
+    QWidget *capture_extra = nullptr;
+    QWidget *diagram_quick_row = nullptr;
 
-    // Cards/sections toggled between the full editing view and the minimal
-    // "capturing" view (see ClipboardGrabber::start_monitoring/stop_monitoring).
-    QFrame *subject_card;
-    QFrame *capture_card;
-    QFrame *heading_card;
-    QWidget *capture_extra;   // section + image controls inside capture_card
+    QFrame *subject_card = nullptr;
+    QFrame *capture_card = nullptr;
+    QFrame *heading_card = nullptr;
 
-    // Top-level regions, kept as members so the window can be sized from
-    // their real content. QScrollArea::sizeHint()/minimumSizeHint() are
-    // hardcoded by Qt to a small capped value that ignores the scrolled
-    // widget entirely, so `body` (what's actually inside the scroll area)
-    // must be measured directly instead of going through `scroll_area`.
-    QWidget *body;
-    QWidget *controls_bar;
+    // =========================================================================
+    // STATUS INDICATORS & PREVIEWS
+    // =========================================================================
+    QLabel *status_label = nullptr;
+    QLabel *last_captured_label = nullptr;
+
+    // =========================================================================
+    // ACTION BUTTONS
+    // =========================================================================
+    // Core App Controls
+    QPushButton *start_button = nullptr;
+    QPushButton *stop_button = nullptr;
+    QPushButton *wizards_button = nullptr;
+    QPushButton *settings_button = nullptr;
+
+    // Subject & Folder Controls
+    QPushButton *add_folder_button = nullptr;
+    QPushButton *add_subject_button = nullptr;
+    QPushButton *toggle_subject_button = nullptr;
+    QPushButton *open_file_button = nullptr;
+
+    // Capture & Section Actions
+    QPushButton *add_image_button = nullptr;
+    QPushButton *add_section_button = nullptr;
+
+    // Target Heading Actions
+    QPushButton *select_heading_button = nullptr;
+    QPushButton *append_to_heading_button = nullptr;
+    QPushButton *inject_heading_button = nullptr;
+    QPushButton *shift_heading_button = nullptr;
+    QPushButton *delete_heading_button = nullptr;
+
+    // Diagram Actions
+    QPushButton *insert_diagram_button = nullptr;
+
+    // =========================================================================
+    // DROPDOWNS & SELECTION CONTROLS
+    // =========================================================================
+    QComboBox *folder_dropdown = nullptr;
+    QComboBox *subject_dropdown = nullptr;
+    QComboBox *format_dropdown = nullptr;
+    QComboBox *section_dropdown = nullptr;
+    QComboBox *mode_dropdown = nullptr;
+    QComboBox *diagram_dropdown = nullptr;
+
+    // =========================================================================
+    // LABELS
+    // =========================================================================
+    QLabel *heading_label = nullptr;
+    QLabel *section_label = nullptr;
+    QLabel *mode_label = nullptr;
 };
 
 #endif // CLIPBOARDGRABBERUI_H

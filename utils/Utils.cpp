@@ -38,10 +38,10 @@ void debugLog(const QString &msg) {
 
 QString get_random_beautiful_color() {
     static const QStringList colors = {
-        "#1abc9c", "#2ecc71", "#3498db", "#9b59b6", "#e67e22", 
-        "#e74c3c", "#16a085", "#27ae60", "#2980b9", "#8e44ad", 
-        "#d35400", "#c0392b", "#d81b60", "#c2185b", "#3f51b5", 
-        "#1a5276", "#7d3c98", "#196f3d", "#b03a2e", "#0984e3", 
+        "#1abc9c", "#2ecc71", "#3498db", "#9b59b6", "#e67e22",
+        "#e74c3c", "#16a085", "#27ae60", "#2980b9", "#8e44ad",
+        "#d35400", "#c0392b", "#d81b60", "#c2185b", "#3f51b5",
+        "#1a5276", "#7d3c98", "#196f3d", "#b03a2e", "#0984e3",
         "#d63031", "#e84393", "#6c5ce7", "#00b894", "#fdb827"
     };
     static int last_idx = -1;
@@ -63,14 +63,14 @@ QIcon get_feather_icon(const QChar &code, const QColor &color, int size) {
     QPainter painter(&pixmap);
     painter.setRenderHint(QPainter::Antialiasing);
     painter.setRenderHint(QPainter::TextAntialiasing);
-    
+
     QFont font(get_feather_font_family());
     font.setPixelSize(size - 2);
     painter.setFont(font);
     painter.setPen(color);
-    
+
     painter.drawText(pixmap.rect(), Qt::AlignCenter, QString(code));
     painter.end();
-    
+
     return QIcon(pixmap);
 }

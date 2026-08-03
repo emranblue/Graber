@@ -36,6 +36,21 @@ public:
 
     virtual bool writeImageToNote(const QString &targetFile, const QString &imageFilename, QString &lastDate) = 0;
 
+    // Inserts a raw, already-formatted Markdown block (e.g. a ```mermaid
+    // fenced diagram) as-is — unlike appendContentToHeading/writeToNote, the
+    // text is not wrapped in any bullet/heading/paragraph markup. Goes into
+    // the selected heading if selectedSlug is non-empty, otherwise it's
+    // appended at the end of the file under the active date section.
+    virtual bool insertDiagramToNote(const QString &targetFile, const QString &diagramMarkdown, const QString &selectedSlug, QString &lastDate) = 0;
+
+    // Live/growing diagram: identified by sessionId. First call for a given
+    // sessionId inserts a fresh marker-wrapped block (same placement rules
+    // as insertDiagramToNote); subsequent calls with the same sessionId
+    // replace that block in place, so a diagram can keep growing (new nodes
+    // captured from the clipboard) without leaving stale duplicate copies
+    // in the note.
+    virtual bool upsertLiveDiagram(const QString &targetFile, const QString &sessionId, const QString &diagramMarkdown, const QString &selectedSlug, QString &lastDate) = 0;
+
     virtual bool injectHeadingToNote(const QString &targetFile, const QString &simplifiedText, const QString &section, QString &lastDate) = 0;
 
     virtual bool deleteHeadingSection(const QString &targetFile, const QString &slug, const QString &subjectName, QString &outCapturedLabelText) = 0;

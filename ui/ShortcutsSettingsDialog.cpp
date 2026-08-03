@@ -9,8 +9,10 @@
 ShortcutsSettingsDialog::ShortcutsSettingsDialog(QList<ShortcutConfig> &configs,
                                                    bool &globalHotkeysEnabled,
                                                    bool globalHotkeysSupported,
+                                                   bool &diagramPanelEnabled,
                                                    QWidget *parent)
-    : QDialog(parent), configs_(configs), global_hotkeys_enabled_(globalHotkeysEnabled) {
+    : QDialog(parent), configs_(configs), global_hotkeys_enabled_(globalHotkeysEnabled),
+      diagram_panel_enabled_(diagramPanelEnabled) {
     setWindowTitle("কীবোর্ড শর্টকাট সেটিংস (Keyboard Shortcut Settings)");
     setMinimumSize(450, 500);
     
@@ -53,7 +55,26 @@ ShortcutsSettingsDialog::ShortcutsSettingsDialog(QList<ShortcutConfig> &configs,
     }
 
     main_layout->addWidget(global_frame);
-    
+
+    // --- Diagram insertion panel toggle ---
+    QFrame *diagram_frame = new QFrame();
+    diagram_frame->setStyleSheet("QFrame { background-color: white; border: 1px solid #dcdde1; border-radius: 6px; padding: 6px; }");
+    QVBoxLayout *diagram_frame_layout = new QVBoxLayout(diagram_frame);
+
+    diagram_panel_checkbox_ = new QCheckBox("ডায়াগ্রাম প্যানেল দেখান (Show Insert Diagram panel — star/ring/flowchart/UML)");
+    diagram_panel_checkbox_->setStyleSheet("font-weight: bold; color: #2f3640;");
+    diagram_panel_checkbox_->setChecked(diagram_panel_enabled_);
+    diagram_frame_layout->addWidget(diagram_panel_checkbox_);
+
+    QLabel *diagram_desc_label = new QLabel(
+        "চালু থাকলে, মূল উইন্ডোতে একটি \"ডায়াগ্রাম যোগ করুন\" প্যানেল দেখা যাবে।\n"
+        "(When on, an \"Insert Diagram\" panel is shown on the main window.)");
+    diagram_desc_label->setWordWrap(true);
+    diagram_desc_label->setStyleSheet("font-size: 11px; color: #7f8c8d; border: none; background: transparent;");
+    diagram_frame_layout->addWidget(diagram_desc_label);
+
+    main_layout->addWidget(diagram_frame);
+
     QScrollArea *scroll = new QScrollArea();
     scroll->setWidgetResizable(true);
     scroll->setFrameShape(QFrame::NoFrame);
@@ -127,5 +148,6 @@ void ShortcutsSettingsDialog::on_save() {
         configs_[i].current_key = edits_[i]->keySequence();
     }
     global_hotkeys_enabled_ = global_hotkeys_checkbox_->isChecked();
+    diagram_panel_enabled_ = diagram_panel_checkbox_->isChecked();
     accept();
 }

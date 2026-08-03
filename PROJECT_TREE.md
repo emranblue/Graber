@@ -1,80 +1,72 @@
-# Graber — Project Directory Tree
+# Project Directory Tree
 
 ```
-Graber/
-├── CMakeLists.txt                      # CMake build config (targets Qt6: Core, Gui, Widgets)
-├── Makefile                            # Convenience wrapper around the CMake build
-├── README.md                           # Project overview & usage guide
-├── UPDATE_GUIDE.md                     # Notes on updating/upgrading the app
-├── PROJECT_TREE.md                     # This file
-├── main.cpp                            # App entry point: QApplication, global stylesheet, font loading
-├── main.cpp.bak                        # Backup of an earlier, pre-refactor main.cpp
-├── resources.qrc                       # Qt resource file (fonts + icons bundled into the binary)
-├── Kalpurush.ttf                       # Bangla UI font
-├── feather.ttf                         # Feather icon font (used for in-app glyph icons)
+graber/
+├── CMakeLists.txt                 # Main CMake build configuration
+├── Makefile                       # Cross-platform Makefile wrapper
+├── README.md                      # Project documentation and usage guide
+├── PROJECT_TREE.md                # Detailed project architecture & directory structure
+├── main.cpp                       # Application entry point & Qt application bootstrap
+├── resources.qrc                  # Qt Resource file (fonts, icons)
+├── Kalpurush.ttf                  # Bangla font asset
+├── feather.ttf                    # Vector icon font asset
 │
-├── core/                               # Shared low-level types & compatibility shims
-│   ├── Types.h                         # NoteItem, SectionItem, ShortcutConfig, shared enums
-│   └── QtFixes.h                       # Small cross-version Qt compatibility fixes
+├── core/                          # Domain Models & Core Types
+│   └── Types.h                    # Data structures (NoteItem, SectionItem, ShortcutConfig, Enums)
 │
-├── interfaces/                         # Abstract contracts (dependency inversion / SOLID)
-│   ├── IAction.h                       # Command/Action pattern contract
-│   ├── IClipboardMonitor.h             # Clipboard & selection monitoring contract
-│   ├── IDocumentFormatter.h            # Markdown/heading formatting contract
-│   ├── INoteRepository.h               # Note storage contract
-│   ├── INoteService.h                  # Note application-service contract
-│   ├── ISectionRepository.h            # Per-subject section settings contract
-│   ├── IServiceRegistry.h              # Service locator contract
-│   └── IWizardFeature.h                # Extensible wizard/tool plugin contract
+├── interfaces/                    # Abstract Contracts (SOLID / Dependency Inversion)
+│   ├── IAction.h                  # Abstract contract & functional class for Command / Action pattern
+│   ├── IClipboardMonitor.h        # Interface for clipboard & selection monitoring
+│   ├── IDocumentFormatter.h       # Interface for document parsing, slugification, & TOC engines
+│   ├── INoteRepository.h          # Interface for note storage & section management
+│   ├── INoteService.h             # Abstract interface for Note application service
+│   ├── ISectionRepository.h       # Interface for per-subject section settings persistence
+│   ├── IServiceRegistry.h         # Abstract contract for Service Provider / Service Locator
+│   └── IWizardFeature.h           # Abstract interface for extensible Wizards, Features & Tools
 │
-├── services/                           # Application service layer & registries
-│   ├── NoteService.{h,cpp}             # Implements INoteService — note read/write/append logic
-│   ├── ServiceRegistry.{h,cpp}         # Central service locator
-│   ├── ActionRegistry.{h,cpp}          # Central command registry; binds UI buttons to actions
-│   └── FeatureManager.{h,cpp}          # Registry/dispatcher for wizards & extensions
+├── services/                      # Application Service Layer & Registries
+│   ├── NoteService.h              # Note application service implementing INoteService
+│   ├── NoteService.cpp
+│   ├── ServiceRegistry.h          # Centralized Service Locator / Dependency Registry
+│   ├── ServiceRegistry.cpp
+│   ├── ActionRegistry.h           # Central Command / Action Registry & UI Button Binder
+│   ├── ActionRegistry.cpp
+│   ├── FeatureManager.h           # Central Registry & Dispatcher for Wizards & Extensions
+│   └── FeatureManager.cpp
 │
-├── repositories/                       # Storage & persistence layer
-│   ├── NoteRepository.{h,cpp}          # File-based note storage on disk
-│   └── IniSectionRepository.{h,cpp}    # INI-based per-subject section config storage
+├── repositories/                  # Storage & Data Persistence Layer
+│   ├── NoteRepository.h           # File-based note repository implementation
+│   ├── NoteRepository.cpp
+│   ├── IniSectionRepository.h     # INI-based section configuration repository
+│   └── IniSectionRepository.cpp
 │
-├── formatters/                         # Document parsing & normalization
-│   ├── MarkdownDocumentFormatter.{h,cpp} # Heading normalization, TOC generation
-│   └── MarkdownUtils.{h,cpp}           # Slug generation, section-bound detection helpers
+├── formatters/                    # Document Processing & Normalization
+│   ├── MarkdownDocumentFormatter.h# Markdown & HTML heading normalizer & TOC generator
+│   ├── MarkdownDocumentFormatter.cpp
+│   ├── MarkdownUtils.h            # Text parsing, slug generation, & bound detection utilities
+│   └── MarkdownUtils.cpp
 │
-├── monitors/                           # System clipboard tracking
-│   └── ClipboardMonitor.{h,cpp}        # Polls the system clipboard/selection for changes
+├── monitors/                      # System Clipboard & Selection Tracking
+│   ├── ClipboardMonitor.h         # Qt clipboard poller implementation
+│   └── ClipboardMonitor.cpp
 │
-├── shortcuts/                          # Keyboard shortcuts (in-app + system-wide)
-│   └── ShortcutManager.{h,cpp}         # QShortcut bindings + cross-platform global hotkeys
-│                                        #   (Win32 RegisterHotKey / X11 XGrabKey)
+├── shortcuts/                     # Keyboard Shortcuts System
+│   ├── ShortcutManager.h          # Shortcut manager auto-synced with ActionRegistry
+│   └── ShortcutManager.cpp
 │
-├── ui/                                 # Qt widgets & dialogs
-│   ├── ClipboardGrabber.{h,cpp}        # Main window logic: start/stop capture, event handling
-│   ├── ClipboardGrabberUI.{h,cpp}      # Main window layout/widget construction
-│   ├── ExportNoteWizard.{h,cpp}        # Wizard dialog for exporting notes
-│   ├── HeadingSelectDialog.{h,cpp}     # Dialog for searching/selecting a target heading
-│   └── ShortcutsSettingsDialog.{h,cpp} # Dialog for viewing/editing shortcut bindings
+├── ui/                            # Qt User Interface Components & Dialogs
+│   ├── ClipboardGrabber.h         # Main window controller
+│   ├── ClipboardGrabber.cpp
+│   ├── ClipboardGrabberUI.h       # UI layout setup & widget references
+│   ├── ClipboardGrabberUI.cpp
+│   ├── ExportNoteWizard.h         # Extensible Note Export Wizard feature implementation
+│   ├── ExportNoteWizard.cpp
+│   ├── HeadingSelectDialog.h      # Interactive heading search & selection dialog
+│   ├── HeadingSelectDialog.cpp
+│   ├── ShortcutsSettingsDialog.h  # Shortcut configuration settings dialog
+│   └── ShortcutsSettingsDialog.cpp
 │
-├── utils/                              # Misc shared helpers
-│   └── Utils.{h,cpp}                   # Feather-icon rendering, general utility functions
-│
-└── resources/                          # Packaged icons & platform metadata
-    ├── graber.rc                       # Windows resource script (.exe icon embedding)
-    └── icons/
-        ├── app.ico, app-1024.png       # Application icon
-        ├── file.ico, file-1024.png     # Note/file icon
-        └── folder.ico, folder-1024.png # Folder icon
+└── utils/                         # Helper Utilities
+    ├── Utils.h                    # Styling helpers, icon generators, & debug logging
+    └── Utils.cpp
 ```
-
-## Architecture at a glance
-
-- **Layered / clean-architecture style**: `interfaces/` defines contracts, `services/` implements
-  application logic against those contracts, `repositories/` handles persistence, and `ui/` only
-  talks to services/registries — never directly to file I/O.
-- **`ServiceRegistry`** acts as a simple service locator so components can be swapped without
-  rewiring constructors everywhere.
-- **`ActionRegistry`** centralizes every user-triggerable action (start/stop, add subject, inject
-  heading, etc.) with an enabled/disabled predicate, and binds them to both UI buttons and
-  keyboard shortcuts from a single source of truth.
-- **`ShortcutManager`** layers two shortcut systems: in-app `QShortcut`s (work while the window is
-  focused) and true system-wide global hotkeys (work from any app) via native Win32/X11 APIs.

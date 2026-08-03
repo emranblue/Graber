@@ -37,8 +37,15 @@ if(WIN32)
     set(GRABER_WIN_RC resources/graber.rc)
 endif()
 
+# On Windows, WIN32 marks this as a GUI (non-console) application so no
+# extra blank console window is spawned alongside the Qt UI at startup.
+if(WIN32)
+    set(GRABER_WIN32_FLAG WIN32)
+endif()
+
 # Create the executable
 add_executable(graber
+    ${GRABER_WIN32_FLAG}
     main.cpp
     resources.qrc
     ${GRABER_WIN_RC}
@@ -77,6 +84,8 @@ add_executable(graber
     formatters/MarkdownDocumentFormatter.cpp
     formatters/MarkdownUtils.h
     formatters/MarkdownUtils.cpp
+    formatters/DiagramTemplates.h
+    formatters/DiagramTemplates.cpp
 
     # Monitors
     monitors/ClipboardMonitor.h

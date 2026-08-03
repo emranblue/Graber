@@ -1,5 +1,12 @@
 #include "ClipboardGrabberUI.h"
 #include "Utils.h"
+#include "DiagramTemplates.h"
+#include <QGraphicsDropShadowEffect>
+#include <QButtonGroup>
+#include <QActionGroup>
+#include <QDebug>
+#include <QShortcut>
+#include <QKeySequence>
 
 namespace {
 // Soft elevation so cards lift subtly off the page instead of looking flat.
@@ -35,11 +42,31 @@ QWidget *sectionHeader(const QChar &glyphCode, const QColor &accent, const QStri
     l->addWidget(title, 1);
     return row;
 }
+} // namespace
+
+void ClipboardGrabberUI::cycleFormat() {
+    if (!format_dropdown || format_dropdown->count() == 0) {
+        return;
+    }
+
+    // Get current dropdown selection
+    int currentIndex = format_dropdown->currentIndex();
+    int totalItems = format_dropdown->count();
+
+    // Dynamically wrap around all dropdown items cleanly
+    int nextIndex = (currentIndex + 1) % totalItems;
+
+    // Set new index on the UI combobox
+    format_dropdown->setCurrentIndex(nextIndex);
+
+    // CRITICAL: Manually emit signals so backend listeners/slots update their format state immediately!
+    emit format_dropdown->currentIndexChanged(nextIndex);
+    emit format_dropdown->activated(nextIndex);
 }
 
 void ClipboardGrabberUI::setupUi(QWidget *parent) {
     // --- Window Setup ---
-    parent->setWindowTitle("Graber");
+    parent->setWindowTitle("ক্লিপবোর্ড গ্র্যাবার");
     parent->resize(620, 820); // placeholder, corrected right after layout by fit_window_to_content()
     parent->setObjectName("MainWindow");
 
@@ -55,12 +82,12 @@ void ClipboardGrabberUI::setupUi(QWidget *parent) {
     last_captured_label->setMinimumHeight(46);
 
     start_button = new QPushButton("শুরু (Start)");
-    start_button->setStyleSheet("QPushButton { background-color: #44bd32; } QPushButton:hover { background-color: #44bd32; opacity: 0.9; }");
+    start_button->setStyleSheet("QPushButton { background-color: #44bd32; color: white; border-radius: 4px; padding: 6px; } QPushButton:hover { background-color: #44bd32; opacity: 0.9; }");
     start_button->setIcon(get_feather_icon(QChar(0xe9a8)));
 
     stop_button = new QPushButton("থামুন (Stop)");
     stop_button->setEnabled(false);
-    stop_button->setStyleSheet("QPushButton { background-color: #e84118; } QPushButton:hover { background-color: #c23616; }");
+    stop_button->setStyleSheet("QPushButton { background-color: #e84118; color: white; border-radius: 4px; padding: 6px; } QPushButton:hover { background-color: #c23616; }");
     stop_button->setIcon(get_feather_icon(QChar(0xe9e4)));
 
     add_image_button = new QPushButton("ছবি যুক্ত করুন (Add Image)");
@@ -71,20 +98,20 @@ void ClipboardGrabberUI::setupUi(QWidget *parent) {
     subject_dropdown = new QComboBox();
     subject_dropdown->setIconSize(QSize(18, 18));
 
-    toggle_subject_button = new QPushButton("বিষয় পরিবর্তন");
-    toggle_subject_button->setStyleSheet("QPushButton { background-color: #9b59b6; } QPushButton:hover { background-color: #8e44ad; }");
+    toggle_subject_button = new QPushButton("বিষয় পরিবর্তন");
+    toggle_subject_button->setStyleSheet("QPushButton { background-color: #9b59b6; color: white; border-radius: 4px; padding: 5px; } QPushButton:hover { background-color: #8e44ad; }");
     toggle_subject_button->setIcon(get_feather_icon(QChar(0xe9d0)));
 
-    add_subject_button = new QPushButton("নতুন বিষয়");
-    add_subject_button->setStyleSheet("QPushButton { background-color: #44bd32; } QPushButton:hover { background-color: #44bd32; opacity: 0.9; }");
+    add_subject_button = new QPushButton("নতুন বিষয়");
+    add_subject_button->setStyleSheet("QPushButton { background-color: #44bd32; color: white; border-radius: 4px; padding: 5px; } QPushButton:hover { background-color: #44bd32; opacity: 0.9; }");
     add_subject_button->setIcon(get_feather_icon(QChar(0xe9c9)));
 
     add_folder_button = new QPushButton("নতুন ফোল্ডার");
-    add_folder_button->setStyleSheet("QPushButton { background-color: #e67e22; } QPushButton:hover { background-color: #d35400; }");
+    add_folder_button->setStyleSheet("QPushButton { background-color: #e67e22; color: white; border-radius: 4px; padding: 5px; } QPushButton:hover { background-color: #d35400; }");
     add_folder_button->setIcon(get_feather_icon(QChar(0xe9c9)));
 
     open_file_button = new QPushButton("নোট খুলুন");
-    open_file_button->setStyleSheet("QPushButton { background-color: #0097e6; } QPushButton:hover { background-color: #00a8ff; }");
+    open_file_button->setStyleSheet("QPushButton { background-color: #0097e6; color: white; border-radius: 4px; padding: 5px; } QPushButton:hover { background-color: #00a8ff; }");
     open_file_button->setEnabled(false);
     open_file_button->setIcon(get_feather_icon(QChar(0xe966)));
 
@@ -96,36 +123,50 @@ void ClipboardGrabberUI::setupUi(QWidget *parent) {
     select_heading_button->setIcon(get_feather_icon(QChar(0xe90a), QColor("#2f3640")));
 
     append_to_heading_button = new QPushButton("যুক্ত করুন");
-    append_to_heading_button->setStyleSheet("QPushButton { background-color: #f39c12; } QPushButton:hover { background-color: #e67e22; }");
+    append_to_heading_button->setStyleSheet("QPushButton { background-color: #f39c12; color: white; border-radius: 4px; padding: 5px; } QPushButton:hover { background-color: #e67e22; }");
     append_to_heading_button->setEnabled(false);
     append_to_heading_button->setIcon(get_feather_icon(QChar(0xe963)));
 
     shift_heading_button = new QPushButton("স্থানান্তর");
-    shift_heading_button->setStyleSheet("QPushButton { background-color: #3498db; } QPushButton:hover { background-color: #2980b9; }");
+    shift_heading_button->setStyleSheet("QPushButton { background-color: #3498db; color: white; border-radius: 4px; padding: 5px; } QPushButton:hover { background-color: #2980b9; }");
     shift_heading_button->setEnabled(false);
     shift_heading_button->setIcon(get_feather_icon(QChar(0xe9bc)));
 
     delete_heading_button = new QPushButton("মুছে ফেলুন");
-    delete_heading_button->setStyleSheet("QPushButton { background-color: #c0392b; } QPushButton:hover { background-color: #ae2012; }");
+    delete_heading_button->setStyleSheet("QPushButton { background-color: #c0392b; color: white; border-radius: 4px; padding: 5px; } QPushButton:hover { background-color: #ae2012; }");
     delete_heading_button->setEnabled(false);
     delete_heading_button->setIcon(get_feather_icon(QChar(0xe9f6)));
 
     format_dropdown = new QComboBox();
-    format_dropdown->addItem("বুলেট পয়েন্ট (Point)");
+    format_dropdown->addItem("বুলেট পয়েন্ট (Point)");
     format_dropdown->addItem("প্রধান শিরোনাম (Heading - Red)");
     format_dropdown->addItem("উপ-শিরোনাম (Subheading - Blue)");
     format_dropdown->addItem("মাইন্ড ম্যাপ (Timeline Mind Map)");
     format_dropdown->addItem("প্যারাগ্রাফ (Paragraph)");
+    // Selecting this turns on live diagram building: the first thing copied
+    // becomes the root node, everything copied after becomes a flat sub
+    // node of it — no separate on/off toggle needed, the format itself is
+    // the switch. diagram_dropdown below is enabled/disabled dynamically
+    // based on whether this item is the current selection.
+    format_dropdown->addItem(kDiagramFormatLabel);
+
+    // --- Shortcut Connection ---
+    // Connect Ctrl+Shift+F with Application Context so it works across active widgets
+    QShortcut *cycleFormatShortcut = new QShortcut(QKeySequence("Ctrl+Shift+F"), parent);
+    cycleFormatShortcut->setContext(Qt::ApplicationShortcut);
+    QObject::connect(cycleFormatShortcut, &QShortcut::activated, parent, [this]() {
+        this->cycleFormat();
+    });
 
     section_label = new QLabel("বিভাগ (Section):");
     section_dropdown = new QComboBox();
 
     add_section_button = new QPushButton("নতুন বিভাগ");
-    add_section_button->setStyleSheet("QPushButton { background-color: #44bd32; } QPushButton:hover { background-color: #44bd32; opacity: 0.9; }");
+    add_section_button->setStyleSheet("QPushButton { background-color: #44bd32; color: white; border-radius: 4px; padding: 5px; } QPushButton:hover { background-color: #44bd32; opacity: 0.9; }");
     add_section_button->setIcon(get_feather_icon(QChar(0xe9c9)));
 
     inject_heading_button = new QPushButton("ইনজেক্ট করুন");
-    inject_heading_button->setStyleSheet("QPushButton { background-color: #8c7ae6; } QPushButton:hover { background-color: #9c88ff; }");
+    inject_heading_button->setStyleSheet("QPushButton { background-color: #8c7ae6; color: white; border-radius: 4px; padding: 5px; } QPushButton:hover { background-color: #9c88ff; }");
     inject_heading_button->setEnabled(false);
     inject_heading_button->setIcon(get_feather_icon(QChar(0xe992)));
 
@@ -135,8 +176,19 @@ void ClipboardGrabberUI::setupUi(QWidget *parent) {
     mode_dropdown->addItem("সিলেক্ট মোড");
 
     wizards_button = new QPushButton("উইজার্ড ও টুলস");
-    wizards_button->setStyleSheet("QPushButton { background-color: #8e44ad; } QPushButton:hover { background-color: #9b59b6; }");
+    wizards_button->setStyleSheet("QPushButton { background-color: #8e44ad; color: white; border-radius: 4px; padding: 6px; } QPushButton:hover { background-color: #9b59b6; }");
     wizards_button->setIcon(get_feather_icon(QChar(0xe9b8)));
+
+    diagram_dropdown = new QComboBox();
+    diagram_dropdown->setEnabled(false); // enabled once Format is set to "Diagram"
+    for (const auto &tpl : DiagramTemplates::list()) {
+        diagram_dropdown->addItem(tpl.second, tpl.first);
+    }
+
+    insert_diagram_button = new QPushButton("নতুন ডায়াগ্রাম (New Diagram)");
+    insert_diagram_button->setStyleSheet("QPushButton { background-color: #00a8ff; color: white; border-radius: 4px; padding: 5px; } QPushButton:hover { background-color: #0097e6; }");
+    insert_diagram_button->setEnabled(false);
+    insert_diagram_button->setIcon(get_feather_icon(QChar(0xe992)));
 
     // --- Layout Panels ---
     // 1. Subject Management Panel (Card)
@@ -189,8 +241,16 @@ void ClipboardGrabberUI::setupUi(QWidget *parent) {
     options_layout->addWidget(mode_dropdown, 1);
     capture_layout->addLayout(options_layout);
 
-    // Section + image controls: bundled into one widget so it can be hidden
-    // as a single unit while monitoring is running.
+    // Diagram quick-insert row
+    diagram_quick_row = new QWidget();
+    QHBoxLayout *diagram_quick_layout = new QHBoxLayout(diagram_quick_row);
+    diagram_quick_layout->setContentsMargins(0, 0, 0, 0);
+    diagram_quick_layout->setSpacing(8);
+    diagram_quick_layout->addWidget(diagram_dropdown, 1);
+    diagram_quick_layout->addWidget(insert_diagram_button);
+    capture_layout->addWidget(diagram_quick_row);
+
+    // Section + image controls
     capture_extra = new QWidget();
     QVBoxLayout *capture_extra_layout = new QVBoxLayout(capture_extra);
     capture_extra_layout->setContentsMargins(0, 0, 0, 0);
@@ -232,8 +292,7 @@ void ClipboardGrabberUI::setupUi(QWidget *parent) {
     heading_actions_layout->addWidget(delete_heading_button);
     heading_card_layout->addLayout(heading_actions_layout);
 
-    // "Hero" card: live status + last captured preview — this is the "log"
-    // that stays visible in both the full and minimal views.
+    // "Hero" card: live status + last captured preview
     QFrame *hero_card = new QFrame();
     hero_card->setObjectName("heroCard");
     QVBoxLayout *hero_layout = new QVBoxLayout(hero_card);
@@ -243,8 +302,7 @@ void ClipboardGrabberUI::setupUi(QWidget *parent) {
     hero_layout->addWidget(last_captured_label);
     applyCardShadow(hero_card);
 
-    // Scrollable body: guarantees cards never overlap or get clipped no
-    // matter the window size — content scrolls instead of squeezing.
+    // Scrollable body
     QWidget *body = new QWidget();
     body->setObjectName("scrollBody");
     this->body = body;
@@ -266,10 +324,10 @@ void ClipboardGrabberUI::setupUi(QWidget *parent) {
     scroll_area->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     scroll_area->setStyleSheet("QScrollArea#bodyScroll { background: transparent; border: none; } QWidget#scrollBody { background: transparent; }");
 
-    // Primary controls: kept outside the scroll area so Start/Stop/Wizards/
-    // Settings are always reachable regardless of scroll position or view.
+    // Primary controls bar
     settings_button = new QPushButton("সেটিংস");
     settings_button->setObjectName("secondaryButton");
+    settings_button->setStyleSheet("QPushButton { background-color: #718093; color: white; border-radius: 4px; padding: 6px; } QPushButton:hover { background-color: #2f3640; }");
     settings_button->setIcon(get_feather_icon(QChar(0xe9db)));
 
     start_button->setObjectName("primaryActionButton");
@@ -286,7 +344,7 @@ void ClipboardGrabberUI::setupUi(QWidget *parent) {
     control_layout1->addWidget(wizards_button);
     control_layout1->addWidget(settings_button);
 
-    // Main Layout
+    // Main Window Layout
     QVBoxLayout *main_layout = new QVBoxLayout(parent);
     main_layout->setSpacing(0);
     main_layout->setContentsMargins(0, 0, 0, 0);

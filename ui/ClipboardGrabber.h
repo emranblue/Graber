@@ -5,6 +5,7 @@
 #include <QWidget>
 #include <QSet>
 #include <QList>
+#include <QStringList>
 #include <QCloseEvent>
 #include "Types.h"
 #include "interfaces/IClipboardMonitor.h"
@@ -20,6 +21,12 @@ class ClipboardGrabber : public QWidget {
 public:
     explicit ClipboardGrabber(QWidget *parent = nullptr);
     ~ClipboardGrabber() override = default;
+
+public slots:
+    // Global hotkey delegate slot called from main.cpp / native event filter
+    void cycleFormat() {
+        ui_.cycleFormat();
+    }
 
 protected:
     void closeEvent(QCloseEvent *event) override;
@@ -45,6 +52,8 @@ private slots:
     void delete_selected_heading_section();
     void open_settings_dialog();
     void open_wizards_dialog();
+    void insert_diagram();
+    void on_format_changed(int index);
     void toggle_always_on_top();
     void trigger_shortcut_action(const QString &action_id);
 
@@ -66,12 +75,22 @@ private:
     void write_to_file(const QString &processed_text, const QString &section = "others");
     void populate_headings_from_file();
     void fit_window_to_content();
+    void apply_diagram_panel_visibility();
+    void apply_diagram_format_lock();
+    bool is_diagram_format_selected() const;
+    void handle_diagram_capture(const QString &text);
+    void start_new_diagram_session();
 
     // State Variables
     bool is_running_;
     bool is_always_on_top_;
+    bool diagram_panel_enabled_;
     QString last_date_;
     QSet<QString> custom_added_sections_;
+
+    // Live diagram-mode capture state
+    QStringList diagram_nodes_;
+    QString diagram_session_id_;
 
     // Target Heading selection state
     QString selected_heading_slug_;

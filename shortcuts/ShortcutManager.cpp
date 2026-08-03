@@ -22,7 +22,7 @@
 GlobalHotkeyListener::NativeEventFilter::NativeEventFilter(GlobalHotkeyListener *parent)
     : parent_(parent) {}
 
-bool GlobalHotkeyListener::NativeEventFilter::nativeEventFilter(const QByteArray &eventType, void *message, qintptr *result) {
+bool GlobalHotkeyListener::NativeEventFilter::nativeEventFilter(const QByteArray &eventType, void *message, long *result) {
     Q_UNUSED(result);
     if (eventType == "windows_generic_MSG") {
         MSG *msg = static_cast<MSG *>(message);
@@ -267,6 +267,22 @@ ShortcutManager::ShortcutManager(QObject *parent)
     connect(global_hotkey_listener_, &GlobalHotkeyListener::globalHotkeyPressed,
             this, &ShortcutManager::on_global_hotkey_pressed);
     initDefaultConfigs();
+    dedup_timer_.start();
+}
+
+bool ShortcutManager::shouldFireAction(const QString &actionId) {
+    // When global hotkeys are on and our own window has focus, the same
+    // key press can be delivered twice: once to the local QShortcut and
+    // once to the global hotkey grab. Collapse anything arriving for the
+    // same action within a short window into a single trigger.
+    const qint64 now = dedup_timer_.elapsed();
+    const qint64 kDedupWindowMs = 200;
+    auto it = last_fired_ms_.find(actionId);
+    if (it != last_fired_ms_.end() && (now - it.value()) < kDedupWindowMs) {
+        return false;
+    }
+    last_fired_ms_[actionId] = now;
+    return true;
 }
 
 ShortcutManager::~ShortcutManager() {
@@ -339,6 +355,7 @@ void ShortcutManager::setupShortcuts(QWidget *parentWidget) {
             cfg.shortcut_obj->setAutoRepeat(false);
             QString action_id = cfg.action_id;
             connect(cfg.shortcut_obj, &QShortcut::activated, this, [this, action_id]() {
+                if (!shouldFireAction(action_id)) return;
                 if (ActionRegistry::instance().isActionEnabled(action_id)) {
                     ActionRegistry::instance().executeAction(action_id);
                     emit actionTriggered(action_id);
@@ -379,6 +396,7 @@ bool ShortcutManager::globalHotkeysSupported() const {
 }
 
 void ShortcutManager::on_global_hotkey_pressed(const QString &actionId) {
+    if (!shouldFireAction(actionId)) return;
     if (ActionRegistry::instance().isActionEnabled(actionId)) {
         ActionRegistry::instance().executeAction(actionId);
         emit actionTriggered(actionId);

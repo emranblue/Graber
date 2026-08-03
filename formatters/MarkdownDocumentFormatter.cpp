@@ -1,8 +1,39 @@
 #include "MarkdownDocumentFormatter.h"
 #include "MarkdownUtils.h"
+#include "DiagramTemplates.h"
 #include <QRegularExpression>
 #include <QTextStream>
 #include <QFile>
+
+// ============================================================================
+// DIAGRAM FORMATTING & INJECTION
+// ============================================================================
+
+QString MarkdownDocumentFormatter::formatDiagram(const QString &content, const QString &diagramType) const {
+    if (content.trimmed().isEmpty()) {
+        return QString();
+    }
+
+    // 1. Clean and sanitize clipboard text so line breaks and quotes don't break Mermaid diagram syntax
+    QString sanitizedContent = content.trimmed();
+    sanitizedContent.replace("\"", "'");       // Replace double quotes with single quotes
+    sanitizedContent.replace("\n", "<br/>"); // Convert line breaks into HTML breaks for diagram nodes
+
+    // 2. Fetch selected diagram template
+    QString tmpl = DiagramTemplates::getTemplate(diagramType);
+
+    // 3. Inject the clipboard text directly inside {{CONTENT}}
+    if (tmpl.contains("{{CONTENT}}")) {
+        return tmpl.replace("{{CONTENT}}", sanitizedContent);
+    }
+
+    // Backup fallback if placeholder is missing
+    return QString("```mermaid\nflowchart TD\n    Node1[\"%1\"]\n```\n").arg(sanitizedContent);
+}
+
+// ============================================================================
+// SLUG & SECTION UTILITIES
+// ============================================================================
 
 QString MarkdownDocumentFormatter::generateSlug(const QString &text) const {
     return QString::fromStdString(MarkdownUtils::generate_slug(text));
@@ -11,6 +42,10 @@ QString MarkdownDocumentFormatter::generateSlug(const QString &text) const {
 QString MarkdownDocumentFormatter::detectSectionFromTitle(const QString &title) const {
     return MarkdownUtils::detect_section_from_title(title);
 }
+
+// ============================================================================
+// MARKDOWN NORMALIZATION & HEADING PROCESSING
+// ============================================================================
 
 QString MarkdownDocumentFormatter::normalizeContent(const QString &content) const {
     int toc_start = content.indexOf("<!-- TOC_START -->");
@@ -102,6 +137,10 @@ QString MarkdownDocumentFormatter::normalizeContent(const QString &content) cons
 
     return output_lines.join('\n');
 }
+
+// ============================================================================
+// TOC GENERATION & UPDATES
+// ============================================================================
 
 QString MarkdownDocumentFormatter::generateToc(const QString &content, const QList<SectionItem> &sections) const {
     Q_UNUSED(content);
@@ -294,6 +333,10 @@ QString MarkdownDocumentFormatter::updateTocInContent(const QString &content, co
     return toc_block + processed_lines.join('\n');
 }
 
+// ============================================================================
+// NOTE STRUCTURE PARSING & TREE STORAGE
+// ============================================================================
+
 QList<NoteItem> MarkdownDocumentFormatter::parseNoteStructure(const QString &content, const QList<SectionItem> &availableSections, QSet<QString> &outCustomSections) const {
     QList<NoteItem> items;
     QStringList lines = content.split('\n');
@@ -405,7 +448,7 @@ void MarkdownDocumentFormatter::saveStructureTree(const QString &treeFilePath, c
 QString MarkdownDocumentFormatter::restoreStateFromContent(const QString &content) const {
     QTextStream in(const_cast<QString*>(&content));
     QRegularExpression date_regex("^###\\s*(?:\\*\\*\\*)?\\s*([0-9০-৯]{1,2}\\s+(?:January|February|March|April|May|June|July|August|September|October|November|December|জানুয়ারি|ফেব্রুয়ারি|মার্চ|এপ্রিল|মে|জুন|জুলাই|আগস্ট|সেপ্টেম্বর|অক্টোবর|নভেম্বর|ডিসেম্বর)[,\\s]+[0-9০-৯]{4})\\s*(?:\\*\\*\\*)?$", QRegularExpression::CaseInsensitiveOption);
-    
+
     QString last_found_date = "";
     while (!in.atEnd()) {
         QString line = in.readLine().trimmed();

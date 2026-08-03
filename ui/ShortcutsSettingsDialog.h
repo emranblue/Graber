@@ -18,6 +18,7 @@ public:
     ShortcutsSettingsDialog(QList<ShortcutConfig> &configs,
                              bool &globalHotkeysEnabled,
                              bool globalHotkeysSupported,
+                             bool &diagramPanelEnabled,
                              QWidget *parent = nullptr);
 
 private slots:
@@ -29,6 +30,8 @@ private:
     QList<QKeySequenceEdit*> edits_;
     bool &global_hotkeys_enabled_;
     QCheckBox *global_hotkeys_checkbox_;
+    bool &diagram_panel_enabled_;
+    QCheckBox *diagram_panel_checkbox_;
 };
 
 #endif // SHORTCUTSSETTINGSDIALOG_H

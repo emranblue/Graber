@@ -9,6 +9,7 @@
 #include <QShortcut>
 #include <QAbstractNativeEventFilter>
 #include <QMap>
+#include <QElapsedTimer>
 #include "Types.h"
 
 // Platform-specific includes were removed from the header to avoid polluting
@@ -37,7 +38,7 @@ private:
     class NativeEventFilter : public QAbstractNativeEventFilter {
     public:
         explicit NativeEventFilter(GlobalHotkeyListener *parent);
-        bool nativeEventFilter(const QByteArray &eventType, void *message, qintptr *result) override;
+        bool nativeEventFilter(const QByteArray &eventType, void *message, long *result) override;
     private:
         GlobalHotkeyListener *parent_;
     };
@@ -102,9 +103,20 @@ private slots:
     void on_global_hotkey_pressed(const QString &actionId);
 
 private:
+    // On X11 (and observed with RegisterHotKey too under some window
+    // managers/focus states), the same physical key press can arrive both
+    // through the locally-focused QShortcut *and* through the system-wide
+    // hotkey grab, firing the action twice per press. For toggle-style
+    // actions (cycling a dropdown) that makes it look like the shortcut is
+    // skipping entries / looping through only every-other item. This guards
+    // against handling the same action_id twice within a short window.
+    bool shouldFireAction(const QString &actionId);
+
     QList<ShortcutConfig> configs_;
     GlobalHotkeyListener *global_hotkey_listener_;
     bool global_hotkeys_enabled_;
+    QElapsedTimer dedup_timer_;
+    QMap<QString, qint64> last_fired_ms_;
 };
 
 #endif // SHORTCUTMANAGER_H

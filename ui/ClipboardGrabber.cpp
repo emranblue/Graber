@@ -7,8 +7,10 @@
 #include "ServiceRegistry.h"
 #include "ActionRegistry.h"
 #include "FeatureManager.h"
+#include "DiagramTemplates.h"
 
 #include <QClipboard>
+#include <QSettings>
 #include <QStyle>
 #include <QGuiApplication>
 #include <QInputDialog>
@@ -30,6 +32,7 @@ ClipboardGrabber::ClipboardGrabber(QWidget *parent) : QWidget(parent) {
     // --- State Variables ---
     is_running_ = false;
     is_always_on_top_ = false;
+    diagram_panel_enabled_ = true;
     last_date_ = "";
 
     // --- Modular Component Initialization ---
@@ -46,6 +49,12 @@ ClipboardGrabber::ClipboardGrabber(QWidget *parent) : QWidget(parent) {
     QString settings_file_path = note_service_.notesDirPath() + QDir::separator() + "settings.ini";
     shortcut_manager_.loadSettings(settings_file_path);
     shortcut_manager_.setupShortcuts(this);
+
+    {
+        QSettings app_settings(settings_file_path, QSettings::IniFormat);
+        diagram_panel_enabled_ = app_settings.value("General/DiagramPanel", true).toBool();
+    }
+    apply_diagram_panel_visibility();
 
     load_sections_for_subject("");
 
@@ -65,9 +74,16 @@ ClipboardGrabber::ClipboardGrabber(QWidget *parent) : QWidget(parent) {
     ActionRegistry::instance().bindButton(ui_.settings_button, "settings");
     ActionRegistry::instance().bindButton(ui_.wizards_button, "wizards");
     ActionRegistry::instance().bindButton(ui_.select_heading_button, "select_heading");
+    ActionRegistry::instance().bindButton(ui_.insert_diagram_button, "insert_diagram");
 
     connect(ui_.folder_dropdown, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &ClipboardGrabber::on_folder_changed);
     connect(ui_.subject_dropdown, &QComboBox::currentTextChanged, this, [this](const QString &text) { this->on_subject_changed(text); });
+    connect(ui_.format_dropdown, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &ClipboardGrabber::on_format_changed);
+
+    // Establish the correct initial lock state (format_dropdown starts on
+    // its first item, so this is a no-op today, but it keeps behavior
+    // correct if that default ever changes).
+    apply_diagram_format_lock();
 
     // --- Initial Population ---
     populate_folders_from_disk();
@@ -178,6 +194,10 @@ void ClipboardGrabber::setup_actions() {
     reg.registerFunctionalAction("new_section", "নতুন বিভাগ (New Section)", "কাস্টম বিভাগ যোগ করুন", "Section", QKeySequence("Ctrl+Shift+K"),
         [this](const QVariantMap &) { this->add_section(); });
 
+    reg.registerFunctionalAction("insert_diagram", "নতুন ডায়াগ্রাম (New Diagram)", "বর্তমান ডায়াগ্রাম শেষ করে নতুন রুট নোড দিয়ে আবার শুরু করুন", "Diagram", QKeySequence("Ctrl+Shift+M"),
+        [this](const QVariantMap &) { this->insert_diagram(); },
+        [this]() { return diagram_panel_enabled_ && is_diagram_format_selected() && ui_.subject_dropdown->currentIndex() != -1; });
+
     reg.registerFunctionalAction("toggle_format", "ফরম্যাট পরিবর্তন (Toggle Format)", "ক্যাপচার ফরম্যাট সাইকেল করুন", "Capture", QKeySequence("Ctrl+Shift+F"),
         [this](const QVariantMap &) {
             if (ui_.format_dropdown->isEnabled() && ui_.format_dropdown->count() > 0) {
@@ -198,6 +218,16 @@ void ClipboardGrabber::setup_actions() {
 
     reg.registerFunctionalAction("toggle_subject", "বিষয় পরিবর্তন (Toggle Subject)", "পরবর��তী বিষয় নির্বাচন করুন", "Subject", QKeySequence("Ctrl+Shift+E"),
         [this](const QVariantMap &) { this->toggle_subject(); });
+
+    reg.registerFunctionalAction("toggle_diagram", "ডায়াগ্রাম টেমপ্লেট পরিবর্তন (Toggle Diagram Template)", "ডায়াগ্রাম টেমপ্লেট সাইকেল করুন", "Diagram", QKeySequence("Ctrl+Shift+L"),
+        [this](const QVariantMap &) {
+            if (ui_.diagram_dropdown->isEnabled() && ui_.diagram_dropdown->count() > 0) {
+                int next_idx = (ui_.diagram_dropdown->currentIndex() + 1) % ui_.diagram_dropdown->count();
+                ui_.diagram_dropdown->setCurrentIndex(next_idx);
+                ui_.last_captured_label->setText("ডায়াগ্রাম টেমপ্লেট পরিবর্তন করা হয়েছে: " + ui_.diagram_dropdown->currentText());
+            }
+        },
+        [this]() { return ui_.diagram_dropdown->isEnabled() && ui_.diagram_dropdown->count() > 0; });
 
     reg.registerFunctionalAction("settings", "সেটিংস (Settings)", "শর্টকাট সেটিংস খুলুন", "System", QKeySequence("Ctrl+Shift+P"),
         [this](const QVariantMap &) { this->open_settings_dialog(); });
@@ -285,6 +315,7 @@ void ClipboardGrabber::start_monitoring() {
     ui_.subject_card->setVisible(false);
     ui_.capture_extra->setVisible(false);
     ui_.heading_card->setVisible(false);
+    ui_.diagram_quick_row->setVisible(false);
 
     // Shrink the window down to the now-smaller capture view instead of
     // leaving the old, larger size with empty space (or a scrollbar).
@@ -307,6 +338,7 @@ void ClipboardGrabber::stop_monitoring() {
     ui_.subject_card->setVisible(true);
     ui_.capture_extra->setVisible(true);
     ui_.heading_card->setVisible(true);
+    apply_diagram_panel_visibility();
 
     // Grow the window back to fit the full editing view again.
     QTimer::singleShot(0, this, &ClipboardGrabber::fit_window_to_content);
@@ -372,9 +404,41 @@ void ClipboardGrabber::add_folder() {
 }
 
 void ClipboardGrabber::handle_text_captured(const QString &text) {
+    if (is_diagram_format_selected()) {
+        handle_diagram_capture(text);
+        return;
+    }
     ui_.last_captured_label->setText("শেষ ক্যাপচার: " + text);
     QString current_section = ui_.section_dropdown->currentData().toString();
     write_to_file(text, current_section);
+}
+
+void ClipboardGrabber::handle_diagram_capture(const QString &text) {
+    if (text.trimmed().isEmpty()) return;
+
+    QString target_file = get_current_target_file();
+    if (target_file == "নির্বাচিত নয়") return;
+
+    diagram_nodes_.append(text);
+
+    QString template_id = ui_.diagram_dropdown->currentData().toString();
+    QString diagram_markdown = DiagramTemplates::buildFromNodes(template_id, diagram_nodes_);
+
+    if (note_service_.upsertLiveDiagram(target_file, diagram_session_id_, diagram_markdown, selected_heading_slug_, last_date_)) {
+        note_service_.updateTocInFile(target_file, get_sections_from_ui());
+        if (diagram_nodes_.size() == 1) {
+            ui_.last_captured_label->setText("রুট নোড সেট হয়েছে: " + text);
+        } else {
+            ui_.last_captured_label->setText(QString("সাব নোড যুক্ত হয়েছে (#%1): %2").arg(diagram_nodes_.size() - 1).arg(text));
+        }
+    } else {
+        ui_.last_captured_label->setText("ত্রুটি: ডায়াগ্রাম আপডেট করা যায়নি!");
+    }
+}
+
+void ClipboardGrabber::start_new_diagram_session() {
+    diagram_nodes_.clear();
+    diagram_session_id_ = QString::number(QDateTime::currentDateTime().toMSecsSinceEpoch());
 }
 
 void ClipboardGrabber::handle_image_captured(const QImage &image) {
@@ -457,6 +521,17 @@ void ClipboardGrabber::add_clipboard_image() {
     } else {
         ui_.last_captured_label->setText("ছবি সংরক্ষণ করতে ব্যর্থ!");
     }
+}
+
+void ClipboardGrabber::insert_diagram() {
+    // In the old flow this inserted an empty placeholder template. Now that
+    // Diagram Mode builds the diagram live from clipboard captures (first
+    // copy = root, every copy after = a sub node of it), this button instead
+    // closes off the current diagram and gets ready for a new one — the
+    // next thing copied becomes the root of a fresh diagram, inserted as
+    // its own new block further down in the note.
+    start_new_diagram_session();
+    ui_.last_captured_label->setText("নতুন ডায়াগ্রাম প্রস্তুত: পরবর্তী কপি রুট নোড হবে");
 }
 
 void ClipboardGrabber::update_button_states() {
@@ -714,6 +789,52 @@ void ClipboardGrabber::populate_headings_from_file() {
     update_button_states();
 }
 
+bool ClipboardGrabber::is_diagram_format_selected() const {
+    return ui_.format_dropdown->currentText() == kDiagramFormatLabel;
+}
+
+void ClipboardGrabber::on_format_changed(int) {
+    apply_diagram_format_lock();
+}
+
+void ClipboardGrabber::apply_diagram_format_lock() {
+    // Diagrams are built from raw clipboard captures instead of the
+    // bullet/heading/paragraph formats. diagram_dropdown (and the New
+    // Diagram button) come alive only while Format is set to "Diagram" —
+    // there's no separate on/off toggle to keep in sync, the format
+    // selection itself is the switch. Capture (Start/Stop) still runs
+    // normally either way; each capture just becomes a new diagram node
+    // instead of a formatted entry while Diagram is selected.
+    bool diagramSelected = is_diagram_format_selected();
+    ui_.diagram_dropdown->setEnabled(diagramSelected);
+
+    if (diagramSelected) {
+        start_new_diagram_session();
+    }
+
+    ActionRegistry::instance().updateBoundButtons();
+
+    ui_.status_label->setText(diagramSelected
+        ? "অবস্থা: ডায়াগ্রাম মোড চালু (প্রথম কপি রুট নোড, পরেরগুলো সাব নোড হবে)"
+        : "অবস্থা: ডায়াগ্রাম মোড বন্ধ (ফরম্যাট আবার সক্রিয়)");
+}
+
+void ClipboardGrabber::apply_diagram_panel_visibility() {
+    // Hidden entirely when the setting is off; also hidden (like heading_card)
+    // while actively capturing, since it needs subject/heading selection.
+    bool visible = diagram_panel_enabled_ && !is_running_;
+    ui_.diagram_quick_row->setVisible(visible);
+
+    // Never leave Format stuck on "Diagram" behind a hidden panel — if the
+    // panel is going away while Diagram was selected, fall back to the
+    // first (bullet point) format so capture keeps working normally.
+    // Changing the index fires on_format_changed, which re-locks
+    // diagram_dropdown accordingly.
+    if (!visible && is_diagram_format_selected()) {
+        ui_.format_dropdown->setCurrentIndex(0);
+    }
+}
+
 void ClipboardGrabber::trigger_shortcut_action(const QString &action_id) {
     ActionRegistry::instance().executeAction(action_id);
 }
@@ -721,13 +842,20 @@ void ClipboardGrabber::trigger_shortcut_action(const QString &action_id) {
 void ClipboardGrabber::open_settings_dialog() {
     bool global_hotkeys_enabled = shortcut_manager_.globalHotkeysEnabled();
     ShortcutsSettingsDialog dlg(shortcut_manager_.configs(), global_hotkeys_enabled,
-                                 shortcut_manager_.globalHotkeysSupported(), this);
+                                 shortcut_manager_.globalHotkeysSupported(), diagram_panel_enabled_, this);
     if (dlg.exec() == QDialog::Accepted) {
         shortcut_manager_.enableGlobalHotkeys(global_hotkeys_enabled);
         QString settings_file_path = note_service_.notesDirPath() + QDir::separator() + "settings.ini";
         shortcut_manager_.saveSettings(settings_file_path);
+
+        QSettings app_settings(settings_file_path, QSettings::IniFormat);
+        app_settings.setValue("General/DiagramPanel", diagram_panel_enabled_);
+
         shortcut_manager_.setupShortcuts(this);
+        apply_diagram_panel_visibility();
+        ActionRegistry::instance().updateBoundButtons();
         ui_.status_label->setText("অবস্থা: শর্টকাটসমূহ সফলভাবে সংরক্ষণ করা হয়েছে!");
+        QTimer::singleShot(0, this, &ClipboardGrabber::fit_window_to_content);
     }
 }
 

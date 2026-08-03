@@ -16,6 +16,8 @@ public:
     QList<NoteItem> parseNoteStructure(const QString &content, const QList<SectionItem> &availableSections, QSet<QString> &outCustomSections) const override;
     void saveStructureTree(const QString &treeFilePath, const QList<NoteItem> &items) const override;
     QString restoreStateFromContent(const QString &content) const override;
+    // Inside MarkdownDocumentFormatter.h class declaration:
+    QString formatDiagram(const QString &content, const QString &diagramType) const;
 };
 
 #endif // MARKDOWNDOCUMENTFORMATTER_H

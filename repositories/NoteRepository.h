@@ -38,6 +38,10 @@ public:
 
     bool writeImageToNote(const QString &targetFile, const QString &imageFilename, QString &lastDate) override;
 
+    bool insertDiagramToNote(const QString &targetFile, const QString &diagramMarkdown, const QString &selectedSlug, QString &lastDate) override;
+
+    bool upsertLiveDiagram(const QString &targetFile, const QString &sessionId, const QString &diagramMarkdown, const QString &selectedSlug, QString &lastDate) override;
+
     bool injectHeadingToNote(const QString &targetFile, const QString &simplifiedText, const QString &section, QString &lastDate) override;
 
     bool deleteHeadingSection(const QString &targetFile, const QString &slug, const QString &subjectName, QString &outCapturedLabelText) override;

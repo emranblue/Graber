@@ -71,6 +71,14 @@ bool NoteService::writeImageToNote(const QString &targetFile, const QString &ima
     return note_repository_->writeImageToNote(targetFile, imageFilename, lastDate);
 }
 
+bool NoteService::insertDiagramToNote(const QString &targetFile, const QString &diagramMarkdown, const QString &selectedSlug, QString &lastDate) {
+    return note_repository_->insertDiagramToNote(targetFile, diagramMarkdown, selectedSlug, lastDate);
+}
+
+bool NoteService::upsertLiveDiagram(const QString &targetFile, const QString &sessionId, const QString &diagramMarkdown, const QString &selectedSlug, QString &lastDate) {
+    return note_repository_->upsertLiveDiagram(targetFile, sessionId, diagramMarkdown, selectedSlug, lastDate);
+}
+
 bool NoteService::injectHeadingToNote(const QString &targetFile, const QString &simplifiedText, const QString &section, QString &lastDate) {
     return note_repository_->injectHeadingToNote(targetFile, simplifiedText, section, lastDate);
 }
