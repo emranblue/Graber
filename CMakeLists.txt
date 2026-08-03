@@ -28,6 +28,9 @@ include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/monitors
     ${CMAKE_CURRENT_SOURCE_DIR}/shortcuts
     ${CMAKE_CURRENT_SOURCE_DIR}/ui
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/panels
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/controllers
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/dialogs
     ${CMAKE_CURRENT_SOURCE_DIR}/utils
 )
 
@@ -76,6 +79,11 @@ add_executable(graber
     # Repositories
     repositories/NoteRepository.h
     repositories/NoteRepository.cpp
+    repositories/NoteRepository_Subjects.cpp
+    repositories/NoteRepository_Content.cpp
+    repositories/NoteRepository_Append.cpp
+    repositories/NoteRepository_Diagram.cpp
+    repositories/NoteRepository_Heading.cpp
     repositories/IniSectionRepository.h
     repositories/IniSectionRepository.cpp
 
@@ -95,17 +103,35 @@ add_executable(graber
     shortcuts/ShortcutManager.h
     shortcuts/ShortcutManager.cpp
 
-    # UI
+    # UI — controller (split for token/modularity) + thin compositor
     ui/ClipboardGrabber.h
     ui/ClipboardGrabber.cpp
+    ui/controllers/ClipboardGrabber_Actions.cpp
+    ui/controllers/ClipboardGrabber_Capture.cpp
+    ui/controllers/ClipboardGrabber_Navigation.cpp
+    ui/controllers/ClipboardGrabber_Headings.cpp
     ui/ClipboardGrabberUI.h
     ui/ClipboardGrabberUI.cpp
-    ui/HeadingSelectDialog.h
-    ui/HeadingSelectDialog.cpp
-    ui/ShortcutsSettingsDialog.h
-    ui/ShortcutsSettingsDialog.cpp
-    ui/ExportNoteWizard.h
-    ui/ExportNoteWizard.cpp
+
+    # UI Panels (modular visual blocks)
+    ui/panels/StatusPanel.h
+    ui/panels/StatusPanel.cpp
+    ui/panels/SubjectPanel.h
+    ui/panels/SubjectPanel.cpp
+    ui/panels/CapturePanel.h
+    ui/panels/CapturePanel.cpp
+    ui/panels/HeadingPanel.h
+    ui/panels/HeadingPanel.cpp
+    ui/panels/ControlsBar.h
+    ui/panels/ControlsBar.cpp
+
+    # UI Dialogs
+    ui/dialogs/HeadingSelectDialog.h
+    ui/dialogs/HeadingSelectDialog.cpp
+    ui/dialogs/ShortcutsSettingsDialog.h
+    ui/dialogs/ShortcutsSettingsDialog.cpp
+    ui/dialogs/ExportNoteWizard.h
+    ui/dialogs/ExportNoteWizard.cpp
 
     # Utils
     utils/Utils.h

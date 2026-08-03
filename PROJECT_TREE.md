@@ -2,71 +2,81 @@
 
 ```
 graber/
-├── CMakeLists.txt                 # Main CMake build configuration
-├── Makefile                       # Cross-platform Makefile wrapper
-├── README.md                      # Project documentation and usage guide
-├── PROJECT_TREE.md                # Detailed project architecture & directory structure
-├── main.cpp                       # Application entry point & Qt application bootstrap
-├── resources.qrc                  # Qt Resource file (fonts, icons)
-├── Kalpurush.ttf                  # Bangla font asset
-├── feather.ttf                    # Vector icon font asset
+├── CMakeLists.txt
+├── Makefile
+├── README.md
+├── PROJECT_TREE.md
+├── UPDATE_GUIDE.md
+├── main.cpp
+├── resources.qrc
+├── Kalpurush.ttf
+├── feather.ttf
 │
-├── core/                          # Domain Models & Core Types
-│   └── Types.h                    # Data structures (NoteItem, SectionItem, ShortcutConfig, Enums)
+├── core/
+│   ├── Types.h
+│   └── QtFixes.h
 │
-├── interfaces/                    # Abstract Contracts (SOLID / Dependency Inversion)
-│   ├── IAction.h                  # Abstract contract & functional class for Command / Action pattern
-│   ├── IClipboardMonitor.h        # Interface for clipboard & selection monitoring
-│   ├── IDocumentFormatter.h       # Interface for document parsing, slugification, & TOC engines
-│   ├── INoteRepository.h          # Interface for note storage & section management
-│   ├── INoteService.h             # Abstract interface for Note application service
-│   ├── ISectionRepository.h       # Interface for per-subject section settings persistence
-│   ├── IServiceRegistry.h         # Abstract contract for Service Provider / Service Locator
-│   └── IWizardFeature.h           # Abstract interface for extensible Wizards, Features & Tools
+├── interfaces/
+│   ├── IAction.h
+│   ├── IClipboardMonitor.h
+│   ├── IDocumentFormatter.h
+│   ├── INoteRepository.h
+│   ├── INoteService.h
+│   ├── ISectionRepository.h
+│   ├── IServiceRegistry.h
+│   └── IWizardFeature.h
 │
-├── services/                      # Application Service Layer & Registries
-│   ├── NoteService.h              # Note application service implementing INoteService
-│   ├── NoteService.cpp
-│   ├── ServiceRegistry.h          # Centralized Service Locator / Dependency Registry
-│   ├── ServiceRegistry.cpp
-│   ├── ActionRegistry.h           # Central Command / Action Registry & UI Button Binder
-│   ├── ActionRegistry.cpp
-│   ├── FeatureManager.h           # Central Registry & Dispatcher for Wizards & Extensions
-│   └── FeatureManager.cpp
+├── services/
+│   ├── NoteService.h / .cpp
+│   ├── ServiceRegistry.h / .cpp
+│   ├── ActionRegistry.h / .cpp
+│   └── FeatureManager.h / .cpp
 │
-├── repositories/                  # Storage & Data Persistence Layer
-│   ├── NoteRepository.h           # File-based note repository implementation
-│   ├── NoteRepository.cpp
-│   ├── IniSectionRepository.h     # INI-based section configuration repository
-│   └── IniSectionRepository.cpp
+├── repositories/
+│   ├── NoteRepository.h
+│   ├── NoteRepository.cpp              # ctors, path, folders, sections
+│   ├── NoteRepository_Subjects.cpp     # subjects list / create / move
+│   ├── NoteRepository_Content.cpp      # normalize, TOC, parse, image, inject
+│   ├── NoteRepository_Append.cpp       # append to heading, writeToNote
+│   ├── NoteRepository_Diagram.cpp      # insert / upsert live diagrams
+│   ├── NoteRepository_Heading.cpp      # delete / shift heading blocks
+│   └── IniSectionRepository.h / .cpp
 │
-├── formatters/                    # Document Processing & Normalization
-│   ├── MarkdownDocumentFormatter.h# Markdown & HTML heading normalizer & TOC generator
-│   ├── MarkdownDocumentFormatter.cpp
-│   ├── MarkdownUtils.h            # Text parsing, slug generation, & bound detection utilities
-│   └── MarkdownUtils.cpp
+├── formatters/
+│   ├── MarkdownDocumentFormatter.h / .cpp
+│   ├── MarkdownUtils.h / .cpp
+│   └── DiagramTemplates.h / .cpp
 │
-├── monitors/                      # System Clipboard & Selection Tracking
-│   ├── ClipboardMonitor.h         # Qt clipboard poller implementation
-│   └── ClipboardMonitor.cpp
+├── monitors/
+│   └── ClipboardMonitor.h / .cpp
 │
-├── shortcuts/                     # Keyboard Shortcuts System
-│   ├── ShortcutManager.h          # Shortcut manager auto-synced with ActionRegistry
-│   └── ShortcutManager.cpp
+├── shortcuts/
+│   └── ShortcutManager.h / .cpp
 │
-├── ui/                            # Qt User Interface Components & Dialogs
-│   ├── ClipboardGrabber.h         # Main window controller
-│   ├── ClipboardGrabber.cpp
-│   ├── ClipboardGrabberUI.h       # UI layout setup & widget references
-│   ├── ClipboardGrabberUI.cpp
-│   ├── ExportNoteWizard.h         # Extensible Note Export Wizard feature implementation
-│   ├── ExportNoteWizard.cpp
-│   ├── HeadingSelectDialog.h      # Interactive heading search & selection dialog
-│   ├── HeadingSelectDialog.cpp
-│   ├── ShortcutsSettingsDialog.h  # Shortcut configuration settings dialog
-│   └── ShortcutsSettingsDialog.cpp
+├── ui/                              # Modular UI (token-friendly split)
+│   ├── ClipboardGrabber.h           # class declaration only
+│   ├── ClipboardGrabber.cpp         # ~135 lines — ctor / wiring / status
+│   │
+│   ├── controllers/                 # ClipboardGrabber method implementations
+│   │   ├── ClipboardGrabber_Actions.cpp      # setup_actions / services / features
+│   │   ├── ClipboardGrabber_Capture.cpp      # start/stop / text / image / diagram
+│   │   ├── ClipboardGrabber_Navigation.cpp   # folders / subjects / sections
+│   │   └── ClipboardGrabber_Headings.cpp     # heading ops / settings / wizards
+│   │
+│   ├── ClipboardGrabberUI.h / .cpp  # thin panel compositor
+│   │
+│   ├── panels/                      # self-contained visual blocks
+│   │   ├── StatusPanel.h / .cpp
+│   │   ├── SubjectPanel.h / .cpp
+│   │   ├── CapturePanel.h / .cpp
+│   │   ├── HeadingPanel.h / .cpp
+│   │   └── ControlsBar.h / .cpp
+│   │
+│   └── dialogs/
+│       ├── HeadingSelectDialog.h / .cpp
+│       ├── ShortcutsSettingsDialog.h / .cpp
+│       └── ExportNoteWizard.h / .cpp
 │
-└── utils/                         # Helper Utilities
-    ├── Utils.h                    # Styling helpers, icon generators, & debug logging
-    └── Utils.cpp
+└── utils/
+    └── Utils.h / .cpp
 ```

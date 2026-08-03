@@ -7,7 +7,7 @@
 #include <QVector>
 #include <QTimer>
 #include <QScrollBar>
-#include "../utils/Utils.h"
+#include "Utils.h"
 
 HeadingSelectDialog::HeadingSelectDialog(const QList<NoteItem> &all_headings, const QString &current_slug, QWidget *parent)
     : QDialog(parent), all_headings_(all_headings), selected_slug_(current_slug) {

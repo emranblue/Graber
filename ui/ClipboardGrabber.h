@@ -22,12 +22,6 @@ public:
     explicit ClipboardGrabber(QWidget *parent = nullptr);
     ~ClipboardGrabber() override = default;
 
-public slots:
-    // Global hotkey delegate slot called from main.cpp / native event filter
-    void cycleFormat() {
-        ui_.cycleFormat();
-    }
-
 protected:
     void closeEvent(QCloseEvent *event) override;
 
@@ -55,7 +49,7 @@ private slots:
     void insert_diagram();
     void on_format_changed(int index);
     void toggle_always_on_top();
-    void trigger_shortcut_action(const QString &action_id);
+    void trigger_shortcut_action(const QString &action_id); // deprecated, unused
 
 private:
     void setup_services();

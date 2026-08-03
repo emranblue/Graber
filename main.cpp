@@ -2,43 +2,17 @@
 #include <QApplication>
 #include <QFontDatabase>
 #include <QIcon>
-#include <QAbstractNativeEventFilter>
 #include "ClipboardGrabber.h"
 #include "utils/Utils.h"
 
-#if defined(Q_OS_WIN)
-#include <windows.h>
-#elif defined(Q_OS_LINUX)
-#include <X11/Xlib.h>
-#include <xcb/xcb.h>
-#endif
-
-// Global Native Event Filter to capture Ctrl+Shift+F across the system
-class GlobalHotkeyFilter : public QAbstractNativeEventFilter {
-public:
-    GlobalHotkeyFilter(ClipboardGrabber *grabber) : m_grabber(grabber) {}
-
-    bool nativeEventFilter(const QByteArray &eventType, void *message, qintptr *result) override {
-        Q_UNUSED(result);
-
-#if defined(Q_OS_WIN)
-        if (eventType == "windows_generic_MSG") {
-            MSG *msg = static_cast<MSG *>(message);
-            if (msg->message == WM_HOTKEY && msg->wParam == 1001) { // 1001 = Hotkey ID
-                if (m_grabber) {
-                    // Call the UI cycle format method on hotkey trigger
-                    m_grabber->cycleFormat();
-                }
-                return true;
-            }
-        }
-#endif
-        return false;
-    }
-
-private:
-    ClipboardGrabber *m_grabber;
-};
+// Note: Ctrl+Shift+F ("cycle format") used to also be registered here as a
+// second, independent global hotkey (via RegisterHotKey/GlobalHotkeyFilter on
+// Windows), on top of the one ShortcutManager's GlobalHotkeyListener already
+// registers for the "toggle_format" action. With both active, a single
+// keypress fired both handlers, advancing the format dropdown by 2 indices
+// instead of 1 (so with 6 items it only ever landed on 3 of them). That
+// duplicate registration has been removed; ShortcutManager is the single
+// owner of this shortcut on every platform.
 
 int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
@@ -112,21 +86,7 @@ int main(int argc, char *argv[]) {
 
     ClipboardGrabber window;
 
-#if defined(Q_OS_WIN)
-    // Register Ctrl+Shift+F globally on Windows (VK_F = 0x46, MOD_CONTROL | MOD_SHIFT = 0x0002 | 0x0004)
-    RegisterHotKey((HWND)window.winId(), 1001, MOD_CONTROL | MOD_SHIFT, 0x46);
-#endif
-
-    GlobalHotkeyFilter hotkeyFilter(&window);
-    app.installNativeEventFilter(&hotkeyFilter);
-
     window.show();
 
-    int execResult = app.exec();
-
-#if defined(Q_OS_WIN)
-    UnregisterHotKey((HWND)window.winId(), 1001);
-#endif
-
-    return execResult;
+    return app.exec();
 }
