@@ -40,6 +40,7 @@ private:
     bool fuzzy_match(const QString &text, const QString &pattern);
 
     const QList<NoteItem> &all_headings_;
+    QStringList display_ids_; // TOC-style numeric ids (e.g. "1", "1.1"), parallel to all_headings_
     QString selected_slug_;
     QString selected_title_;
     QLineEdit *search_edit_;

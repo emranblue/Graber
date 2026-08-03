@@ -297,4 +297,25 @@ bool get_subheading_bounds(const QString &content, const QString &slug, int &sta
     return get_subheading_insert_pos(content, slug, end_pos);
 }
 
+QStringList compute_display_ids(const QList<NoteItem> &all_headings) {
+    QStringList ids;
+    ids.reserve(all_headings.size());
+
+    int main_counter = 0;
+    int sub_counter = 0;
+
+    for (const NoteItem &item : all_headings) {
+        if (item.type == "heading") {
+            main_counter++;
+            sub_counter = 0;
+            ids.append(QString::number(main_counter));
+        } else {
+            sub_counter++;
+            ids.append(QString("%1.%2").arg(main_counter).arg(sub_counter));
+        }
+    }
+
+    return ids;
+}
+
 } // namespace MarkdownUtils

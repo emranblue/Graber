@@ -4,6 +4,7 @@
 #include "FeatureManager.h"
 #include "dialogs/HeadingSelectDialog.h"
 #include "dialogs/ShortcutsSettingsDialog.h"
+#include "MarkdownUtils.h"
 
 #include <QClipboard>
 #include <QGuiApplication>
@@ -95,14 +96,18 @@ void ClipboardGrabber::shift_selected_heading_section() {
     QString source = selected_heading_slug_;
     QString target_file = get_current_target_file();
 
+    QStringList display_ids = MarkdownUtils::compute_display_ids(all_headings_);
+
     QStringList titles, slugs;
     titles << "(শেষে স্থানান্তর করুন / Move to End)";
     slugs << "";
-    for (const NoteItem &item : all_headings_) {
+    for (int i = 0; i < all_headings_.size(); ++i) {
+        const NoteItem &item = all_headings_.at(i);
         if (item.slug == source) continue;
+        const QString display_id = (i < display_ids.size()) ? display_ids.at(i) : QString();
         titles << (item.type == "heading"
-            ? QString("%1 (id: %2)").arg(item.title, item.slug)
-            : QString("  ↳ %1 (id: %2)").arg(item.title, item.slug));
+            ? QString("%1 (id: %2)").arg(item.title, display_id)
+            : QString("  ↳ %1 (id: %2)").arg(item.title, display_id));
         slugs << item.slug;
     }
 

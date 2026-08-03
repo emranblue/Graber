@@ -8,9 +8,11 @@
 #include <QTimer>
 #include <QScrollBar>
 #include "Utils.h"
+#include "MarkdownUtils.h"
 
 HeadingSelectDialog::HeadingSelectDialog(const QList<NoteItem> &all_headings, const QString &current_slug, QWidget *parent)
-    : QDialog(parent), all_headings_(all_headings), selected_slug_(current_slug) {
+    : QDialog(parent), all_headings_(all_headings),
+      display_ids_(MarkdownUtils::compute_display_ids(all_headings)), selected_slug_(current_slug) {
     setWindowTitle("টার্গেট শিরোনাম নির্বাচন (Select Target Heading)");
     
     setStyleSheet(
@@ -265,6 +267,8 @@ void HeadingSelectDialog::populate_list(const QString &search_text) {
     // Populate sorted results
     for (const auto &result : results) {
         const NoteItem *heading = result.item;
+        const QString display_id = (result.index >= 0 && result.index < display_ids_.size())
+            ? display_ids_.at(result.index) : QString();
         QListWidgetItem *item = new QListWidgetItem(list_widget_);
         item->setData(Qt::UserRole, heading->slug);
         item->setData(Qt::UserRole + 1, heading->title);
@@ -293,17 +297,15 @@ void HeadingSelectDialog::populate_list(const QString &search_text) {
             }
             
             disp_html = QString("<span style=\"font-size: 14px; font-weight: bold; color: #e74c3c;\">%1</span>%2 <span style=\"font-size: 11px; color: #7f8c8d;\">(id: %3) [%4]</span>")
-                        .arg(title_part, relevance_indicator, slug_part, section_part.toUpper());
+                        .arg(title_part, relevance_indicator, display_id, section_part.toUpper());
         } else {
             QString title_part = heading->title;
-            QString slug_part = heading->slug;
             if (!keywords.isEmpty()) {
                 title_part = highlight_text(title_part, keywords);
-                slug_part = highlight_text(slug_part, keywords);
             }
             
             disp_html = QString("<span style=\"padding-left: 15px; font-size: 13px; color: #2980b9;\">↳ %1</span> <span style=\"font-size: 11px; color: #7f8c8d;\">(id: %2)</span>")
-                        .arg(title_part, slug_part);
+                        .arg(title_part, display_id);
         }
         
         label->setText(disp_html);
