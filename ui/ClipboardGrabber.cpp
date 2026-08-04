@@ -83,6 +83,14 @@ ClipboardGrabber::ClipboardGrabber(QWidget *parent) : QWidget(parent) {
     ui_.subject_dropdown->setCurrentIndex(-1);
     update_status_label();
 
+    // Soft height animation on every combo popup open.
+    UiAnimator::enableComboPopupAnimation(ui_.folder_dropdown);
+    UiAnimator::enableComboPopupAnimation(ui_.subject_dropdown);
+    UiAnimator::enableComboPopupAnimation(ui_.format_dropdown);
+    UiAnimator::enableComboPopupAnimation(ui_.mode_dropdown);
+    UiAnimator::enableComboPopupAnimation(ui_.section_dropdown);
+    UiAnimator::enableComboPopupAnimation(ui_.diagram_dropdown);
+
     QTimer::singleShot(0, this, &ClipboardGrabber::fit_window_to_content);
 }
 

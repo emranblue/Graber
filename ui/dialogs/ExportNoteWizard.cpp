@@ -1,5 +1,6 @@
 #include "ExportNoteWizard.h"
 #include "interfaces/INoteService.h"
+#include "utils/UiAnimator.h"
 #include <QMessageBox>
 #include <QFileDialog>
 #include <QFile>
@@ -35,5 +36,5 @@ ExportNoteWizard::ExportNoteWizard(QWidget *parent) : QDialog(parent) {
 void ExportNoteWizard::executeWizard(QWidget *parentWidget, IServiceRegistry *services) {
     Q_UNUSED(services);
     ExportNoteWizard dlg(parentWidget);
-    dlg.exec();
+    UiAnimator::execDialogSmooth(&dlg);
 }

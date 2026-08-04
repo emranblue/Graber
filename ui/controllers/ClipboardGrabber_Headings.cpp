@@ -5,6 +5,7 @@
 #include "dialogs/HeadingSelectDialog.h"
 #include "dialogs/ShortcutsSettingsDialog.h"
 #include "MarkdownUtils.h"
+#include "utils/UiAnimator.h"
 
 #include <QClipboard>
 #include <QGuiApplication>
@@ -32,7 +33,7 @@ void ClipboardGrabber::open_heading_select_dialog() {
     populate_headings_from_file();
 
     HeadingSelectDialog dlg(all_headings_, selected_heading_slug_, this);
-    if (dlg.exec() == QDialog::Accepted) {
+    if (UiAnimator::execDialogSmooth(&dlg) == QDialog::Accepted) {
         selected_heading_slug_ = dlg.get_selected_slug();
         selected_heading_title_ = dlg.get_selected_title();
         ui_.select_heading_button->setText(
@@ -150,7 +151,7 @@ void ClipboardGrabber::open_settings_dialog() {
     ShortcutsSettingsDialog dlg(shortcut_manager_.configs(), global_on,
         shortcut_manager_.globalHotkeysSupported(), diagram_panel_enabled_, this);
 
-    if (dlg.exec() != QDialog::Accepted) return;
+    if (UiAnimator::execDialogSmooth(&dlg) != QDialog::Accepted) return;
 
     shortcut_manager_.enableGlobalHotkeys(global_on);
     QString path = note_service_.notesDirPath() + QDir::separator() + "settings.ini";

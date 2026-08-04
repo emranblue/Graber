@@ -5,6 +5,7 @@
 #include "ClipboardGrabber.h"
 #include "utils/Utils.h"
 #include "utils/CrashGuard.h"
+#include "utils/UiAnimator.h"
 
 // Note: Ctrl+Shift+F ("cycle format") used to also be registered here as a
 // second, independent global hotkey (via RegisterHotKey/GlobalHotkeyFilter on
@@ -91,7 +92,7 @@ int main(int argc, char *argv[]) {
     int exitCode = 1;
     CrashGuard::safeCall([&]() {
         ClipboardGrabber window;
-        window.show();
+        UiAnimator::fadeInWindow(&window);
         exitCode = app.exec();
     }, QStringLiteral("main.eventLoop"));
 
