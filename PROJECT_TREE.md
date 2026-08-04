@@ -86,7 +86,8 @@ graber/
 └── utils/
     ├── Utils.h / .cpp              # icons, logging, path sanitize, HTML escape
     ├── FileIO.h / .cpp             # atomic QSaveFile read/write (crash-safe)
-    └── CrashGuard.h / .cpp         # terminate + Qt msg handlers, SafeCall
+    ├── CrashGuard.h / .cpp         # terminate + Qt msg handlers, SafeCall
+    └── UiAnimator.h / .cpp         # soft panel collapse + window resize transitions
 ```
 
 Also under `core/`: `Result.h` (header-only Result&lt;T&gt; / VoidResult).

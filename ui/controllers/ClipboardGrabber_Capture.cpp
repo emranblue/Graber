@@ -3,6 +3,7 @@
 #include "MarkdownUtils.h"
 #include "DiagramTemplates.h"
 #include "utils/CrashGuard.h"
+#include "utils/UiAnimator.h"
 
 #include <QClipboard>
 #include <QGuiApplication>
@@ -34,12 +35,11 @@ void ClipboardGrabber::start_monitoring() {
     update_status_label();
     ActionRegistry::instance().updateBoundButtons();
 
-    ui_.subject_card->setVisible(false);
-    ui_.capture_extra->setVisible(false);
-    ui_.heading_card->setVisible(false);
-    ui_.diagram_quick_row->setVisible(false);
-
-    QTimer::singleShot(0, this, &ClipboardGrabber::fit_window_to_content);
+    // Soft collapse of non-essential panels, then ease the window height down.
+    UiAnimator::setVisibleSmooth(
+        {ui_.subject_card, ui_.capture_extra, ui_.heading_card, ui_.diagram_quick_row},
+        false, UiAnimator::kPanelDurationMs,
+        [this]() { fit_window_to_content(); });
 }
 
 void ClipboardGrabber::stop_monitoring() {
@@ -55,12 +55,18 @@ void ClipboardGrabber::stop_monitoring() {
     update_status_label();
     ActionRegistry::instance().updateBoundButtons();
 
-    ui_.subject_card->setVisible(true);
-    ui_.capture_extra->setVisible(true);
-    ui_.heading_card->setVisible(true);
-    apply_diagram_panel_visibility();
+    // Soft expand panels back, then ease the window height up.
+    // Diagram row visibility is decided after expand so it can join the same wave.
+    const bool show_diagram = diagram_panel_enabled_ && !is_running_;
+    QList<QWidget *> to_show{ui_.subject_card, ui_.capture_extra, ui_.heading_card};
+    if (show_diagram)
+        to_show.append(ui_.diagram_quick_row);
+    else if (ui_.diagram_quick_row)
+        UiAnimator::setVisibleSmooth(ui_.diagram_quick_row, false);
 
-    QTimer::singleShot(0, this, &ClipboardGrabber::fit_window_to_content);
+    UiAnimator::setVisibleSmooth(
+        to_show, true, UiAnimator::kPanelDurationMs,
+        [this]() { fit_window_to_content(); });
 }
 
 void ClipboardGrabber::handle_text_captured(const QString &text) {
@@ -178,7 +184,9 @@ void ClipboardGrabber::apply_diagram_format_lock() {
 
 void ClipboardGrabber::apply_diagram_panel_visibility() {
     bool visible = diagram_panel_enabled_ && !is_running_;
-    ui_.diagram_quick_row->setVisible(visible);
+    UiAnimator::setVisibleSmooth(
+        ui_.diagram_quick_row, visible, UiAnimator::kPanelDurationMs,
+        [this]() { fit_window_to_content(); });
     if (!visible && is_diagram_format_selected())
         ui_.format_dropdown->setCurrentIndex(0);
 }

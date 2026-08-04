@@ -1,6 +1,7 @@
 #include "CapturePanel.h"
 #include "Utils.h"
 #include "DiagramTemplates.h"
+#include "utils/UiAnimator.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGraphicsDropShadowEffect>
@@ -129,9 +130,9 @@ void CapturePanel::setDiagramDropdownEnabled(bool enabled) {
 }
 
 void CapturePanel::setExtraVisible(bool visible) {
-    capture_extra_->setVisible(visible);
+    UiAnimator::setVisibleSmooth(capture_extra_, visible);
 }
 
 void CapturePanel::setDiagramRowVisible(bool visible) {
-    diagram_quick_row_->setVisible(visible);
+    UiAnimator::setVisibleSmooth(diagram_quick_row_, visible);
 }

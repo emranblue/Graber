@@ -5,7 +5,6 @@
 #include <QObject>
 #include <QKeySequence>
 #include <QString>
-#include <QtGlobal>
 #include <QAbstractNativeEventFilter>
 #include <QMap>
 #include <QList>
@@ -37,11 +36,7 @@ private:
     class NativeEventFilter : public QAbstractNativeEventFilter {
     public:
         explicit NativeEventFilter(GlobalHotkeyListener *parent);
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-        bool nativeEventFilter(const QByteArray &eventType, void *message, qintptr *result) override;
-#else
         bool nativeEventFilter(const QByteArray &eventType, void *message, long *result) override;
-#endif
     private:
         GlobalHotkeyListener *parent_;
     };

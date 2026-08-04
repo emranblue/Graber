@@ -147,6 +147,8 @@ add_executable(graber
     utils/FileIO.cpp
     utils/CrashGuard.h
     utils/CrashGuard.cpp
+    utils/UiAnimator.h
+    utils/UiAnimator.cpp
 
     # Core helpers (Result is header-only)
     core/Result.h

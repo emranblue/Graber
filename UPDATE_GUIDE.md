@@ -31,9 +31,9 @@ graber/
 
 ### A. Service Layer & Service Locator (`INoteService` / `ServiceRegistry`)
 All application services are registered in the global `ServiceRegistry` singleton:
-- Interface: `INoteService` ([interfaces/INoteService.h](file:///home/emran/Desktop/extra/graber/interfaces/INoteService.h))
-- Implementation: `NoteService` ([services/NoteService.h](file:///home/emran/Desktop/extra/graber/services/NoteService.h))
-- Registry: `ServiceRegistry` ([services/ServiceRegistry.h](file:///home/emran/Desktop/extra/graber/services/ServiceRegistry.h))
+- Interface: `INoteService` ([interfaces/INoteService.h](interfaces/INoteService.h))
+- Implementation: `NoteService` ([services/NoteService.h](services/NoteService.h))
+- Registry: `ServiceRegistry` ([services/ServiceRegistry.h](services/ServiceRegistry.h))
 
 **How to register or retrieve a service:**
 ```cpp
@@ -49,8 +49,8 @@ auto noteSvc = ServiceRegistry::instance().getService<INoteService>();
 
 ### B. Command / Action System (`IAction` / `ActionRegistry`)
 Actions decouple user intent (button clicks, hotkeys, context menu triggers) from UI implementation.
-- Interface: `IAction` / `FunctionalAction` ([interfaces/IAction.h](file:///home/emran/Desktop/extra/graber/interfaces/IAction.h))
-- Registry: `ActionRegistry` ([services/ActionRegistry.h](file:///home/emran/Desktop/extra/graber/services/ActionRegistry.h))
+- Interface: `IAction` / `FunctionalAction` ([interfaces/IAction.h](interfaces/IAction.h))
+- Registry: `ActionRegistry` ([services/ActionRegistry.h](services/ActionRegistry.h))
 
 **How to add a new action & bind it to a button:**
 1. Register the action in `setup_actions()` inside `ClipboardGrabber.cpp`:
@@ -79,9 +79,9 @@ Actions decouple user intent (button clicks, hotkeys, context menu triggers) fro
 
 ### C. Extensible Wizard & Feature Architecture (`IWizardFeature` / `FeatureManager`)
 Wizards are self-contained interactive tools (dialogs, export managers, batch processors) added without touching core UI layout logic.
-- Interface: `IWizardFeature` ([interfaces/IWizardFeature.h](file:///home/emran/Desktop/extra/graber/interfaces/IWizardFeature.h))
-- Manager: `FeatureManager` ([services/FeatureManager.h](file:///home/emran/Desktop/extra/graber/services/FeatureManager.h))
-- Example Implementation: `ExportNoteWizard` ([ui/ExportNoteWizard.h](file:///home/emran/Desktop/extra/graber/ui/ExportNoteWizard.h))
+- Interface: `IWizardFeature` ([interfaces/IWizardFeature.h](interfaces/IWizardFeature.h))
+- Manager: `FeatureManager` ([services/FeatureManager.h](services/FeatureManager.h))
+- Example Implementation: `ExportNoteWizard` ([ui/ExportNoteWizard.h](ui/dialogs/ExportNoteWizard.h))
 
 **How to create & register a new Wizard:**
 1. Create a class implementing `IWizardFeature` (e.g. `MyCustomWizard.h` & `.cpp`).
@@ -107,10 +107,10 @@ Place new files in the appropriate directory:
 - Core Data Models -> `core/`
 
 ### Step 2: Update `CMakeLists.txt`
-Add the new `.h` and `.cpp` files under the target section in [CMakeLists.txt](file:///home/emran/Desktop/extra/graber/CMakeLists.txt).
+Add the new `.h` and `.cpp` files under the target section in [CMakeLists.txt](CMakeLists.txt).
 
 ### Step 3: Update `PROJECT_TREE.md`
-Update [PROJECT_TREE.md](file:///home/emran/Desktop/extra/graber/PROJECT_TREE.md) to reflect the new directory structure and files.
+Update [PROJECT_TREE.md](PROJECT_TREE.md) to reflect the new directory structure and files.
 
 ### Step 4: Build & Test
 Use CMake or Makefile wrapper:

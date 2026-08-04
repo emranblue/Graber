@@ -1,6 +1,7 @@
 #include "ClipboardGrabber.h"
 #include "ActionRegistry.h"
 #include "ServiceRegistry.h"
+#include "utils/UiAnimator.h"
 
 #include <QSettings>
 #include <QTimer>
@@ -92,8 +93,10 @@ void ClipboardGrabber::closeEvent(QCloseEvent *event) {
 void ClipboardGrabber::fit_window_to_content() {
     layout()->invalidate();
     layout()->activate();
-    ui_.body->layout()->invalidate();
-    ui_.body->layout()->activate();
+    if (ui_.body && ui_.body->layout()) {
+        ui_.body->layout()->invalidate();
+        ui_.body->layout()->activate();
+    }
 
     const QSize body_hint = ui_.body->sizeHint();
     const QSize controls_hint = ui_.controls_bar->sizeHint();
@@ -105,7 +108,8 @@ void ClipboardGrabber::fit_window_to_content() {
     int min_w = qMax(body_min.width(), controls_min.width());
     int min_h = body_min.height() + controls_min.height();
 
-    setMinimumSize(qMax(min_w, 360), qMax(min_h, 360));
+    // Floor the minimum, but don't fight an in-progress soft resize.
+    setMinimumSize(qMax(min_w, 360), qMax(min_h, 200));
 
     if (QScreen *scr = screen()) {
         const QRect avail = scr->availableGeometry();
@@ -113,7 +117,19 @@ void ClipboardGrabber::fit_window_to_content() {
         target_h = qMin(target_h, avail.height() - 40);
     }
 
-    resize(qMax(target_w, minimumWidth()), qMax(target_h, minimumHeight()));
+    const QSize target(qMax(target_w, minimumWidth()),
+                       qMax(target_h, minimumHeight()));
+
+    // First layout pass after construction: snap without animation so the
+    // window doesn't "grow in" on startup. Everything after that is soft.
+    static bool first_fit = true;
+    if (first_fit) {
+        first_fit = false;
+        resize(target);
+        return;
+    }
+
+    UiAnimator::resizeWindowSmooth(this, target);
 }
 
 void ClipboardGrabber::update_status_label() {
