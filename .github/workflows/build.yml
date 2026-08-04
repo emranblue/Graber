@@ -4,19 +4,18 @@ on:
   push:
     branches: [ "main", "master" ]
     tags:
-      - 'v*'
-      - '[0-9]*'
+      - "v*"
+      - "[0-9]*"
   workflow_dispatch:
 
+env:
+  APP_NAME: graber
+
 jobs:
-  # ==========================================
-  # 1. LINUX SELF-CONTAINED .DEB BUILD
-  # ==========================================
   build-linux-deb:
     runs-on: ubuntu-22.04
     permissions:
       contents: write
-
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -27,6 +26,7 @@ jobs:
           sudo apt-get install -y \
             build-essential \
             cmake \
+            ninja-build \
             patchelf \
             qt6-base-dev \
             qt6-base-dev-tools \
@@ -35,175 +35,143 @@ jobs:
             libxkbcommon-dev \
             libdbus-1-dev \
             libx11-dev \
-            libxcb-cursor0
+            libxcb-cursor0 \
+            imagemagick
+
+      - name: Resolve package version
+        id: ver
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="0.0.0+${GITHUB_RUN_NUMBER}"
+          fi
+          if ! [[ "$VERSION" =~ ^[0-9] ]]; then
+            VERSION="0.0.0+${VERSION}"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "VERSION=$VERSION"
+
+      - name: Verify packaging scripts exist
+        run: |
+          test -f packaging/linux/build-deb.sh
+          test -f packaging/linux/graber.desktop
+          chmod +x packaging/linux/build-deb.sh
 
       - name: Build Application (Linux)
         run: |
-          cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
-          cmake --build build --config Release
+          cmake -B build -S . -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --parallel "$(nproc)"
+          test -x "build/${APP_NAME}"
 
-      - name: Package Self-Contained DEB
-        run: |
-          APP_NAME="graber"
-          PKG_DIR="package-root"
-          VERSION="${GITHUB_REF_NAME#v}"
-          if [ -z "$VERSION" ]; then VERSION="1.0.0"; fi
-
-          # Directory Structure
-          mkdir -p ${PKG_DIR}/DEBIAN
-          mkdir -p ${PKG_DIR}/usr/bin
-          mkdir -p ${PKG_DIR}/usr/lib/${APP_NAME}
-          mkdir -p ${PKG_DIR}/usr/lib/${APP_NAME}/platforms
-
-          BIN_PATH="${PKG_DIR}/usr/lib/${APP_NAME}/${APP_NAME}-bin"
-          LIB_DIR="${PKG_DIR}/usr/lib/${APP_NAME}"
-
-          # Copy Real Executable to /usr/lib/graber/
-          cp build/${APP_NAME} "${BIN_PATH}"
-
-          # Copy Qt Platform Plugins
-          QT_PLUGIN_PATH=$(qtpaths6 --plugin-dir 2>/dev/null || qtpaths --plugin-dir 2>/dev/null || echo "/usr/lib/x86_64-linux-gnu/qt6/plugins")
-          if [ -d "${QT_PLUGIN_PATH}/platforms" ]; then
-            cp -r "${QT_PLUGIN_PATH}/platforms"/* "${LIB_DIR}/platforms/"
-          fi
-
-          # Copy Shared Library Dependencies for Binary
-          ldd "${BIN_PATH}" | grep "=>" | awk '{print $3}' | grep -v '^$' | while read -r lib; do
-            if [ -f "$lib" ]; then
-              case "$(basename "$lib")" in
-                libc.so*|libpthread.so*|libdl.so*|libm.so*|librt.so*|ld-linux*)
-                  ;;
-                *)
-                  cp -L "$lib" "${LIB_DIR}/"
-                  ;;
-              esac
-            fi
-          done
-
-          # Copy Dependencies for Platform Plugins
-          for plugin in "${LIB_DIR}"/platforms/*.so; do
-            if [ -f "$plugin" ]; then
-              ldd "$plugin" | grep "=>" | awk '{print $3}' | grep -v '^$' | while read -r lib; do
-                if [ -f "$lib" ]; then
-                  case "$(basename "$lib")" in
-                    libc.so*|libpthread.so*|libdl.so*|libm.so*|librt.so*|ld-linux*)
-                      ;;
-                    *)
-                      cp -L -n "$lib" "${LIB_DIR}/" 2>/dev/null || true
-                      ;;
-                  esac
-                fi
-              done
-            fi
-          done
-
-          # Patch RPATH
-          patchelf --set-rpath "\$ORIGIN" "${BIN_PATH}"
-          for lib in "${LIB_DIR}"/*.so* "${LIB_DIR}"/platforms/*.so*; do
-            if [ -f "$lib" ]; then
-              patchelf --set-rpath "\$ORIGIN" "$lib" 2>/dev/null || true
-            fi
-          done
-
-          # Entry Point Wrapper Script
-          {
-            echo '#!/bin/bash'
-            echo 'DIR="/usr/lib/graber"'
-            echo 'export QT_PLUGIN_PATH="${DIR}/platforms:${DIR}"'
-            echo 'export LD_LIBRARY_PATH="${DIR}:${LD_LIBRARY_PATH}"'
-            echo 'exec "${DIR}/graber-bin" "$@"'
-          } > ${PKG_DIR}/usr/bin/${APP_NAME}
-
-          # Strip Debug Symbols
-          strip --strip-unneeded "${BIN_PATH}" 2>/dev/null || true
-          for lib in "${LIB_DIR}"/*.so* "${LIB_DIR}"/platforms/*.so*; do
-            if [ -f "$lib" ]; then
-              strip --strip-unneeded "$lib" 2>/dev/null || true
-            fi
-          done
-
-          # Write DEBIAN/control
-          echo "Package: ${APP_NAME}" > ${PKG_DIR}/DEBIAN/control
-          echo "Version: ${VERSION}" >> ${PKG_DIR}/DEBIAN/control
-          echo "Architecture: amd64" >> ${PKG_DIR}/DEBIAN/control
-          echo "Maintainer: Developer <emran.blue.120@gmail.com>" >> ${PKG_DIR}/DEBIAN/control
-          echo "Section: utils" >> ${PKG_DIR}/DEBIAN/control
-          echo "Priority: optional" >> ${PKG_DIR}/DEBIAN/control
-          echo "Description: Fully self-contained ${APP_NAME} application." >> ${PKG_DIR}/DEBIAN/control
-
-          chmod -R 755 ${PKG_DIR}/DEBIAN
-          chmod 755 ${PKG_DIR}/usr/bin/${APP_NAME}
-          chmod 755 ${BIN_PATH}
-          chmod -R 644 ${LIB_DIR}/*.so* 2>/dev/null || true
-
-          dpkg-deb -Zxz -z9 --build ${PKG_DIR} ${APP_NAME}_${VERSION}_amd64.deb
+      - name: Package Self-Contained DEB with Desktop Entry
+        run: packaging/linux/build-deb.sh "${{ steps.ver.outputs.version }}" build
 
       - name: Upload Linux DEB Artifact
         uses: actions/upload-artifact@v4
         with:
           name: graber-linux-deb
           path: "*.deb"
+          if-no-files-found: error
 
-  # ==========================================
-  # 2. WINDOWS PORTABLE ZIP BUILD
-  # ==========================================
   build-windows:
     runs-on: windows-2022
     permissions:
       contents: write
-
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
       - name: Install Qt 6 (Windows LTS)
-        uses: jurplel/install-qt-action@v3
+        uses: jurplel/install-qt-action@v4
         with:
-          version: '6.5.3'
-          arch: 'win64_msvc2019_64'
+          version: "6.5.3"
+          arch: "win64_msvc2019_64"
+          cache: true
 
       - name: Setup MSVC Compiler
         uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Build Application (Windows)
+      - name: Resolve package version
+        id: ver
+        shell: bash
         run: |
-          cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
-          cmake --build build --config Release
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="0.0.0+${GITHUB_RUN_NUMBER}"
+          fi
+          VERSION="${VERSION//\//-}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Verify packaging scripts exist
+        shell: bash
+        run: test -f packaging/windows/Create-Desktop-Shortcut.ps1
+
+      - name: Build Application (Windows)
+        shell: cmd
+        run: |
+          if defined QT_ROOT_DIR (
+            cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=%QT_ROOT_DIR%
+          ) else (
+            cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+          )
+          cmake --build build --config Release --parallel
 
       - name: Package Windows Portable Zip
         shell: pwsh
         run: |
+          $ErrorActionPreference = "Stop"
           $APP_NAME = "graber"
-          $VERSION = if ("${env:GITHUB_REF_NAME}") { "${env:GITHUB_REF_NAME}".TrimStart("v") } else { "1.0.0" }
+          $VERSION = "${{ steps.ver.outputs.version }}"
+          $pkg = "windows-package"
+          if (Test-Path $pkg) { Remove-Item -Recurse -Force $pkg }
+          New-Item -ItemType Directory -Force -Path $pkg | Out-Null
 
-          mkdir windows-package
-
-          $EXE = Get-ChildItem -Path "build" -Recurse -Filter "$APP_NAME.exe" | Select-Object -First 1
-          if (-not $EXE) {
-            Write-Error "Executable $APP_NAME.exe not found!"
+          $exe = Get-ChildItem -Path "build" -Recurse -Filter "$APP_NAME.exe" | Select-Object -First 1
+          if (-not $exe) {
+            Write-Error "Executable $APP_NAME.exe not found under build/"
             exit 1
           }
+          Copy-Item $exe.FullName -Destination "$pkg\"
 
-          Copy-Item $EXE.FullName -Destination "windows-package/"
-          windeployqt --release --no-compiler-runtime "windows-package/$APP_NAME.exe"
-          Compress-Archive -Path "windows-package/*" -DestinationPath "${APP_NAME}_${VERSION}_windows_x64.zip"
+          $deployArgs = @("--release", "--no-translations", "--compiler-runtime", "$pkg\$APP_NAME.exe")
+          & windeployqt @deployArgs
+          if ($LASTEXITCODE -ne 0) {
+            & windeployqt --release "$pkg\$APP_NAME.exe"
+            if ($LASTEXITCODE -ne 0) { throw "windeployqt failed" }
+          }
+
+          if (Test-Path "resources\icons\app.ico") {
+            Copy-Item "resources\icons\app.ico" -Destination "$pkg\graber.ico"
+          }
+
+          Copy-Item "packaging\windows\Create-Desktop-Shortcut.ps1" -Destination "$pkg\"
+
+          @"
+          @echo off
+          powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0Create-Desktop-Shortcut.ps1"
+          if errorlevel 1 pause
+          "@ | Set-Content -Encoding ASCII "$pkg\Create Desktop Shortcut.cmd"
+
+          $zip = "${APP_NAME}_${VERSION}_windows_x64.zip"
+          if (Test-Path $zip) { Remove-Item -Force $zip }
+          Compress-Archive -Path "$pkg\*" -DestinationPath $zip -Force
+          Get-Item $zip | Format-List Name, Length, FullName
 
       - name: Upload Windows Zip Artifact
         uses: actions/upload-artifact@v4
         with:
           name: graber-windows-zip
           path: "*.zip"
+          if-no-files-found: error
 
-  # ==========================================
-  # 3. CREATE GITHUB RELEASE (single job, avoids race)
-  # ==========================================
   release:
     needs: [build-linux-deb, build-windows]
     if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: write
-
     steps:
       - name: Download Linux DEB Artifact
         uses: actions/download-artifact@v4
@@ -217,30 +185,29 @@ jobs:
           name: graber-windows-zip
           path: dist
 
+      - name: List release files
+        run: ls -lah dist/
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event_name == 'workflow_dispatch' && github.ref_type != 'tag' && 'nightly' || github.ref_name }}
+          tag_name: ${{ (github.event_name == 'workflow_dispatch' && github.ref_type != 'tag') && 'nightly' || github.ref_name }}
+          name: ${{ (github.event_name == 'workflow_dispatch' && github.ref_type != 'tag') && 'Nightly build' || github.ref_name }}
+          generate_release_notes: true
           files: |
             dist/*.deb
             dist/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # ==========================================
-  # 4. NOTIFY DEVELOPER VIA EMAIL
-  # ==========================================
   notify-developer:
     needs: [build-linux-deb, build-windows, release]
     if: always()
     runs-on: ubuntu-latest
-
     steps:
       - name: Send Email Notification
+        continue-on-error: true
         uses: dawidd6/action-send-mail@v3
-        env:
-          LINUX_RES: ${{ needs.build-linux-deb.result }}
-          WIN_RES: ${{ needs.build-windows.result }}
         with:
           server_address: smtp.gmail.com
           server_port: 465
@@ -253,12 +220,16 @@ jobs:
           body: |
             Hello,
 
-            The cross-platform build pipeline for Graber (${{ github.ref_name }}) has completed.
+            Cross-platform build for Graber (${{ github.ref_name }}) finished.
 
             Status:
-            - Linux .deb Build: ${{ needs.build-linux-deb.result }}
-            - Windows .zip Build: ${{ needs.build-windows.result }}
+            - Linux .deb: ${{ needs.build-linux-deb.result }}
+            - Windows .zip: ${{ needs.build-windows.result }}
+            - Release job: ${{ needs.release.result }}
 
             Commit: ${{ github.sha }}
-            Repository: ${{ github.repository }}
-            Workflow Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            Repo: ${{ github.repository }}
+            Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+            Linux: after sudo dpkg -i graber_*.deb, open "Clipboard Graber" from the app menu.
+            Windows portable: unzip, then double-click "Create Desktop Shortcut.cmd" once.

@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Clipboard Graber
+Name[bn]=ক্লিপবোর্ড গ্র্যাবার
+GenericName=Clipboard Note Capture
+Comment=Capture clipboard text and images into structured Markdown notes
+Comment[bn]=ক্লিপবোর্ড টেক্সট ও ছবি মার্কডাউন নোটে সংরক্ষণ করুন
+Exec=graber
+Icon=graber
+Terminal=false
+Categories=Office;Utility;TextEditor;
+Keywords=clipboard;markdown;notes;capture;
+StartupNotify=true
+StartupWMClass=graber
