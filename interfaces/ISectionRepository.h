@@ -11,7 +11,6 @@ public:
 
     virtual QList<SectionItem> loadSectionsForSubject(const QString &notesDirPath, const QString &subjectName) = 0;
     virtual void saveSectionsForSubject(const QString &notesDirPath, const QString &subjectName, const QList<SectionItem> &sections) = 0;
-    virtual QList<SectionItem> getDefaultSections() const = 0;
 };
 
 #endif // ISECTIONREPOSITORY_H

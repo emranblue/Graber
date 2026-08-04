@@ -39,10 +39,6 @@ QString MarkdownDocumentFormatter::generateSlug(const QString &text) const {
     return QString::fromStdString(MarkdownUtils::generate_slug(text));
 }
 
-QString MarkdownDocumentFormatter::detectSectionFromTitle(const QString &title) const {
-    return MarkdownUtils::detect_section_from_title(title);
-}
-
 // ============================================================================
 // MARKDOWN NORMALIZATION & HEADING PROCESSING
 // ============================================================================
@@ -92,7 +88,9 @@ QString MarkdownDocumentFormatter::normalizeContent(const QString &content) cons
                 style = style_match.captured(1);
             }
 
-            QString section = detectSectionFromTitle(title);
+            // No section keyword-guessing: a heading only belongs to a section the
+            // user explicitly assigned it to; otherwise it stays uncategorized.
+            QString section = "others";
             QRegularExpressionMatch section_match = section_attr_regex.match(attributes);
             if (section_match.hasMatch()) {
                 section = section_match.captured(1);
@@ -109,7 +107,9 @@ QString MarkdownDocumentFormatter::normalizeContent(const QString &content) cons
             }
 
             QString rest = md_match.captured(2).trimmed();
-            QString section = detectSectionFromTitle(rest);
+            // No section keyword-guessing: default to uncategorized unless the
+            // line explicitly carries a "<!-- section:slug -->" marker.
+            QString section = "others";
             QRegularExpressionMatch section_match = md_section_regex.match(rest);
             QString title = rest;
             if (section_match.hasMatch()) {
@@ -371,10 +371,9 @@ QString MarkdownDocumentFormatter::updateTocInContent(const QString &content, co
         toc_block += "<!-- TOC_START -->\n";
         toc_block += "## সূচিপত্র (Table of Contents)\n\n";
 
+        // Only ever use the sections the user has actually created for this
+        // subject — never fall back to any built-in/default section list.
         QList<SectionItem> effective_sections = sections;
-        if (effective_sections.isEmpty()) {
-            effective_sections = MarkdownUtils::get_default_sections();
-        }
         bool has_others = false;
         for (const auto &sec : effective_sections) {
             if (sec.slug == "others") { has_others = true; break; }

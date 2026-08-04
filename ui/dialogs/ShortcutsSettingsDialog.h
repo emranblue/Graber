@@ -3,18 +3,17 @@
 
 #include <QDialog>
 #include <QList>
-#include <QEvent>
 #include <QKeySequenceEdit>
 #include <QCheckBox>
 #include "Types.h"
 
+/**
+ * Edit keyboard shortcuts + per-action enable switches.
+ * Also toggles global (system-wide) hotkeys and the diagram panel.
+ */
 class ShortcutsSettingsDialog : public QDialog {
     Q_OBJECT
 public:
-    // globalHotkeysEnabled: current on/off state of system-wide hotkeys, read
-    // and written in place so the caller can persist it after exec().
-    // globalHotkeysSupported: whether the current platform/session can
-    // actually deliver global hotkeys (used to grey out / explain the option).
     ShortcutsSettingsDialog(QList<ShortcutConfig> &configs,
                              bool &globalHotkeysEnabled,
                              bool globalHotkeysSupported,
@@ -28,6 +27,7 @@ private slots:
 private:
     QList<ShortcutConfig> &configs_;
     QList<QKeySequenceEdit*> edits_;
+    QList<QCheckBox*> enable_checks_;
     bool &global_hotkeys_enabled_;
     QCheckBox *global_hotkeys_checkbox_;
     bool &diagram_panel_enabled_;

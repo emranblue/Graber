@@ -50,8 +50,9 @@ graber/
 ├── monitors/
 │   └── ClipboardMonitor.h / .cpp
 │
-├── shortcuts/
-│   └── ShortcutManager.h / .cpp
+├── shortcuts/                       # Modular hotkey stack (token-friendly split)
+│   ├── GlobalHotkeyListener.h / .cpp  # OS global grab (Win / X11)
+│   └── ShortcutManager.h / .cpp       # configs, enable flags, local QShortcut
 │
 ├── ui/                              # Modular UI (token-friendly split)
 │   ├── ClipboardGrabber.h           # class declaration only

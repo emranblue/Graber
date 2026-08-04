@@ -9,7 +9,6 @@ public:
     ~MarkdownDocumentFormatter() override = default;
 
     QString generateSlug(const QString &text) const override;
-    QString detectSectionFromTitle(const QString &title) const override;
     QString normalizeContent(const QString &content) const override;
     QString generateToc(const QString &content, const QList<SectionItem> &sections) const override;
     QString updateTocInContent(const QString &content, const QList<SectionItem> &sections) const override;

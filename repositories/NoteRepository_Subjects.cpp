@@ -37,8 +37,14 @@ QStringList NoteRepository::populateSubjectsFromDisk(const QList<SectionItem> &s
             }
         }
 
-        normalizeNoteFile(filepath);
-        updateTocInFile(filepath, sections);
+        // Do NOT call updateTocInFile here. `sections` is the *currently
+        // selected* subject's section list (or empty during startup). Applying
+        // it to every .md under GraberNotes wiped other subjects' TOC groups
+        // and left them blank. TOC is refreshed only when that specific note
+        // is written to / the user starts monitoring it.
+        // normalizeNoteFile is also skipped on every list refresh — it is
+        // expensive and mutates files the user is not actively editing.
+        Q_UNUSED(sections);
 
         all_subjects << relative_path;
     }

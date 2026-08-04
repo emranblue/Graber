@@ -17,7 +17,11 @@ graber/
 ├── formatters/   # Markdown parsing, HTML normalization, and TOC generation engines
 ├── monitors/     # Operating system clipboard and primary selection poller
 ├── shortcuts/    # Hotkey registration and shortcut settings manager
-├── ui/           # Qt UI controllers, views, dialogs, and feature wizards
+├── ui/           # Qt UI (modular panels + dialogs)
+│   ├── ClipboardGrabber      # thin controller
+│   ├── ClipboardGrabberUI    # thin compositor
+│   ├── panels/               # Status / Subject / Capture / Heading / ControlsBar
+│   └── dialogs/              # HeadingSelect / ShortcutsSettings / ExportNoteWizard
 └── utils/        # Vector icons, font loaders, styling helpers, and debug loggers
 ```
 

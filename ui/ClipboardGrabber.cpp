@@ -67,8 +67,12 @@ ClipboardGrabber::ClipboardGrabber(QWidget *parent) : QWidget(parent) {
 
     connect(ui_.folder_dropdown, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &ClipboardGrabber::on_folder_changed);
-    connect(ui_.subject_dropdown, &QComboBox::currentTextChanged,
-            this, [this](const QString &t) { on_subject_changed(t); });
+    // Use currentIndexChanged (not currentTextChanged): the display text is a
+    // decorated label ("📄 BCS / Bangla"), while section/ini paths need the
+    // fullPath stored in itemData. on_subject_changed resolves that via
+    // get_selected_subject_name().
+    connect(ui_.subject_dropdown, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, [this](int) { on_subject_changed(get_selected_subject_name()); });
     connect(ui_.format_dropdown, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &ClipboardGrabber::on_format_changed);
 

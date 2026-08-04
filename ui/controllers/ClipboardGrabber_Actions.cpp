@@ -128,6 +128,30 @@ void ClipboardGrabber::setup_actions() {
         "পরবর্তী বিষয় নির্বাচন করুন", "Subject", QKeySequence("Ctrl+Shift+E"),
         [this](const QVariantMap &) { toggle_subject(); });
 
+    reg.registerFunctionalAction("toggle_folder", "ফোল্ডার পরিবর্তন (Toggle Folder)",
+        "পরবর্তী ফোল্ডার নির্বাচন করুন", "Subject", QKeySequence("Ctrl+Shift+U"),
+        [this](const QVariantMap &) {
+            if (ui_.folder_dropdown->isEnabled() && ui_.folder_dropdown->count() > 0) {
+                int next = (ui_.folder_dropdown->currentIndex() + 1) % ui_.folder_dropdown->count();
+                ui_.folder_dropdown->setCurrentIndex(next);
+                ui_.last_captured_label->setText(
+                    "ফোল্ডার পরিবর্তন করা হয়েছে: " + ui_.folder_dropdown->currentText());
+            }
+        },
+        [this]() { return ui_.folder_dropdown->isEnabled() && ui_.folder_dropdown->count() > 0; });
+
+    reg.registerFunctionalAction("toggle_mode", "মোড পরিবর্তন (Toggle Mode)",
+        "কপি / সিলেক্ট মোড সাইকেল করুন", "Capture", QKeySequence("Ctrl+Shift+W"),
+        [this](const QVariantMap &) {
+            if (ui_.mode_dropdown->isEnabled() && ui_.mode_dropdown->count() > 0) {
+                int next = (ui_.mode_dropdown->currentIndex() + 1) % ui_.mode_dropdown->count();
+                ui_.mode_dropdown->setCurrentIndex(next);
+                ui_.last_captured_label->setText(
+                    "মোড পরিবর্তন করা হয়েছে: " + ui_.mode_dropdown->currentText());
+            }
+        },
+        [this]() { return ui_.mode_dropdown->isEnabled() && ui_.mode_dropdown->count() > 0; });
+
     reg.registerFunctionalAction("toggle_diagram", "ডায়াগ্রাম টেমপ্লেট পরিবর্তন (Toggle Diagram Template)",
         "ডায়াগ্রাম টেমপ্লেট সাইকেল করুন", "Diagram", QKeySequence("Ctrl+Shift+L"),
         [this](const QVariantMap &) {

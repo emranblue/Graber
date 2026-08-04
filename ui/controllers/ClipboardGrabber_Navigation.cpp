@@ -25,6 +25,10 @@ void ClipboardGrabber::populate_sections_ui(const QList<SectionItem> &sections) 
 }
 
 void ClipboardGrabber::save_sections_for_subject(const QString &subject_name) {
+    // Persist exactly what's in the section dropdown. Nothing here is ever a
+    // built-in default — every entry either came from this subject's own
+    // .ini (loaded earlier) or was just added by the user via "Add Section",
+    // so there is nothing to filter out before writing it back.
     note_service_.saveSectionsForSubject(subject_name, get_sections_from_ui());
 }
 
@@ -119,11 +123,16 @@ void ClipboardGrabber::on_folder_changed(int) {
     populate_subjects_from_disk();
 }
 
-void ClipboardGrabber::on_subject_changed(const QString &text) {
+void ClipboardGrabber::on_subject_changed(const QString &/*text*/) {
+    // Always resolve the subject via itemData (fullPath, e.g. "BCS/Bangla"),
+    // never the display label ("📄 BCS / Bangla"). Using the display text made
+    // loadSectionsForSubject look for a non-existent ".ini" and left the
+    // section dropdown permanently blank.
     selected_heading_slug_.clear();
     selected_heading_title_.clear();
     ui_.select_heading_button->setText("(শেষে নতুন করে যোগ করুন / Append to End)");
-    load_sections_for_subject(text);
+    const QString subject = get_selected_subject_name();
+    load_sections_for_subject(subject);
     populate_headings_from_file();
 }
 

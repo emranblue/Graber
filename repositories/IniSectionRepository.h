@@ -10,7 +10,6 @@ public:
 
     QList<SectionItem> loadSectionsForSubject(const QString &notesDirPath, const QString &subjectName) override;
     void saveSectionsForSubject(const QString &notesDirPath, const QString &subjectName, const QList<SectionItem> &sections) override;
-    QList<SectionItem> getDefaultSections() const override;
 };
 
 #endif // INISECTIONREPOSITORY_H

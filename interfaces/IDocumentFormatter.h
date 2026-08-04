@@ -11,7 +11,6 @@ public:
     virtual ~IDocumentFormatter() = default;
 
     virtual QString generateSlug(const QString &text) const = 0;
-    virtual QString detectSectionFromTitle(const QString &title) const = 0;
     virtual QString normalizeContent(const QString &content) const = 0;
     virtual QString generateToc(const QString &content, const QList<SectionItem> &sections) const = 0;
     virtual QString updateTocInContent(const QString &content, const QList<SectionItem> &sections) const = 0;

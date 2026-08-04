@@ -23,6 +23,7 @@ struct ShortcutConfig {
     QString name_english;
     QString default_key;
     QKeySequence current_key;
+    bool enabled = true;              // per-shortcut activation switch
     QShortcut* shortcut_obj = nullptr;
 };
 

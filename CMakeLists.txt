@@ -99,7 +99,9 @@ add_executable(graber
     monitors/ClipboardMonitor.h
     monitors/ClipboardMonitor.cpp
 
-    # Shortcuts
+    # Shortcuts (modular: listener / manager)
+    shortcuts/GlobalHotkeyListener.h
+    shortcuts/GlobalHotkeyListener.cpp
     shortcuts/ShortcutManager.h
     shortcuts/ShortcutManager.cpp
 

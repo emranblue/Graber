@@ -50,62 +50,6 @@ std::string generate_slug(const QString &text) {
     return result;
 }
 
-QString detect_section_from_title(const QString &title) {
-    QString lower_title = title.toLower().trimmed();
-    
-    struct MapEntry {
-        QString keyword;
-        QString section;
-    };
-    QList<MapEntry> mappings = {
-        {"environment", "environment"}, {"পরিবেশ", "environment"},
-        {"energy", "energy"}, {"জ্বালানি", "energy"},
-        {"economy", "economy"}, {"অর্থনীতি", "economy"},
-        {"culture", "culture"}, {"সংস্কৃতি", "culture"},
-        {"geography", "geography"}, {"ভূগোল", "geography"},
-        {"population", "population"}, {"জনসংখ্যা", "population"},
-        {"law-constitution", "law-constitution"}, {"আইন ও সংবিধান", "law-constitution"},
-        {"politics", "politics"}, {"রাজনীতি", "politics"},
-        {"freedom-fight", "freedom-fight"}, {"মুক্তিযুদ্ধ", "freedom-fight"},
-        {"agriculture", "agriculture"}, {"কৃষি", "agriculture"},
-        {"history", "history"}, {"ইতিহাস", "history"},
-        {"education", "education"}, {"শিক্ষা", "education"},
-        {"health", "health"}, {"স্বাস্থ্য", "health"},
-        {"science-tech", "science-tech"}, {"বিজ্ঞান ও প্রযুক্তি", "science-tech"}, {"বিজ্ঞান", "science-tech"}, {"প্রযুক্তি", "science-tech"},
-        {"foreign-policy", "foreign-policy"}, {"পররাষ্ট্রনীতি", "foreign-policy"},
-        {"administration", "administration"}, {"প্রশাসন", "administration"}
-    };
-    
-    for (const auto &entry : mappings) {
-        if (lower_title.contains(entry.keyword)) {
-            return entry.section;
-        }
-    }
-    return "others";
-}
-
-QList<SectionItem> get_default_sections() {
-    return {
-        {"পরিবেশ (Environment)", "environment"},
-        {"জ্বালানি (Energy)", "energy"},
-        {"অর্থনীতি (Economy)", "economy"},
-        {"সংস্কৃতি (Culture)", "culture"},
-        {"ভূগোল (Geography)", "geography"},
-        {"জনসংখ্যা (Population)", "population"},
-        {"আইন ও সংবিধান (Law-Constitution)", "law-constitution"},
-        {"রাজনীতি (Politics)", "politics"},
-        {"মুক্তিযুদ্ধ (Freedom-Fight)", "freedom-fight"},
-        {"কৃষি (Agriculture)", "agriculture"},
-        {"ইতিহাস (History)", "history"},
-        {"শিক্ষা (Education)", "education"},
-        {"স্বাস্থ্য (Health)", "health"},
-        {"বিজ্ঞান ও প্রযুক্তি (Science-Tech)", "science-tech"},
-        {"পররাষ্ট্রনীতি (Foreign-Policy)", "foreign-policy"},
-        {"প্রশাসন (Administration)", "administration"},
-        {"অন্যান্য (Others)", "others"}
-    };
-}
-
 void save_tree_file(const QString &file_path, const QList<NoteItem> &items) {
     QString tree_path = file_path;
     tree_path.replace(".md", ".tree");
