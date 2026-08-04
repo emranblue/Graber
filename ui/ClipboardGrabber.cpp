@@ -113,11 +113,8 @@ void ClipboardGrabber::fit_window_to_content() {
 
     int target_w = qMax(body_hint.width(), controls_hint.width());
     int target_h = body_hint.height() + controls_hint.height();
-    int min_w = qMax(body_min.width(), controls_min.width());
-    int min_h = body_min.height() + controls_min.height();
-
-    // Floor the minimum, but don't fight an in-progress soft resize.
-    setMinimumSize(qMax(min_w, 360), qMax(min_h, 200));
+    const int floor_w = qMax(qMax(body_min.width(), controls_min.width()), 360);
+    const int floor_h = qMax(body_min.height() + controls_min.height(), 200);
 
     if (QScreen *scr = screen()) {
         const QRect avail = scr->availableGeometry();
@@ -125,19 +122,29 @@ void ClipboardGrabber::fit_window_to_content() {
         target_h = qMin(target_h, avail.height() - 40);
     }
 
-    const QSize target(qMax(target_w, minimumWidth()),
-                       qMax(target_h, minimumHeight()));
+    target_w = qMax(target_w, floor_w);
+    target_h = qMax(target_h, floor_h);
+    const QSize target(target_w, target_h);
 
     // First layout pass after construction: snap without animation so the
     // window doesn't "grow in" on startup. Everything after that is soft.
     static bool first_fit = true;
     if (first_fit) {
         first_fit = false;
+        setMinimumSize(floor_w, floor_h);
         resize(target);
         return;
     }
 
-    UiAnimator::resizeWindowSmooth(this, target);
+    // Critical: raising minimumSize above the current height forces Qt to
+    // snap the window instantly (no animation). Keep mins at or below the
+    // current size while we animate, then apply the real floor at the end.
+    setMinimumSize(qMin(floor_w, width()), qMin(floor_h, height()));
+
+    UiAnimator::resizeWindowSmooth(this, target, UiAnimator::kWindowDurationMs,
+                                   [this, floor_w, floor_h]() {
+                                       setMinimumSize(floor_w, floor_h);
+                                   });
 }
 
 void ClipboardGrabber::update_status_label() {

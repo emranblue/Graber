@@ -54,9 +54,11 @@ void setVisibleSmooth(const QList<QWidget *> &widgets, bool visible,
 /**
  * Animate the window geometry to the given size (keeps top-left fixed).
  * Clamps against the screen available geometry so it never overshoots.
+ * Optional onFinished runs after the resize settles (or immediately if no-op).
  */
 void resizeWindowSmooth(QWidget *window, const QSize &targetSize,
-                        int durationMs = kWindowDurationMs);
+                        int durationMs = kWindowDurationMs,
+                        std::function<void()> onFinished = {});
 
 /**
  * Fade a top-level window in from transparent (e.g. main window first show).
@@ -77,8 +79,9 @@ int execDialogSmooth(QDialog *dialog, int durationMs = kDialogDurationMs);
 void showDialogSmooth(QWidget *dialog, int durationMs = kDialogDurationMs);
 
 /**
- * Reserved API for combo popup animation (currently a no-op).
- * Height-clamping the Qt popup broke click selection; native dropdowns stay interactive.
+ * Soft open for QComboBox popups: opacity fade (+ tiny slide) on the popup
+ * window only. Does NOT clamp maximumHeight (that broke click selection).
+ * Call once after the combo is created (idempotent).
  */
 void enableComboPopupAnimation(QComboBox *combo, int durationMs = kPopupDurationMs);
 

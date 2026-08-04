@@ -35,11 +35,14 @@ void ClipboardGrabber::start_monitoring() {
     update_status_label();
     ActionRegistry::instance().updateBoundButtons();
 
-    // Soft collapse of non-essential panels, then ease the window height down.
+    // Soft collapse panels + shrink window together (not only after panels finish).
     UiAnimator::setVisibleSmooth(
         {ui_.subject_card, ui_.capture_extra, ui_.heading_card, ui_.diagram_quick_row},
         false, UiAnimator::kPanelDurationMs,
         [this]() { fit_window_to_content(); });
+    // Early window shrink so the frame eases down while panels are collapsing.
+    QTimer::singleShot(UiAnimator::kPanelDurationMs / 3, this,
+                       &ClipboardGrabber::fit_window_to_content);
 }
 
 void ClipboardGrabber::stop_monitoring() {
@@ -55,8 +58,7 @@ void ClipboardGrabber::stop_monitoring() {
     update_status_label();
     ActionRegistry::instance().updateBoundButtons();
 
-    // Soft expand panels back, then ease the window height up.
-    // Diagram row visibility is decided after expand so it can join the same wave.
+    // Soft expand panels + grow window back to full shape.
     const bool show_diagram = diagram_panel_enabled_ && !is_running_;
     QList<QWidget *> to_show{ui_.subject_card, ui_.capture_extra, ui_.heading_card};
     if (show_diagram)
@@ -67,6 +69,9 @@ void ClipboardGrabber::stop_monitoring() {
     UiAnimator::setVisibleSmooth(
         to_show, true, UiAnimator::kPanelDurationMs,
         [this]() { fit_window_to_content(); });
+    // Mid-wave window grow so the frame expands with the panels, not after a snap.
+    QTimer::singleShot(UiAnimator::kPanelDurationMs / 3, this,
+                       &ClipboardGrabber::fit_window_to_content);
 }
 
 void ClipboardGrabber::handle_text_captured(const QString &text) {
