@@ -4,6 +4,7 @@
 #include <QIcon>
 #include "ClipboardGrabber.h"
 #include "utils/Utils.h"
+#include "utils/CrashGuard.h"
 
 // Note: Ctrl+Shift+F ("cycle format") used to also be registered here as a
 // second, independent global hotkey (via RegisterHotKey/GlobalHotkeyFilter on
@@ -15,6 +16,9 @@
 // owner of this shortcut on every platform.
 
 int main(int argc, char *argv[]) {
+    // Process-wide terminate + Qt message handlers (log to ~/GraberNotes/debug.log).
+    CrashGuard::installGlobalHandlers();
+
     QApplication app(argc, argv);
 
     // App-wide icon: shows in window title bar, taskbar, and Alt+Tab switcher
@@ -84,9 +88,12 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    ClipboardGrabber window;
+    int exitCode = 1;
+    CrashGuard::safeCall([&]() {
+        ClipboardGrabber window;
+        window.show();
+        exitCode = app.exec();
+    }, QStringLiteral("main.eventLoop"));
 
-    window.show();
-
-    return app.exec();
+    return exitCode;
 }

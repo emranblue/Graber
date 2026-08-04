@@ -74,3 +74,64 @@ QIcon get_feather_icon(const QChar &code, const QColor &color, int size) {
 
     return QIcon(pixmap);
 }
+
+
+QString escapeHtml(const QString &text) {
+    QString out;
+    out.reserve(text.size() + 8);
+    for (const QChar c : text) {
+        switch (c.unicode()) {
+        case '&':  out += QLatin1String("&amp;");  break;
+        case '<':  out += QLatin1String("&lt;");   break;
+        case '>':  out += QLatin1String("&gt;");   break;
+        case '"':  out += QLatin1String("&quot;"); break;
+        default:   out += c; break;
+        }
+    }
+    return out;
+}
+
+QString sanitizeRelativePath(const QString &userPath) {
+    QString p = userPath.trimmed();
+    p.replace(QLatin1Char('\\'), QLatin1Char('/'));
+
+    if (p.isEmpty())
+        return {};
+
+    // Absolute / UNC / drive-letter
+    if (p.startsWith(QLatin1Char('/')) || p.startsWith(QLatin1String("//")))
+        return {};
+    if (p.size() >= 2 && p[1] == QLatin1Char(':'))
+        return {};
+
+    const QStringList parts = p.split(QLatin1Char('/'), Qt::SkipEmptyParts);
+    QStringList clean;
+    for (const QString &seg : parts) {
+        if (seg == QLatin1String(".") || seg.isEmpty())
+            continue;
+        if (seg == QLatin1String(".."))
+            return {}; // path traversal
+        // Disallow control chars / null
+        for (const QChar c : seg) {
+            if (c.unicode() < 0x20)
+                return {};
+        }
+        clean.append(seg);
+    }
+    if (clean.isEmpty())
+        return {};
+    return clean.join(QLatin1Char('/'));
+}
+
+bool isSafeRelativePath(const QString &userPath) {
+    return !sanitizeRelativePath(userPath).isEmpty();
+}
+
+bool isUnselectedSubject(const QString &nameOrPath) {
+    if (nameOrPath.isEmpty())
+        return true;
+    // YA + NUKTA (U+09AF U+09BC) vs single YYA (U+09DF) — both appear in UI strings.
+    static const QString a = QStringLiteral("নির্বাচিত নয়");
+    static const QString b = QStringLiteral("নির্বাচিত নয়");
+    return nameOrPath == a || nameOrPath == b;
+}

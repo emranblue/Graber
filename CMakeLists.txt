@@ -90,10 +90,15 @@ add_executable(graber
     # Formatters
     formatters/MarkdownDocumentFormatter.h
     formatters/MarkdownDocumentFormatter.cpp
+    formatters/MarkdownDocumentFormatter_Normalize.cpp
+    formatters/MarkdownDocumentFormatter_Toc.cpp
+    formatters/MarkdownDocumentFormatter_Parse.cpp
     formatters/MarkdownUtils.h
     formatters/MarkdownUtils.cpp
     formatters/DiagramTemplates.h
     formatters/DiagramTemplates.cpp
+    formatters/CaptureContentFormatter.h
+    formatters/CaptureContentFormatter.cpp
 
     # Monitors
     monitors/ClipboardMonitor.h
@@ -135,9 +140,16 @@ add_executable(graber
     ui/dialogs/ExportNoteWizard.h
     ui/dialogs/ExportNoteWizard.cpp
 
-    # Utils
+    # Utils (safe I/O + crash/exception guards)
     utils/Utils.h
     utils/Utils.cpp
+    utils/FileIO.h
+    utils/FileIO.cpp
+    utils/CrashGuard.h
+    utils/CrashGuard.cpp
+
+    # Core helpers (Result is header-only)
+    core/Result.h
 )
 
 # Link the executable to the Qt libraries

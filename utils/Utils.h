@@ -6,17 +6,39 @@
 #include <QColor>
 #include <QChar>
 
-// Set and get the active icon font family
 void set_feather_font_family(const QString &familyName);
 QString get_feather_font_family();
 
-// Write debug logs to ~/GraberNotes/debug.log
 void debugLog(const QString &msg);
 
-// Return a random hex color string
 QString get_random_beautiful_color();
 
-// Render an icon glyph into a QIcon
 QIcon get_feather_icon(const QChar &code, const QColor &color = QColor("#ffffff"), int size = 16);
+
+/** Escape &, <, >, " for safe insertion into HTML attribute/text nodes. */
+QString escapeHtml(const QString &text);
+
+/**
+ * Normalize a user-supplied relative path under the notes root.
+ * Rejects absolute paths, drive letters, ".." segments, and empty results.
+ * Accepts forward or back slashes; returns forward-slash form on success,
+ * or empty QString if unsafe.
+ */
+QString sanitizeRelativePath(const QString &userPath);
+
+/** True if path is non-empty and sanitizeRelativePath would accept it. */
+bool isSafeRelativePath(const QString &userPath);
+
+/**
+ * True for empty subject / the UI "unselected" sentinel.
+ * Covers both common Unicode spellings of "নয়" (YA+NUKTA vs YYA) so a
+ * single helper replaces the duplicated dual-literal checks.
+ */
+bool isUnselectedSubject(const QString &nameOrPath);
+
+/** Canonical display sentinel used when no subject is selected. */
+inline QString unselectedSubjectLabel() {
+    return QStringLiteral("নির্বাচিত নয়");
+}
 
 #endif // UTILS_H

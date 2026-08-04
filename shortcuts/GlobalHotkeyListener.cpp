@@ -105,51 +105,25 @@ GlobalHotkeyListener::~GlobalHotkeyListener() {
 }
 
 void GlobalHotkeyListener::registerGlobalHotkey(const QKeySequence &keySeq, const QString &actionId) {
-    if (keySeq.isEmpty()) return;
+    if (keySeq.isEmpty() || actionId.isEmpty()) return;
 
 #ifdef Q_OS_WIN
-    // Convert QKeySequence to Windows VK codes
-    int key = keySeq[0].toCombined();
+    const int key = keySeq[0].toCombined();
     UINT modifiers = 0;
-    UINT vk = 0;
-
-    // Extract modifiers
-    if (key & Qt::CTRL) modifiers |= MOD_CONTROL;
-    if (key & Qt::ALT) modifiers |= MOD_ALT;
+    if (key & Qt::CTRL)  modifiers |= MOD_CONTROL;
+    if (key & Qt::ALT)   modifiers |= MOD_ALT;
     if (key & Qt::SHIFT) modifiers |= MOD_SHIFT;
-    if (key & Qt::META) modifiers |= MOD_WIN;
+    if (key & Qt::META)  modifiers |= MOD_WIN;
 
-    // Extract actual key
-    int actualKey = key & 0xFFFF;
+    const int actualKey = key & 0xFFFF;
+    // Qt Key_A..Key_Z match ASCII; only allow A–Z (app shortcuts are letter-based).
+    if (actualKey < Qt::Key_A || actualKey > Qt::Key_Z)
+        return;
+    const UINT vk = static_cast<UINT>('A' + (actualKey - Qt::Key_A));
 
-    // Map Qt key codes to Windows VK codes
-    switch (actualKey) {
-        case Qt::Key_A: vk = 'A'; break;
-        case Qt::Key_B: vk = 'B'; break;
-        case Qt::Key_C: vk = 'C'; break;
-        case Qt::Key_D: vk = 'D'; break;
-        case Qt::Key_E: vk = 'E'; break;
-        case Qt::Key_F: vk = 'F'; break;
-        case Qt::Key_G: vk = 'G'; break;
-        case Qt::Key_H: vk = 'H'; break;
-        case Qt::Key_I: vk = 'I'; break;
-        case Qt::Key_J: vk = 'J'; break;
-        case Qt::Key_K: vk = 'K'; break;
-        case Qt::Key_N: vk = 'N'; break;
-        case Qt::Key_O: vk = 'O'; break;
-        case Qt::Key_P: vk = 'P'; break;
-        case Qt::Key_S: vk = 'S'; break;
-        case Qt::Key_T: vk = 'T'; break;
-        case Qt::Key_Y: vk = 'Y'; break;
-        default: return; // Unsupported key
-    }
-
-    int hotkeyId = next_hotkey_id_++;
-    if (RegisterHotKey(NULL, hotkeyId, modifiers, vk)) {
-        HotkeyData data;
-        data.id = hotkeyId;
-        data.actionId = actionId;
-        registered_hotkeys_[hotkeyId] = data;
+    const int hotkeyId = next_hotkey_id_++;
+    if (RegisterHotKey(nullptr, hotkeyId, modifiers, vk)) {
+        registered_hotkeys_[hotkeyId] = HotkeyData{hotkeyId, actionId};
     }
 #endif
 

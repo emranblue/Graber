@@ -2,6 +2,7 @@
 #include "ActionRegistry.h"
 #include "MarkdownUtils.h"
 #include "DiagramTemplates.h"
+#include "utils/CrashGuard.h"
 
 #include <QClipboard>
 #include <QGuiApplication>
@@ -63,12 +64,15 @@ void ClipboardGrabber::stop_monitoring() {
 }
 
 void ClipboardGrabber::handle_text_captured(const QString &text) {
-    if (is_diagram_format_selected()) {
-        handle_diagram_capture(text);
-        return;
-    }
-    ui_.last_captured_label->setText("শেষ ক্যাপচার: " + text);
-    write_to_file(text, ui_.section_dropdown->currentData().toString());
+    // Never let exceptions escape into the Qt event loop.
+    CrashGuard::safeCall([&]() {
+        if (is_diagram_format_selected()) {
+            handle_diagram_capture(text);
+            return;
+        }
+        ui_.last_captured_label->setText("শেষ ক্যাপচার: " + text);
+        write_to_file(text, ui_.section_dropdown->currentData().toString());
+    }, QStringLiteral("handle_text_captured"));
 }
 
 void ClipboardGrabber::handle_diagram_capture(const QString &text) {

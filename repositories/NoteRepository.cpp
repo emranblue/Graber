@@ -2,6 +2,7 @@
 #include "MarkdownDocumentFormatter.h"
 #include "IniSectionRepository.h"
 #include "../utils/Utils.h"
+// path safety via sanitizeRelativePath
 #include "MarkdownUtils.h"
 
 #include <QDir>
@@ -58,10 +59,14 @@ QStringList NoteRepository::populateFoldersFromDisk() {
 }
 
 bool NoteRepository::createFolder(const QString &folderPath, QString &outStatusMsg) {
-    if (folderPath.isEmpty()) return false;
+    const QString safe = sanitizeRelativePath(folderPath);
+    if (safe.isEmpty()) {
+        outStatusMsg = "অবস্থা: অবৈধ ফোল্ডার পথ!";
+        return false;
+    }
     QDir dir(notes_dir_path_);
-    if (dir.mkpath(folderPath)) {
-        outStatusMsg = "অবস্থা: ফোল্ডার তৈরি হয়েছে - " + folderPath;
+    if (dir.mkpath(safe)) {
+        outStatusMsg = "অবস্থা: ফোল্ডার তৈরি হয়েছে - " + safe;
         return true;
     }
     outStatusMsg = "অবস্থা: ফোল্ডার তৈরি করতে ব্যর্থ!";
@@ -77,8 +82,11 @@ void NoteRepository::saveSectionsForSubject(const QString &subjectName, const QL
 }
 
 QString NoteRepository::getTargetFilePath(const QString &subjectName) const {
-    if (subjectName.isEmpty() || subjectName == "নির্বাচিত নয়") {
-        return "নির্বাচিত নয়";
+    if (isUnselectedSubject(subjectName)) {
+        return unselectedSubjectLabel();
     }
-    return notes_dir_path_ + QDir::separator() + subjectName + ".md";
+    const QString safe = sanitizeRelativePath(subjectName);
+    if (safe.isEmpty())
+        return QStringLiteral("নির্বাচিত নয়");
+    return notes_dir_path_ + QDir::separator() + safe + QStringLiteral(".md");
 }

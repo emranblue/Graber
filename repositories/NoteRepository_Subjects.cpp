@@ -1,10 +1,28 @@
 #include "NoteRepository.h"
 #include "MarkdownUtils.h"
+#include "../utils/Utils.h"
+#include "../utils/FileIO.h"
 
 #include <QDir>
 #include <QDirIterator>
 #include <QFileInfo>
 #include <QFile>
+
+namespace {
+
+/** Rename-or-copy-then-remove a single sidecar file. Best-effort; never throws. */
+void moveSidecar(const QString &oldPath, const QString &newPath) {
+    if (!QFile::exists(oldPath))
+        return;
+    QFileInfo newInfo(newPath);
+    QDir().mkpath(newInfo.absolutePath());
+    if (QFile::rename(oldPath, newPath))
+        return;
+    if (QFile::copy(oldPath, newPath))
+        QFile::remove(oldPath);
+}
+
+} // namespace
 
 QStringList NoteRepository::populateSubjectsFromDisk(const QList<SectionItem> &sections,
                                                      const QString &folderFilter) {
@@ -81,70 +99,75 @@ QList<SubjectItem> NoteRepository::populateSubjectItemsFromDisk(const QList<Sect
 }
 
 bool NoteRepository::createSubject(const QString &subjectName) {
-    if (subjectName.isEmpty()) return false;
-    QString filename = notes_dir_path_ + QDir::separator() + subjectName + ".md";
+    const QString safe = sanitizeRelativePath(subjectName);
+    if (safe.isEmpty()) return false;
+    QString filename = notes_dir_path_ + QDir::separator() + safe + ".md";
     QFileInfo file_info(filename);
     QDir parent_dir = file_info.dir();
     if (!parent_dir.exists()) {
         parent_dir.mkpath(".");
     }
     if (!QFile::exists(filename)) {
+        // Atomic empty create via FileIO when possible.
+        if (FileIO::writeTextAtomic(filename, QString()).isOk())
+            return true;
         QFile file(filename);
         if (file.open(QIODevice::WriteOnly)) {
             file.close();
             return true;
         }
+        return false;
     }
     return true;
 }
 
 bool NoteRepository::moveSubject(const QString &oldSubjectName, const QString &newSubjectName,
                                  QString &outStatusMsg) {
-    if (oldSubjectName.isEmpty() || newSubjectName.isEmpty()) {
-        outStatusMsg = "অকার্যকর বিষয়ের নাম!";
+    // Path-traversal hard stop: both names must sanitize to a safe relative path
+    // under notes_dir_path_. Never concatenate raw user strings into filesystem paths.
+    const QString oldSafe = sanitizeRelativePath(oldSubjectName);
+    const QString newSafe = sanitizeRelativePath(newSubjectName);
+
+    if (oldSafe.isEmpty() || newSafe.isEmpty()) {
+        outStatusMsg = QStringLiteral("অকার্যকর বিষয়ের নাম!");
+        return false;
+    }
+    if (oldSafe == newSafe) {
+        outStatusMsg = QStringLiteral("পুরনো ও নতুন নাম একই!");
         return false;
     }
 
-    QString old_md = notes_dir_path_ + QDir::separator() + oldSubjectName + ".md";
-    QString new_md = notes_dir_path_ + QDir::separator() + newSubjectName + ".md";
+    const QString old_md = notes_dir_path_ + QDir::separator() + oldSafe + QStringLiteral(".md");
+    const QString new_md = notes_dir_path_ + QDir::separator() + newSafe + QStringLiteral(".md");
 
     if (!QFile::exists(old_md)) {
-        outStatusMsg = "মূল বিষয় ফাইলটি পাওয়া যায়নি!";
+        outStatusMsg = QStringLiteral("মূল বিষয় ফাইলটি পাওয়া যায়নি!");
+        return false;
+    }
+    if (QFile::exists(new_md)) {
+        outStatusMsg = QStringLiteral("গন্তব্য বিষয় ইতিমধ্যে বিদ্যমান!");
         return false;
     }
 
     QFileInfo new_info(new_md);
-    QDir().mkpath(new_info.absolutePath());
+    if (!QDir().mkpath(new_info.absolutePath())) {
+        outStatusMsg = QStringLiteral("গন্তব্য ফোল্ডার তৈরি করা যায়নি!");
+        return false;
+    }
 
     if (!QFile::rename(old_md, new_md)) {
         if (!QFile::copy(old_md, new_md) || !QFile::remove(old_md)) {
-            outStatusMsg = "নোট ফাইল স্থানান্তর ব্যর্থ হয়েছে!";
+            outStatusMsg = QStringLiteral("নোট ফাইল স্থানান্তর ব্যর্থ হয়েছে!");
             return false;
         }
     }
 
-    // Move associated .ini section config
-    QString old_ini = notes_dir_path_ + QDir::separator() + oldSubjectName + ".ini";
-    QString new_ini = notes_dir_path_ + QDir::separator() + newSubjectName + ".ini";
-    if (QFile::exists(old_ini)) {
-        if (!QFile::rename(old_ini, new_ini)) {
-            if (QFile::copy(old_ini, new_ini)) {
-                QFile::remove(old_ini);
-            }
-        }
-    }
+    // Sidecars: .ini section config + .tree outline (best-effort)
+    moveSidecar(notes_dir_path_ + QDir::separator() + oldSafe + QStringLiteral(".ini"),
+                notes_dir_path_ + QDir::separator() + newSafe + QStringLiteral(".ini"));
+    moveSidecar(notes_dir_path_ + QDir::separator() + oldSafe + QStringLiteral(".tree"),
+                notes_dir_path_ + QDir::separator() + newSafe + QStringLiteral(".tree"));
 
-    // Move associated .tree structure file
-    QString old_tree = notes_dir_path_ + QDir::separator() + oldSubjectName + ".tree";
-    QString new_tree = notes_dir_path_ + QDir::separator() + newSubjectName + ".tree";
-    if (QFile::exists(old_tree)) {
-        if (!QFile::rename(old_tree, new_tree)) {
-            if (QFile::copy(old_tree, new_tree)) {
-                QFile::remove(old_tree);
-            }
-        }
-    }
-
-    outStatusMsg = "বিষয় সফলভাবে স্থানান্তর করা হয়েছে!";
+    outStatusMsg = QStringLiteral("বিষয় সফলভাবে স্থানান্তর করা হয়েছে!");
     return true;
 }

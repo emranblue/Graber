@@ -7,6 +7,7 @@
 #include <QTextStream>
 #include <QRegularExpression>
 #include <QSet>
+#include "../utils/Utils.h"
 
 namespace {
 
@@ -17,7 +18,10 @@ QList<SectionItem> recoverSectionsFromNote(const QString &notesDirPath, const QS
     QList<SectionItem> recovered;
     if (subjectName.isEmpty()) return recovered;
 
-    const QString md_path = notesDirPath + QDir::separator() + subjectName + ".md";
+    const QString safe = sanitizeRelativePath(subjectName);
+    if (safe.isEmpty()) return recovered;
+
+    const QString md_path = notesDirPath + QDir::separator() + safe + ".md";
     QFile file(md_path);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) return recovered;
 
@@ -65,12 +69,16 @@ QList<SectionItem> recoverSectionsFromNote(const QString &notesDirPath, const QS
 } // namespace
 
 QList<SectionItem> IniSectionRepository::loadSectionsForSubject(const QString &notesDirPath, const QString &subjectName) {
-    if (subjectName.isEmpty() || subjectName == QStringLiteral("নির্বাচিত নয়")) {
+    if (isUnselectedSubject(subjectName)) {
         // No subject selected — there is no built-in section list to fall back to.
         return {};
     }
 
-    QString ini_path = notesDirPath + QDir::separator() + subjectName + ".ini";
+    const QString safeSubject = sanitizeRelativePath(subjectName);
+    if (safeSubject.isEmpty())
+        return {};
+
+    QString ini_path = notesDirPath + QDir::separator() + safeSubject + ".ini";
 
     // Auto-migration check: If target .ini does not exist, search notesDirPath for matching <basename>.ini
     if (!QFile::exists(ini_path)) {
@@ -126,7 +134,7 @@ QList<SectionItem> IniSectionRepository::loadSectionsForSubject(const QString &n
     // If the .ini is missing or empty, recover section slugs from the note body
     // so the dropdown / TOC are not left blank for existing notes.
     if (sections.isEmpty()) {
-        sections = recoverSectionsFromNote(notesDirPath, subjectName);
+        sections = recoverSectionsFromNote(notesDirPath, safeSubject);
         // Persist recovered sections so subsequent loads are fast and stable.
         if (!sections.isEmpty()) {
             QFileInfo fileInfo(ini_path);
@@ -148,9 +156,12 @@ QList<SectionItem> IniSectionRepository::loadSectionsForSubject(const QString &n
 }
 
 void IniSectionRepository::saveSectionsForSubject(const QString &notesDirPath, const QString &subjectName, const QList<SectionItem> &sections) {
-    if (subjectName.isEmpty() || subjectName == QStringLiteral("নির্বাচিত নয়")) return;
+    if (isUnselectedSubject(subjectName)) return;
 
-    QString ini_path = notesDirPath + QDir::separator() + subjectName + ".ini";
+    const QString safeSubject = sanitizeRelativePath(subjectName);
+    if (safeSubject.isEmpty()) return;
+
+    QString ini_path = notesDirPath + QDir::separator() + safeSubject + ".ini";
     QFileInfo fileInfo(ini_path);
     QDir().mkpath(fileInfo.absolutePath());
 

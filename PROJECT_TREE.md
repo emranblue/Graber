@@ -43,9 +43,14 @@ graber/
 │   └── IniSectionRepository.h / .cpp
 │
 ├── formatters/
-│   ├── MarkdownDocumentFormatter.h / .cpp
+│   ├── MarkdownDocumentFormatter.h
+│   ├── MarkdownDocumentFormatter.cpp           # slug / diagram / tree / restore
+│   ├── MarkdownDocumentFormatter_Normalize.cpp # heading normalize
+│   ├── MarkdownDocumentFormatter_Toc.cpp       # TOC build & inject
+│   ├── MarkdownDocumentFormatter_Parse.cpp     # structure → NoteItem list
 │   ├── MarkdownUtils.h / .cpp
-│   └── DiagramTemplates.h / .cpp
+│   ├── DiagramTemplates.h / .cpp
+│   └── CaptureContentFormatter.h / .cpp        # formatIndex → escaped markup
 │
 ├── monitors/
 │   └── ClipboardMonitor.h / .cpp
@@ -79,5 +84,10 @@ graber/
 │       └── ExportNoteWizard.h / .cpp
 │
 └── utils/
-    └── Utils.h / .cpp
+    ├── Utils.h / .cpp              # icons, logging, path sanitize, HTML escape
+    ├── FileIO.h / .cpp             # atomic QSaveFile read/write (crash-safe)
+    └── CrashGuard.h / .cpp         # terminate + Qt msg handlers, SafeCall
 ```
+
+Also under `core/`: `Result.h` (header-only Result&lt;T&gt; / VoidResult).
+
