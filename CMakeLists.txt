@@ -92,9 +92,12 @@ add_executable(graber
     formatters/MarkdownDocumentFormatter.cpp
     formatters/MarkdownDocumentFormatter_Normalize.cpp
     formatters/MarkdownDocumentFormatter_Toc.cpp
+    formatters/MarkdownDocumentFormatter_TocHelpers.h
+    formatters/MarkdownDocumentFormatter_TocHelpers.cpp
     formatters/MarkdownDocumentFormatter_Parse.cpp
     formatters/MarkdownUtils.h
     formatters/MarkdownUtils.cpp
+    formatters/MarkdownUtils_Bounds.cpp
     formatters/DiagramTemplates.h
     formatters/DiagramTemplates.cpp
     formatters/CaptureContentFormatter.h
@@ -115,8 +118,11 @@ add_executable(graber
     ui/ClipboardGrabber.cpp
     ui/controllers/ClipboardGrabber_Actions.cpp
     ui/controllers/ClipboardGrabber_Capture.cpp
+    ui/controllers/ClipboardGrabber_Capture_Diagram.cpp
     ui/controllers/ClipboardGrabber_Navigation.cpp
+    ui/controllers/ClipboardGrabber_Navigation_Subjects.cpp
     ui/controllers/ClipboardGrabber_Headings.cpp
+    ui/controllers/ClipboardGrabber_Dialogs.cpp
     ui/ClipboardGrabberUI.h
     ui/ClipboardGrabberUI.cpp
 
@@ -135,6 +141,8 @@ add_executable(graber
     # UI Dialogs
     ui/dialogs/HeadingSelectDialog.h
     ui/dialogs/HeadingSelectDialog.cpp
+    ui/dialogs/HeadingSelectDialog_Search.cpp
+    ui/dialogs/HeadingSelectDialog_Populate.cpp
     ui/dialogs/ShortcutsSettingsDialog.h
     ui/dialogs/ShortcutsSettingsDialog.cpp
     ui/dialogs/ExportNoteWizard.h
@@ -148,7 +156,12 @@ add_executable(graber
     utils/CrashGuard.h
     utils/CrashGuard.cpp
     utils/UiAnimator.h
-    utils/UiAnimator.cpp
+    utils/UiAnimator_Internal.h
+    utils/UiAnimator_Visibility.cpp
+    utils/UiAnimator_Window.cpp
+    utils/UiAnimator_Dialog.cpp
+    utils/UiAnimator_Combo.cpp
+    utils/UiAnimator_Text.cpp
 
     # Core helpers (Result is header-only)
     core/Result.h
