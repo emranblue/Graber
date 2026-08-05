@@ -23,52 +23,82 @@ int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
 
     // App-wide icon: shows in window title bar, taskbar, and Alt+Tab switcher
-    app.setWindowIcon(QIcon(":/icons/app.ico"));
+    app.setWindowIcon(get_app_icon());
 
-    // Global UI Styling
+    // Soft Mac-like global styling: airy neutrals, large radii, glossy cards.
     app.setStyleSheet(
-        "QWidget { font-family: 'Segoe UI', 'Kalpurush'; color: #2f3640; }"
-        "QMainWindow, #MainWindow, QDialog { background-color: #eef1f7; }"
+        "QWidget { font-family: 'SF Pro Text', 'Segoe UI', 'Kalpurush', system-ui, sans-serif;"
+        "  color: #1d1d1f; font-size: 13px; }"
+        "QMainWindow, #MainWindow, QDialog {"
+        "  background-color: #f5f5f7; }"
 
-        // Footer controls strip
-        "#controlsBar { background-color: #ffffff; border-top: 1px solid #e3e7ef; }"
+        "#controlsBar {"
+        "  background-color: rgba(255,255,255,0.92);"
+        "  border-top: 1px solid rgba(0,0,0,0.06); }"
 
-        // Cards
-        "QFrame#card { background-color: #ffffff; border: 1px solid #e3e7ef; border-radius: 12px; }"
-        "QFrame#heroCard { background-color: #ffffff; border: 1px solid #e3e7ef; border-radius: 14px; }"
+        "QFrame#card {"
+        "  background-color: #ffffff;"
+        "  border: 1px solid rgba(0,0,0,0.06);"
+        "  border-radius: 16px; }"
+        "QFrame#heroCard {"
+        "  background-color: #ffffff;"
+        "  border: 1px solid rgba(0,0,0,0.06);"
+        "  border-radius: 18px; }"
 
-        "QLabel { color: #2f3640; font-size: 12px; background-color: transparent; }"
+        "QLabel { color: #1d1d1f; font-size: 12px; background-color: transparent; }"
 
-        // Buttons
-        "QPushButton { background-color: #487eb0; color: white; border-radius: 8px; padding: 6px 11px; font-weight: 600; font-size: 12px; border: none; min-width: 60px; min-height: 15px; }"
-        "QPushButton:hover { background-color: #40739e; }"
-        "QPushButton:pressed { background-color: #35618a; padding-top: 7px; padding-bottom: 5px; }"
-        "QPushButton:disabled { background-color: #dde3ec; color: #a4acb9; }"
-        "QPushButton#primaryActionButton { border-radius: 9px; padding: 9px 12px; font-size: 13px; }"
-        "QPushButton#secondaryButton { background-color: #718093; }"
-        "QPushButton#secondaryButton:hover { background-color: #636e72; }"
+        "QPushButton {"
+        "  background-color: #007aff; color: white;"
+        "  border-radius: 10px; padding: 7px 14px;"
+        "  font-weight: 600; font-size: 12px; border: none;"
+        "  min-width: 64px; min-height: 16px; }"
+        "QPushButton:hover { background-color: #0066d6; }"
+        "QPushButton:pressed { background-color: #0055b3; padding-top: 8px; padding-bottom: 6px; }"
+        "QPushButton:disabled { background-color: #e5e5ea; color: #8e8e93; }"
+        "QPushButton#primaryActionButton { border-radius: 11px; padding: 10px 14px; font-size: 13px; }"
+        "QPushButton#secondaryButton { background-color: #8e8e93; }"
+        "QPushButton#secondaryButton:hover { background-color: #6c6c70; }"
 
-        // Inputs
-        "QComboBox { border: 1.5px solid #dfe4ec; border-radius: 7px; padding: 4px 8px; background: white; color: #2f3640; min-height: 24px; }"
-        "QComboBox:hover { border: 1.5px solid #a9c3dd; }"
-        "QComboBox:focus { border: 1.5px solid #487eb0; }"
-        "QComboBox::drop-down { border: none; width: 20px; }"
-        "QComboBox QAbstractItemView { background: white; color: #2f3640; border: 1px solid #e3e7ef; border-radius: 8px; selection-background-color: #487eb0; selection-color: white; padding: 4px; outline: none; }"
-        "QLineEdit { background: white; color: #2f3640; padding: 6px 8px; border: 1.5px solid #dfe4ec; border-radius: 7px; }"
-        "QLineEdit:focus { border: 1.5px solid #487eb0; }"
+        "QComboBox {"
+        "  border: 1px solid rgba(0,0,0,0.12); border-radius: 10px;"
+        "  padding: 5px 10px; background: #ffffff; color: #1d1d1f; min-height: 26px; }"
+        "QComboBox:hover { border: 1px solid rgba(0,122,255,0.45); }"
+        "QComboBox:focus { border: 1.5px solid #007aff; }"
+        "QComboBox::drop-down { border: none; width: 22px; }"
+        "QComboBox QAbstractItemView {"
+        "  background: #ffffff; color: #1d1d1f;"
+        "  border: 1px solid rgba(0,0,0,0.08); border-radius: 12px;"
+        "  selection-background-color: #007aff; selection-color: white;"
+        "  padding: 6px; outline: none; }"
+        "QLineEdit {"
+        "  background: #ffffff; color: #1d1d1f;"
+        "  padding: 7px 10px; border: 1px solid rgba(0,0,0,0.12);"
+        "  border-radius: 10px; }"
+        "QLineEdit:focus { border: 1.5px solid #007aff; }"
 
-        // Status pill
-        "#status_label { font-size: 14px; font-weight: 700; color: #718093; padding: 10px; background: #f1f2f6; border-radius: 10px; }"
-        "QLabel#status_label[running=\"true\"] { color: #16a34a; background: #e7f8ee; }"
+        "#status_label {"
+        "  font-size: 14px; font-weight: 700; color: #8e8e93;"
+        "  padding: 12px; background: #f2f2f7; border-radius: 12px; }"
+        "QLabel#status_label[running=\"true\"] {"
+        "  color: #248a3d; background: #e8f8ed; }"
 
-        "#last_captured_label { background-color: #f8f9fc; border: 1px solid #e3e7ef; border-radius: 10px; padding: 12px; color: #2f3640; font-style: italic; border-left: 4px solid #487eb0; }"
+        "#last_captured_label {"
+        "  background-color: #fafafa; border: 1px solid rgba(0,0,0,0.06);"
+        "  border-radius: 12px; padding: 12px; color: #3a3a3c;"
+        "  font-style: italic; border-left: 4px solid #007aff; }"
 
-        // Scrollbars
         "QScrollBar:vertical { background: transparent; width: 10px; margin: 0; }"
-        "QScrollBar::handle:vertical { background: #ccd3e0; border-radius: 5px; min-height: 24px; }"
-        "QScrollBar::handle:vertical:hover { background: #aeb8cc; }"
+        "QScrollBar::handle:vertical {"
+        "  background: rgba(0,0,0,0.18); border-radius: 5px; min-height: 28px; }"
+        "QScrollBar::handle:vertical:hover { background: rgba(0,0,0,0.28); }"
         "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }"
+
+        "QCheckBox { spacing: 8px; color: #1d1d1f; }"
+        "QToolTip {"
+        "  background-color: #1d1d1f; color: #f5f5f7;"
+        "  border: none; border-radius: 8px; padding: 6px 10px; }"
     );
+
 
     // Add Kalpurush font
     int fontId = QFontDatabase::addApplicationFont(":/Kalpurush.ttf");

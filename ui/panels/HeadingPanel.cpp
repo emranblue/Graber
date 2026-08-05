@@ -1,5 +1,6 @@
 #include "HeadingPanel.h"
 #include "Utils.h"
+#include <QSize>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGraphicsDropShadowEffect>
@@ -33,7 +34,7 @@ HeadingPanel::HeadingPanel(QWidget *parent) : QFrame(parent) {
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(12, 10, 12, 12);
     layout->setSpacing(8);
-    layout->addWidget(sectionHeader(QChar(0xe90a), QColor("#e67e22"),
+    layout->addWidget(sectionHeader(QChar(0xe90a), QColor("#e68600"),
                                     "টার্গেট শিরোনাম নিয়ন্ত্রণ (Target Heading Control)"));
 
     heading_label_ = new QLabel("শিরোনাম (Heading):", this);
@@ -47,34 +48,39 @@ HeadingPanel::HeadingPanel(QWidget *parent) : QFrame(parent) {
         "QPushButton:disabled { background-color: #dcdde1; color: #7f8c8d; }");
     select_heading_button_->setEnabled(false);
     select_heading_button_->setIcon(get_feather_icon(QChar(0xe90a), QColor("#2f3640")));
+    select_heading_button_->setIconSize(QSize(16, 16));
 
     append_to_heading_button_ = new QPushButton("যুক্ত করুন", this);
     append_to_heading_button_->setStyleSheet(
-        "QPushButton { background-color: #f39c12; color: white; border-radius: 4px; padding: 5px; }"
-        "QPushButton:hover { background-color: #e67e22; }");
+        "QPushButton { background-color: #ff9500; color: white; border-radius: 4px; padding: 5px; }"
+        "QPushButton:hover { background-color: #e68600; }");
     append_to_heading_button_->setEnabled(false);
     append_to_heading_button_->setIcon(get_feather_icon(QChar(0xe963)));
+    append_to_heading_button_->setIconSize(QSize(16, 16));
 
     inject_heading_button_ = new QPushButton("ইনজেক্ট করুন", this);
     inject_heading_button_->setStyleSheet(
-        "QPushButton { background-color: #8c7ae6; color: white; border-radius: 4px; padding: 5px; }"
-        "QPushButton:hover { background-color: #9c88ff; }");
+        "QPushButton { background-color: #5856d6; color: white; border-radius: 4px; padding: 5px; }"
+        "QPushButton:hover { background-color: #7d7aff; }");
     inject_heading_button_->setEnabled(false);
     inject_heading_button_->setIcon(get_feather_icon(QChar(0xe992)));
+    inject_heading_button_->setIconSize(QSize(16, 16));
 
     shift_heading_button_ = new QPushButton("স্থানান্তর", this);
     shift_heading_button_->setStyleSheet(
-        "QPushButton { background-color: #3498db; color: white; border-radius: 4px; padding: 5px; }"
-        "QPushButton:hover { background-color: #2980b9; }");
+        "QPushButton { background-color: #007aff; color: white; border-radius: 4px; padding: 5px; }"
+        "QPushButton:hover { background-color: #0066d6; }");
     shift_heading_button_->setEnabled(false);
     shift_heading_button_->setIcon(get_feather_icon(QChar(0xe9bc)));
+    shift_heading_button_->setIconSize(QSize(16, 16));
 
     delete_heading_button_ = new QPushButton("মুছে ফেলুন", this);
     delete_heading_button_->setStyleSheet(
-        "QPushButton { background-color: #c0392b; color: white; border-radius: 4px; padding: 5px; }"
-        "QPushButton:hover { background-color: #ae2012; }");
+        "QPushButton { background-color: #ff3b30; color: white; border-radius: 4px; padding: 5px; }"
+        "QPushButton:hover { background-color: #d70015; }");
     delete_heading_button_->setEnabled(false);
     delete_heading_button_->setIcon(get_feather_icon(QChar(0xe9f6)));
+    delete_heading_button_->setIconSize(QSize(16, 16));
 
     auto *heading_layout = new QHBoxLayout();
     heading_layout->setSpacing(8);
@@ -91,10 +97,10 @@ HeadingPanel::HeadingPanel(QWidget *parent) : QFrame(parent) {
     layout->addLayout(actions_layout);
 
     auto *shadow = new QGraphicsDropShadowEffect(this);
-    shadow->setBlurRadius(16);
+    shadow->setBlurRadius(24);
     shadow->setXOffset(0);
-    shadow->setYOffset(3);
-    shadow->setColor(QColor(25, 42, 86, 30));
+    shadow->setYOffset(6);
+    shadow->setColor(QColor(0, 0, 0, 28));
     setGraphicsEffect(shadow);
 }
 

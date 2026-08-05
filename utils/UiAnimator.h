@@ -23,12 +23,14 @@
 namespace UiAnimator {
 
 /** Default durations (ms). Soft enough to feel intentional, short enough to stay responsive. */
-constexpr int kPanelDurationMs   = 280;
-constexpr int kWindowDurationMs  = 300;
-constexpr int kDialogDurationMs  = 220;
-constexpr int kPopupDurationMs   = 180;
-constexpr int kFadeDurationMs    = 160;
-constexpr int kStaggerMs         = 35;   // delay between successive panels in a wave
+constexpr int kPanelDurationMs   = 320;
+constexpr int kWindowDurationMs  = 340;
+constexpr int kDialogDurationMs  = 260;
+constexpr int kPopupDurationMs   = 200;
+constexpr int kFadeDurationMs    = 180;
+constexpr int kStaggerMs         = 40;
+/** Soft window / dialog close fade. */
+constexpr int kCloseDurationMs   = 220;
 
 /**
  * Smoothly show or hide a widget (collapse/expand height).
@@ -65,6 +67,13 @@ void resizeWindowSmooth(QWidget *window, const QSize &targetSize,
  * Safe no-op if the platform does not support window opacity.
  */
 void fadeInWindow(QWidget *window, int durationMs = kDialogDurationMs);
+
+/**
+ * Fade a top-level window out, then invoke onFinished (e.g. real close).
+ * Crash-safe: cancels any in-flight animation on the same widget first.
+ */
+void fadeOutWindow(QWidget *window, int durationMs = kCloseDurationMs,
+                   std::function<void()> onFinished = {});
 
 /**
  * Open a modal dialog with fade + slight upward slide, then exec().

@@ -137,6 +137,8 @@ add_executable(graber
     ui/panels/HeadingPanel.cpp
     ui/panels/ControlsBar.h
     ui/panels/ControlsBar.cpp
+    ui/panels/MacTitleBar.h
+    ui/panels/MacTitleBar.cpp
 
     # UI Dialogs
     ui/dialogs/HeadingSelectDialog.h

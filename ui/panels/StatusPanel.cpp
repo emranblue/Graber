@@ -25,10 +25,10 @@ StatusPanel::StatusPanel(QWidget *parent) : QFrame(parent) {
     layout->addWidget(last_captured_label_);
 
     auto *shadow = new QGraphicsDropShadowEffect(this);
-    shadow->setBlurRadius(16);
+    shadow->setBlurRadius(24);
     shadow->setXOffset(0);
-    shadow->setYOffset(3);
-    shadow->setColor(QColor(25, 42, 86, 30));
+    shadow->setYOffset(6);
+    shadow->setColor(QColor(0, 0, 0, 28));
     setGraphicsEffect(shadow);
 }
 

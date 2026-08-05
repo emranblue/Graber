@@ -1,5 +1,6 @@
 #include "CapturePanel.h"
 #include "Utils.h"
+#include <QSize>
 #include "DiagramTemplates.h"
 #include "utils/UiAnimator.h"
 #include <QVBoxLayout>
@@ -69,10 +70,11 @@ CapturePanel::CapturePanel(QWidget *parent) : QFrame(parent) {
 
     insert_diagram_button_ = new QPushButton("নতুন ডায়াগ্রাম (New Diagram)", this);
     insert_diagram_button_->setStyleSheet(
-        "QPushButton { background-color: #00a8ff; color: white; border-radius: 4px; padding: 5px; }"
-        "QPushButton:hover { background-color: #0097e6; }");
+        "QPushButton { background-color: #007aff; color: white; border-radius: 4px; padding: 5px; }"
+        "QPushButton:hover { background-color: #0066d6; }");
     insert_diagram_button_->setEnabled(false);
     insert_diagram_button_->setIcon(get_feather_icon(QChar(0xe992)));
+    insert_diagram_button_->setIconSize(QSize(16, 16));
 
     diagram_quick_row_ = new QWidget(this);
     auto *diagram_layout = new QHBoxLayout(diagram_quick_row_);
@@ -93,9 +95,10 @@ CapturePanel::CapturePanel(QWidget *parent) : QFrame(parent) {
 
     add_section_button_ = new QPushButton("নতুন বিভাগ", this);
     add_section_button_->setStyleSheet(
-        "QPushButton { background-color: #44bd32; color: white; border-radius: 4px; padding: 5px; }"
-        "QPushButton:hover { background-color: #44bd32; opacity: 0.9; }");
+        "QPushButton { background-color: #34c759; color: white; border-radius: 4px; padding: 5px; }"
+        "QPushButton:hover { background-color: #34c759; opacity: 0.9; }");
     add_section_button_->setIcon(get_feather_icon(QChar(0xe9c9)));
+    add_section_button_->setIconSize(QSize(16, 16));
 
     auto *section_layout = new QHBoxLayout();
     section_layout->setSpacing(8);
@@ -106,6 +109,7 @@ CapturePanel::CapturePanel(QWidget *parent) : QFrame(parent) {
 
     add_image_button_ = new QPushButton("ছবি যুক্ত করুন (Add Image)", this);
     add_image_button_->setIcon(get_feather_icon(QChar(0xe978)));
+    add_image_button_->setIconSize(QSize(16, 16));
 
     auto *image_layout = new QHBoxLayout();
     image_layout->addWidget(add_image_button_, 1);
@@ -114,10 +118,10 @@ CapturePanel::CapturePanel(QWidget *parent) : QFrame(parent) {
     layout->addWidget(capture_extra_);
 
     auto *shadow = new QGraphicsDropShadowEffect(this);
-    shadow->setBlurRadius(16);
+    shadow->setBlurRadius(24);
     shadow->setXOffset(0);
-    shadow->setYOffset(3);
-    shadow->setColor(QColor(25, 42, 86, 30));
+    shadow->setYOffset(6);
+    shadow->setColor(QColor(0, 0, 0, 28));
     setGraphicsEffect(shadow);
 }
 

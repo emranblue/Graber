@@ -1,5 +1,6 @@
 #include "SubjectPanel.h"
 #include "Utils.h"
+#include <QSize>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -45,28 +46,32 @@ SubjectPanel::SubjectPanel(QWidget *parent) : QFrame(parent) {
 
     add_folder_button_ = new QPushButton("নতুন ফোল্ডার", this);
     add_folder_button_->setStyleSheet(
-        "QPushButton { background-color: #e67e22; color: white; border-radius: 4px; padding: 5px; }"
-        "QPushButton:hover { background-color: #d35400; }");
+        "QPushButton { background-color: #ff9500; color: white; border-radius: 4px; padding: 5px; }"
+        "QPushButton:hover { background-color: #e68600; }");
     add_folder_button_->setIcon(get_feather_icon(QChar(0xe9c9)));
+    add_folder_button_->setIconSize(QSize(16, 16));
 
     toggle_subject_button_ = new QPushButton("বিষয় পরিবর্তন", this);
     toggle_subject_button_->setStyleSheet(
-        "QPushButton { background-color: #9b59b6; color: white; border-radius: 4px; padding: 5px; }"
-        "QPushButton:hover { background-color: #8e44ad; }");
+        "QPushButton { background-color: #af52de; color: white; border-radius: 4px; padding: 5px; }"
+        "QPushButton:hover { background-color: #bf5af2; }");
     toggle_subject_button_->setIcon(get_feather_icon(QChar(0xe9d0)));
+    toggle_subject_button_->setIconSize(QSize(16, 16));
 
     add_subject_button_ = new QPushButton("নতুন বিষয়", this);
     add_subject_button_->setStyleSheet(
-        "QPushButton { background-color: #44bd32; color: white; border-radius: 4px; padding: 5px; }"
-        "QPushButton:hover { background-color: #44bd32; opacity: 0.9; }");
+        "QPushButton { background-color: #34c759; color: white; border-radius: 4px; padding: 5px; }"
+        "QPushButton:hover { background-color: #34c759; opacity: 0.9; }");
     add_subject_button_->setIcon(get_feather_icon(QChar(0xe9c9)));
+    add_subject_button_->setIconSize(QSize(16, 16));
 
     open_file_button_ = new QPushButton("নোট খুলুন", this);
     open_file_button_->setStyleSheet(
-        "QPushButton { background-color: #0097e6; color: white; border-radius: 4px; padding: 5px; }"
-        "QPushButton:hover { background-color: #00a8ff; }");
+        "QPushButton { background-color: #007aff; color: white; border-radius: 4px; padding: 5px; }"
+        "QPushButton:hover { background-color: #0066d6; }");
     open_file_button_->setEnabled(false);
     open_file_button_->setIcon(get_feather_icon(QChar(0xe966)));
+    open_file_button_->setIconSize(QSize(16, 16));
 
     // Folder row
     auto *folder_layout = new QHBoxLayout();
@@ -91,9 +96,9 @@ SubjectPanel::SubjectPanel(QWidget *parent) : QFrame(parent) {
     layout->addLayout(file_layout);
 
     auto *shadow = new QGraphicsDropShadowEffect(this);
-    shadow->setBlurRadius(16);
+    shadow->setBlurRadius(24);
     shadow->setXOffset(0);
-    shadow->setYOffset(3);
-    shadow->setColor(QColor(25, 42, 86, 30));
+    shadow->setYOffset(6);
+    shadow->setColor(QColor(0, 0, 0, 28));
     setGraphicsEffect(shadow);
 }

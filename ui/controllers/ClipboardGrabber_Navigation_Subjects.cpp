@@ -1,5 +1,6 @@
 #include "ClipboardGrabber.h"
 #include "MarkdownUtils.h"
+#include "utils/Utils.h"
 
 #include <QFile>
 #include <QDesktopServices>
@@ -88,7 +89,7 @@ void ClipboardGrabber::populate_folders_from_disk() {
     ui_.folder_dropdown->blockSignals(true);
     ui_.folder_dropdown->clear();
 
-    static const QIcon folder_icon(":/icons/folder.ico");
+    static const QIcon folder_icon = get_folder_icon();
     ui_.folder_dropdown->addItem(folder_icon, "সকল ফোল্ডার (All Folders)", "__ALL__");
     ui_.folder_dropdown->addItem(folder_icon, "রুট ফোল্ডার (Root / Base)", "__ROOT__");
 
@@ -114,7 +115,7 @@ void ClipboardGrabber::populate_subjects_from_disk() {
     ui_.subject_dropdown->blockSignals(true);
     ui_.subject_dropdown->clear();
 
-    static const QIcon file_icon(":/icons/file.ico");
+    static const QIcon file_icon = get_file_icon();
     QList<SubjectItem> items = note_service_.populateSubjectItems(get_sections_from_ui(), filter);
     int select_idx = -1;
     for (int i = 0; i < items.size(); ++i) {

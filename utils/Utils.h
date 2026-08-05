@@ -15,6 +15,11 @@ QString get_random_beautiful_color();
 
 QIcon get_feather_icon(const QChar &code, const QColor &color = QColor("#ffffff"), int size = 16);
 
+/** Multi-resolution app icon (taskbar, title bar, About). */
+QIcon get_app_icon();
+QIcon get_folder_icon();
+QIcon get_file_icon();
+
 /** Escape &, <, >, " for safe insertion into HTML attribute/text nodes. */
 QString escapeHtml(const QString &text);
 

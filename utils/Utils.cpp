@@ -135,3 +135,46 @@ bool isUnselectedSubject(const QString &nameOrPath) {
     static const QString b = QStringLiteral("নির্বাচিত নয়");
     return nameOrPath == a || nameOrPath == b;
 }
+
+
+QIcon get_app_icon() {
+    static QIcon icon;
+    if (icon.isNull()) {
+        // Layer sizes so Qt/OS picks a sharp glyph for each density.
+        const char *paths[] = {
+            ":/icons/app-16.png",
+            ":/icons/app-24.png",
+            ":/icons/app-32.png",
+            ":/icons/app-48.png",
+            ":/icons/app-64.png",
+            ":/icons/app-128.png",
+            ":/icons/app-256.png",
+            ":/icons/app-512.png",
+            ":/icons/app-1024.png",
+            ":/icons/app.ico",
+        };
+        for (const char *p : paths)
+            icon.addFile(QLatin1String(p));
+        if (icon.isNull())
+            icon = QIcon(QStringLiteral(":/icons/app.ico"));
+    }
+    return icon;
+}
+
+QIcon get_folder_icon() {
+    static QIcon icon;
+    if (icon.isNull()) {
+        icon.addFile(QStringLiteral(":/icons/folder-1024.png"));
+        icon.addFile(QStringLiteral(":/icons/folder.ico"));
+    }
+    return icon;
+}
+
+QIcon get_file_icon() {
+    static QIcon icon;
+    if (icon.isNull()) {
+        icon.addFile(QStringLiteral(":/icons/file-1024.png"));
+        icon.addFile(QStringLiteral(":/icons/file.ico"));
+    }
+    return icon;
+}

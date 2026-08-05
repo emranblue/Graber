@@ -6,6 +6,14 @@
     <file alias="icons/folder.ico">resources/icons/folder.ico</file>
     <file alias="icons/file.ico">resources/icons/file.ico</file>
     <file alias="icons/app-1024.png">resources/icons/app-1024.png</file>
+    <file alias="icons/app-512.png">resources/icons/app-512.png</file>
+    <file alias="icons/app-256.png">resources/icons/app-256.png</file>
+    <file alias="icons/app-128.png">resources/icons/app-128.png</file>
+    <file alias="icons/app-64.png">resources/icons/app-64.png</file>
+    <file alias="icons/app-48.png">resources/icons/app-48.png</file>
+    <file alias="icons/app-32.png">resources/icons/app-32.png</file>
+    <file alias="icons/app-24.png">resources/icons/app-24.png</file>
+    <file alias="icons/app-16.png">resources/icons/app-16.png</file>
     <file alias="icons/folder-1024.png">resources/icons/folder-1024.png</file>
     <file alias="icons/file-1024.png">resources/icons/file-1024.png</file>
 </qresource>

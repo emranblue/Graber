@@ -2,6 +2,7 @@
 #define CLIPBOARDGRABBERUI_H
 
 #include <QWidget>
+class MacTitleBar;
 #include <QLabel>
 #include <QPushButton>
 #include <QComboBox>
@@ -41,6 +42,7 @@ public:
     // =========================================================================
     // LAYOUT CONTAINERS (kept for fit_window_to_content / visibility)
     // =========================================================================
+    MacTitleBar *title_bar = nullptr;
     QWidget *body = nullptr;
     QWidget *controls_bar = nullptr;   // alias → controls_bar_w
     QWidget *capture_extra = nullptr;  // alias → capture_panel->captureExtra()

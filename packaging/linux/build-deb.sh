@@ -19,8 +19,13 @@ mkdir -p "${PKG_DIR}/DEBIAN"
 mkdir -p "${PKG_DIR}/usr/bin"
 mkdir -p "${LIB_DIR}/platforms"
 mkdir -p "${PKG_DIR}/usr/share/applications"
-mkdir -p "${PKG_DIR}/usr/share/icons/hicolor/256x256/apps"
+mkdir -p "${PKG_DIR}/usr/share/icons/hicolor/16x16/apps"
+mkdir -p "${PKG_DIR}/usr/share/icons/hicolor/32x32/apps"
 mkdir -p "${PKG_DIR}/usr/share/icons/hicolor/48x48/apps"
+mkdir -p "${PKG_DIR}/usr/share/icons/hicolor/64x64/apps"
+mkdir -p "${PKG_DIR}/usr/share/icons/hicolor/128x128/apps"
+mkdir -p "${PKG_DIR}/usr/share/icons/hicolor/256x256/apps"
+mkdir -p "${PKG_DIR}/usr/share/icons/hicolor/512x512/apps"
 mkdir -p "${PKG_DIR}/usr/share/pixmaps"
 
 cp "${BUILD_DIR}/${APP_NAME}" "${BIN_PATH}"
@@ -58,26 +63,28 @@ for plugin in "${LIB_DIR}"/platforms/*.so; do
   [ -f "$plugin" ] && bundle_deps "$plugin"
 done
 
-patchelf --set-rpath '$ORIGIN' "${BIN_PATH}"
-for f in "${LIB_DIR}"/*.so* "${LIB_DIR}"/platforms/*.so*; do
-  [ -f "$f" ] && patchelf --set-rpath '$ORIGIN:$ORIGIN/..' "$f" 2>/dev/null || true
-done
+if command -v patchelf >/dev/null 2>&1; then
+  patchelf --set-rpath '$ORIGIN' "${BIN_PATH}"
+  for f in "${LIB_DIR}"/*.so* "${LIB_DIR}"/platforms/*.so*; do
+    [ -f "$f" ] && patchelf --set-rpath '$ORIGIN:$ORIGIN/..' "$f" 2>/dev/null || true
+  done
+fi
 
 # PATH launcher
-cat > "${PKG_DIR}/usr/bin/${APP_NAME}" << 'EOF'
+cat > "${PKG_DIR}/usr/bin/${APP_NAME}" << 'LAUNCHER'
 #!/bin/bash
 DIR="/usr/lib/graber"
 export QT_PLUGIN_PATH="${DIR}/platforms:${DIR}"
 export LD_LIBRARY_PATH="${DIR}${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 exec "${DIR}/graber-bin" "$@"
-EOF
+LAUNCHER
 chmod 755 "${PKG_DIR}/usr/bin/${APP_NAME}"
 
-# Desktop entry → app menu / desktop environments
+# Desktop entry → app menu
 if [ -f packaging/linux/graber.desktop ]; then
   cp packaging/linux/graber.desktop "${PKG_DIR}/usr/share/applications/${APP_NAME}.desktop"
 else
-  cat > "${PKG_DIR}/usr/share/applications/${APP_NAME}.desktop" << EOF
+  cat > "${PKG_DIR}/usr/share/applications/${APP_NAME}.desktop" << DESKTOP
 [Desktop Entry]
 Type=Application
 Name=Clipboard Graber
@@ -87,24 +94,36 @@ Icon=graber
 Terminal=false
 Categories=Office;Utility;
 StartupNotify=true
-EOF
+StartupWMClass=graber
+DESKTOP
 fi
 chmod 644 "${PKG_DIR}/usr/share/applications/${APP_NAME}.desktop"
 
-# Icons
-if [ -f resources/icons/app-1024.png ]; then
-  convert resources/icons/app-1024.png -resize 256x256 \
-    "${PKG_DIR}/usr/share/icons/hicolor/256x256/apps/${APP_NAME}.png"
-  convert resources/icons/app-1024.png -resize 48x48 \
-    "${PKG_DIR}/usr/share/icons/hicolor/48x48/apps/${APP_NAME}.png"
-elif [ -f resources/icons/app.ico ]; then
-  convert resources/icons/app.ico -thumbnail 256x256 \
-    "${PKG_DIR}/usr/share/icons/hicolor/256x256/apps/${APP_NAME}.png" || true
-  convert resources/icons/app.ico -thumbnail 48x48 \
-    "${PKG_DIR}/usr/share/icons/hicolor/48x48/apps/${APP_NAME}.png" || true
-fi
+# Icons: prefer project multi-size PNGs, fall back to ImageMagick convert
+install_icon() {
+  local size="$1"
+  local dest="${PKG_DIR}/usr/share/icons/hicolor/${size}x${size}/apps/${APP_NAME}.png"
+  if [ -f "resources/icons/app-${size}.png" ]; then
+    cp -f "resources/icons/app-${size}.png" "${dest}"
+    return 0
+  fi
+  if command -v convert >/dev/null 2>&1 && [ -f resources/icons/app-1024.png ]; then
+    convert resources/icons/app-1024.png -resize "${size}x${size}" "${dest}"
+    return 0
+  fi
+  return 1
+}
+
+for sz in 16 32 48 64 128 256 512; do
+  install_icon "$sz" || true
+done
+
+# pixmaps fallback (48 or 256)
 if [ -f "${PKG_DIR}/usr/share/icons/hicolor/48x48/apps/${APP_NAME}.png" ]; then
   cp -f "${PKG_DIR}/usr/share/icons/hicolor/48x48/apps/${APP_NAME}.png" \
+        "${PKG_DIR}/usr/share/pixmaps/${APP_NAME}.png"
+elif [ -f "${PKG_DIR}/usr/share/icons/hicolor/256x256/apps/${APP_NAME}.png" ]; then
+  cp -f "${PKG_DIR}/usr/share/icons/hicolor/256x256/apps/${APP_NAME}.png" \
         "${PKG_DIR}/usr/share/pixmaps/${APP_NAME}.png"
 fi
 
@@ -113,7 +132,7 @@ for lib in "${LIB_DIR}"/*.so* "${LIB_DIR}"/platforms/*.so*; do
   [ -f "$lib" ] && strip --strip-unneeded "$lib" 2>/dev/null || true
 done
 
-cat > "${PKG_DIR}/DEBIAN/control" << EOF
+cat > "${PKG_DIR}/DEBIAN/control" << CTRL
 Package: ${APP_NAME}
 Version: ${VERSION}
 Architecture: amd64
@@ -121,10 +140,10 @@ Maintainer: Developer <emran.blue.120@gmail.com>
 Section: utils
 Priority: optional
 Description: Clipboard Graber — capture clipboard into Markdown notes
- Fully self-contained Qt6 desktop app with application-menu shortcut.
-EOF
+ Fully self-contained Qt6 desktop app with application-menu shortcut and icons.
+CTRL
 
-cat > "${PKG_DIR}/DEBIAN/postinst" << 'EOF'
+cat > "${PKG_DIR}/DEBIAN/postinst" << 'POSTINST'
 #!/bin/sh
 set -e
 if command -v update-desktop-database >/dev/null 2>&1; then
@@ -134,7 +153,7 @@ if command -v gtk-update-icon-cache >/dev/null 2>&1; then
   gtk-update-icon-cache -q /usr/share/icons/hicolor 2>/dev/null || true
 fi
 exit 0
-EOF
+POSTINST
 chmod 755 "${PKG_DIR}/DEBIAN/postinst"
 chmod 755 "${PKG_DIR}/DEBIAN"
 

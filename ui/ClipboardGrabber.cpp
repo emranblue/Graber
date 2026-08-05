@@ -2,6 +2,8 @@
 #include "ActionRegistry.h"
 #include "ServiceRegistry.h"
 #include "utils/UiAnimator.h"
+#include "panels/MacTitleBar.h"
+#include "utils/Utils.h"
 
 #include <QSettings>
 #include <QTimer>
@@ -12,6 +14,21 @@
 
 ClipboardGrabber::ClipboardGrabber(QWidget *parent) : QWidget(parent) {
     ui_.setupUi(this);
+
+    // Custom Mac-like chrome (traffic lights + drag). System title bar hidden.
+    setWindowFlags((windowFlags() | Qt::FramelessWindowHint) & ~Qt::WindowTitleHint);
+    setWindowTitle(QStringLiteral("Clipboard Graber"));
+    setWindowIcon(get_app_icon());
+    if (ui_.title_bar) {
+        connect(ui_.title_bar, &MacTitleBar::closeRequested, this, &QWidget::close);
+        connect(ui_.title_bar, &MacTitleBar::minimizeRequested, this, &QWidget::showMinimized);
+        connect(ui_.title_bar, &MacTitleBar::maximizeRequested, this, [this]() {
+            if (isMaximized())
+                showNormal();
+            else
+                showMaximized();
+        });
+    }
 
     is_running_ = false;
     is_always_on_top_ = false;
@@ -95,7 +112,20 @@ ClipboardGrabber::ClipboardGrabber(QWidget *parent) : QWidget(parent) {
 }
 
 void ClipboardGrabber::closeEvent(QCloseEvent *event) {
-    QWidget::closeEvent(event);
+    // Soft Mac-like close: fade out, then accept. Second entry (after fade)
+    // accepts immediately. Guards prevent re-entrant animation storms.
+    if (is_closing_animated_) {
+        event->accept();
+        return;
+    }
+    event->ignore();
+    is_closing_animated_ = true;
+    setEnabled(false);
+    UiAnimator::stop(this);
+    UiAnimator::fadeOutWindow(this, UiAnimator::kCloseDurationMs, [this]() {
+        is_closing_animated_ = true;
+        QWidget::close();
+    });
 }
 
 void ClipboardGrabber::fit_window_to_content() {
@@ -111,10 +141,13 @@ void ClipboardGrabber::fit_window_to_content() {
     const QSize body_min = ui_.body->minimumSizeHint();
     const QSize controls_min = ui_.controls_bar->minimumSizeHint();
 
+    const int title_h = (ui_.title_bar && ui_.title_bar->isVisible())
+                            ? ui_.title_bar->sizeHint().height()
+                            : 0;
     int target_w = qMax(body_hint.width(), controls_hint.width());
-    int target_h = body_hint.height() + controls_hint.height();
+    int target_h = body_hint.height() + controls_hint.height() + title_h;
     const int floor_w = qMax(qMax(body_min.width(), controls_min.width()), 360);
-    const int floor_h = qMax(body_min.height() + controls_min.height(), 200);
+    const int floor_h = qMax(body_min.height() + controls_min.height() + title_h, 240);
 
     if (QScreen *scr = screen()) {
         const QRect avail = scr->availableGeometry();

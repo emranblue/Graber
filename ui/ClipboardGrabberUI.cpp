@@ -1,4 +1,5 @@
 #include "ClipboardGrabberUI.h"
+#include "panels/MacTitleBar.h"
 #include <QVBoxLayout>
 #include <QScrollArea>
 #include <QFrame>
@@ -76,10 +77,15 @@ void ClipboardGrabberUI::setupUi(QWidget *parent) {
         "QScrollArea#bodyScroll { background: transparent; border: none; }"
         "QWidget#scrollBody { background: transparent; }");
 
+    // ---- Mac-style title bar (frameless host) ----
+    title_bar = new MacTitleBar(parent);
+    title_bar->setTitle(QStringLiteral("Clipboard Graber"));
+
     // ---- Main window layout ----
     auto *main_layout = new QVBoxLayout(parent);
     main_layout->setSpacing(0);
     main_layout->setContentsMargins(0, 0, 0, 0);
+    main_layout->addWidget(title_bar);
     main_layout->addWidget(scroll_area, 1);
     main_layout->addWidget(controls_bar_w);
 }

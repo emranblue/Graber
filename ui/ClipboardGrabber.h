@@ -76,6 +76,7 @@ private:
     void start_new_diagram_session();
 
     // State Variables
+    bool is_closing_animated_ = false;
     bool is_running_;
     bool is_always_on_top_;
     bool diagram_panel_enabled_;

@@ -7,6 +7,7 @@
 #include <QScreen>
 #include <QGuiApplication>
 #include <QTimer>
+#include <functional>
 
 using UiAnimatorInternal::clearState;
 using UiAnimatorInternal::remember;
@@ -97,6 +98,55 @@ void fadeInWindow(QWidget *window, int durationMs) {
             window->setWindowOpacity(1.0);
         states().remove(window);
     });
+    anim->start(QAbstractAnimation::DeleteWhenStopped);
+}
+
+void fadeOutWindow(QWidget *window, int durationMs,
+                   std::function<void()> onFinished) {
+    if (!window) {
+        if (onFinished)
+            onFinished();
+        return;
+    }
+
+    // Non-top-level or platforms without opacity: finish immediately.
+    if (!window->isWindow()) {
+        if (onFinished)
+            onFinished();
+        return;
+    }
+
+    clearState(window);
+
+    // Guard against concurrent close storms.
+    if (window->property("_uia_fading_out").toBool()) {
+        if (onFinished)
+            onFinished();
+        return;
+    }
+    window->setProperty("_uia_fading_out", true);
+
+    const qreal start = window->windowOpacity() > 0.01
+                            ? window->windowOpacity()
+                            : 1.0;
+    window->setWindowOpacity(start);
+
+    auto *anim = new QPropertyAnimation(window, "windowOpacity", window);
+    anim->setDuration(qMax(1, durationMs));
+    anim->setEasingCurve(QEasingCurve::InCubic);
+    anim->setStartValue(start);
+    anim->setEndValue(0.0);
+
+    remember(window, anim);
+    QObject::connect(anim, &QPropertyAnimation::finished, window,
+                     [window, onFinished]() {
+                         if (window) {
+                             window->setProperty("_uia_fading_out", false);
+                             states().remove(window);
+                         }
+                         if (onFinished)
+                             onFinished();
+                     });
     anim->start(QAbstractAnimation::DeleteWhenStopped);
 }
 

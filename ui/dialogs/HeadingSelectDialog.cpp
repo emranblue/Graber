@@ -16,13 +16,15 @@ HeadingSelectDialog::HeadingSelectDialog(const QList<NoteItem> &all_headings, co
     setWindowTitle("টার্গেট শিরোনাম নির্বাচন (Select Target Heading)");
     
     setStyleSheet(
-        "QDialog { background-color: #f5f6fa; font-family: 'Segoe UI', 'Kalpurush'; color: #2f3640; }"
-        "QLabel { color: #2f3640; font-size: 14px; background: transparent; }"
-        "QLineEdit { background: white; color: black; padding: 8px; border: 1px solid #dcdde1; border-radius: 4px; font-size: 14px; }"
-        "QListWidget { background: white; border: 1px solid #dcdde1; border-radius: 6px; padding: 5px; color: black; }"
-        "QPushButton { background-color: #487eb0; color: white; border-radius: 5px; padding: 10px; font-weight: bold; border: none; min-width: 80px; }"
-        "QPushButton:hover { background-color: #40739e; }"
-        "QPushButton:disabled { background-color: #dcdde1; color: #7f8c8d; }"
+        "QDialog { background-color: #f5f5f7; font-family: 'SF Pro Text', 'Segoe UI', 'Kalpurush'; color: #1d1d1f; }"
+        "QLabel { color: #1d1d1f; font-size: 14px; background: transparent; }"
+        "QLineEdit { background: white; color: #1d1d1f; padding: 10px 12px; border: 1px solid rgba(0,0,0,0.12); border-radius: 10px; font-size: 14px; }"
+        "QLineEdit:focus { border: 1.5px solid #007aff; }"
+        "QListWidget { background: white; border: 1px solid rgba(0,0,0,0.08); border-radius: 12px; padding: 6px; color: #1d1d1f; outline: none; }"
+        "QListWidget::item:selected { background: transparent; }"
+        "QPushButton { background-color: #007aff; color: white; border-radius: 10px; padding: 10px 14px; font-weight: 600; border: none; min-width: 80px; }"
+        "QPushButton:hover { background-color: #0066d6; }"
+        "QPushButton:disabled { background-color: #e5e5ea; color: #8e8e93; }"
     );
 
     if (parent) {
