@@ -34,7 +34,8 @@ QStringList NoteRepository::populateSubjectsFromDisk(const QList<SectionItem> &s
         QString relative_path = base_dir.relativeFilePath(filepath);
         relative_path.replace('\\', '/');
 
-        if (relative_path == "deleted" || relative_path.startsWith("deleted/")) {
+        if (relative_path == "deleted" || relative_path.startsWith("deleted/") ||
+            relative_path == "config" || relative_path.startsWith("config/")) {
             continue;
         }
 

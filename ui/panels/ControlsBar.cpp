@@ -23,11 +23,13 @@ ControlsBar::ControlsBar(QWidget *parent) : QWidget(parent) {
     stop_button_->setIcon(get_feather_icon(QChar(0xe9e4)));
     stop_button_->setIconSize(QSize(16, 16));
 
-    wizards_button_ = new QPushButton("উইজার্ড ও টুলস", this);
+    wizards_button_ = new QPushButton("টুলস", this);
+    wizards_button_->setToolTip(
+        QStringLiteral("কনফিগ ও টুলস খুলুন (Open config tools)"));
     wizards_button_->setStyleSheet(
         "QPushButton { background-color: #af52de; color: white; border-radius: 4px; padding: 6px; }"
         "QPushButton:hover { background-color: #bf5af2; }");
-    wizards_button_->setIcon(get_feather_icon(QChar(0xe9b8)));
+    wizards_button_->setIcon(get_feather_icon(QChar(0xe9e9)));
     wizards_button_->setIconSize(QSize(16, 16));
 
     settings_button_ = new QPushButton("সেটিংস", this);

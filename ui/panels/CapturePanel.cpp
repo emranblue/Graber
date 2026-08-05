@@ -2,6 +2,7 @@
 #include "Utils.h"
 #include <QSize>
 #include "DiagramTemplates.h"
+#include "MarkdownTemplateManager.h"
 #include "utils/UiAnimator.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -41,12 +42,7 @@ CapturePanel::CapturePanel(QWidget *parent) : QFrame(parent) {
 
     // Format + Mode row (always visible while capturing)
     format_dropdown_ = new QComboBox(this);
-    format_dropdown_->addItem("বুলেট পয়েন্ট (Point)");
-    format_dropdown_->addItem("প্রধান শিরোনাম (Heading - Red)");
-    format_dropdown_->addItem("উপ-শিরোনাম (Subheading - Blue)");
-    format_dropdown_->addItem("মাইন্ড ম্যাপ (Timeline Mind Map)");
-    format_dropdown_->addItem("প্যারাগ্রাফ (Paragraph)");
-    format_dropdown_->addItem(kDiagramFormatLabel);
+    populateFormatDropdown();
 
     mode_label_ = new QLabel("মোড:", this);
     mode_dropdown_ = new QComboBox(this);
@@ -125,8 +121,38 @@ CapturePanel::CapturePanel(QWidget *parent) : QFrame(parent) {
     setGraphicsEffect(shadow);
 }
 
+void CapturePanel::populateFormatDropdown() {
+    if (!format_dropdown_)
+        return;
+
+    const QString currentKey = format_dropdown_->currentData().toString();
+    const int currentIndex = format_dropdown_->currentIndex();
+
+    format_dropdown_->blockSignals(true);
+    format_dropdown_->clear();
+
+    const auto formats = MarkdownTemplateManager::instance().getFormatList();
+    for (const auto &fmt : formats) {
+        format_dropdown_->addItem(fmt.displayName, fmt.key);
+    }
+
+    format_dropdown_->addItem(kDiagramFormatLabel, QStringLiteral("diagram"));
+    format_dropdown_->blockSignals(false);
+
+    int restoredIdx = format_dropdown_->findData(currentKey);
+    if (restoredIdx != -1) {
+        format_dropdown_->setCurrentIndex(restoredIdx);
+    } else if (currentIndex >= 0 && currentIndex < format_dropdown_->count()) {
+        format_dropdown_->setCurrentIndex(currentIndex);
+    } else {
+        format_dropdown_->setCurrentIndex(0);
+    }
+}
+
 bool CapturePanel::isDiagramFormatSelected() const {
-    return format_dropdown_->currentText() == kDiagramFormatLabel;
+    if (!format_dropdown_) return false;
+    return format_dropdown_->currentText() == kDiagramFormatLabel ||
+           format_dropdown_->currentData().toString() == QStringLiteral("diagram");
 }
 
 void CapturePanel::setDiagramDropdownEnabled(bool enabled) {

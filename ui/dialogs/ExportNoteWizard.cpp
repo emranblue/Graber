@@ -11,6 +11,14 @@
 ExportNoteWizard::ExportNoteWizard(QWidget *parent) : QDialog(parent) {
     setWindowTitle("নোট এক্সপোর্ট উইজার্ড (Export Wizard)");
     setMinimumSize(400, 220);
+    setStyleSheet(
+        "QDialog, ExportNoteWizard {"
+        "  background-color: #ffffff;"
+        "  font-family: 'SF Pro Text', 'Segoe UI', 'Kalpurush', system-ui, sans-serif;"
+        "  color: #1d1d1f;"
+        "}"
+        "QLabel { color: #1d1d1f; background: transparent; }"
+    );
 
     QVBoxLayout *layout = new QVBoxLayout(this);
     layout->setSpacing(12);

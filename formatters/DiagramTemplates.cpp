@@ -1,4 +1,5 @@
 #include "DiagramTemplates.h"
+#include "MarkdownTemplateManager.h"
 
 namespace {
 // Mermaid uses (), [], {} as shape delimiters and treats raw newlines/quotes
@@ -29,46 +30,8 @@ QList<QPair<QString, QString>> DiagramTemplates::list() {
 }
 
 QString DiagramTemplates::getTemplate(const QString& type) {
-    QString t = type.toLower().trimmed();
-
-    if (t == "flowchart" || t == "flow") {
-        return "```mermaid\n"
-               "flowchart TD\n"
-               "    Start([Start]) --> Action[\"{{CONTENT}}\"]\n"
-               "    Action --> End([End])\n"
-               "```\n";
-    }
-    else if (t == "sequence") {
-        return "```mermaid\n"
-               "sequenceDiagram\n"
-               "    autonumber\n"
-               "    User->>System: {{CONTENT}}\n"
-               "    System-->>User: Response\n"
-               "```\n";
-    }
-    else if (t == "mindmap") {
-        return "```mermaid\n"
-               "mindmap\n"
-               "  root((Main Topic))\n"
-               "    SubTopic1\n"
-               "      {{CONTENT}}\n"
-               "```\n";
-    }
-    else if (t == "class") {
-        return "```mermaid\n"
-               "classDiagram\n"
-               "    class NoteNode {\n"
-               "        +String content\n"
-               "    }\n"
-               "    NoteNode : {{CONTENT}}\n"
-               "```\n";
-    }
-
-    // Default Fallback Diagram
-    return "```mermaid\n"
-           "flowchart TD\n"
-           "    Node1[\"{{CONTENT}}\"]\n"
-           "```\n";
+    const QString t = type.toLower().trimmed();
+    return MarkdownTemplateManager::instance().getTemplate(t);
 }
 
 QString DiagramTemplates::buildMarkdown(const QString& type) {

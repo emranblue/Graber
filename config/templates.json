@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "description": "Markdown & diagram formatting templates for Clipboard Graber. Edit body strings and display_name; add new format keys for extension. Placeholders: {content}, {raw_content}, {slug}, {section}, {color}, {color_alpha}. Diagram skeletons may use {{CONTENT}}. Open via উইজার্ড ও টুলস.",
+  "formats": [
+    {
+      "key": "bullet",
+      "display_name": "বুলেট পয়েন্ট (Point)",
+      "is_diagram": false,
+      "body": " ▣ {content}"
+    },
+    {
+      "key": "heading",
+      "display_name": "প্রধান শিরোনাম (Heading - Red)",
+      "is_diagram": false,
+      "body": "\n<h2 id=\"{slug}\" data-section=\"{section}\" style=\"color: #e74c3c; font-weight: bold; font-style: italic; margin-bottom: 5px;\">{content}</h2>\n\n"
+    },
+    {
+      "key": "subheading",
+      "display_name": "উপ-শিরোনাম (Subheading - Blue)",
+      "is_diagram": false,
+      "body": "\n<h3 id=\"{slug}\" style=\"color: #2980b9; font-weight: bold; font-style: italic; margin-top: 10px; margin-bottom: 5px;\">{content}</h3>\n\n"
+    },
+    {
+      "key": "timeline",
+      "display_name": "মাইন্ড ম্যাপ (Timeline Mind Map)",
+      "is_diagram": false,
+      "body": "<div class=\"timeline-item\" style=\"border-left: 2px dashed {color}; margin-left: 20px; padding-left: 20px; padding-bottom: 12px; position: relative;\"><span style=\"position: absolute; left: -2px; top: 18px; width: 12px; height: 2px; background-color: {color};\"></span><span style=\"position: absolute; left: 8px; top: 13px; color: {color}; font-size: 10px; line-height: 1;\">➤</span><div style=\"background-color: {color_alpha}; border: 1px solid {color}; border-radius: 6px; padding: 8px 12px; display: inline-block; box-shadow: 1px 1px 3px rgba(0,0,0,0.05); margin-left: 10px;\"><span style=\"color: {color}; font-weight: 600; font-family: 'Segoe UI', 'Kalpurush', sans-serif; font-size: 16px;\">{content}</span></div></div>\n\n"
+    },
+    {
+      "key": "paragraph",
+      "display_name": "প্যারাগ্রাফ (Paragraph)",
+      "is_diagram": false,
+      "body": "<p class=\"paragraph-item\" style=\"color: #2f3640; line-height: 1.6; font-family: 'Segoe UI', 'Kalpurush', sans-serif; margin-bottom: 10px; text-align: justify;\">{content}</p>\n\n"
+    },
+    {
+      "key": "quote",
+      "display_name": "উদ্ধৃতি (Quote Block)",
+      "is_diagram": false,
+      "body": "<blockquote style=\"border-left: 4px solid #3498db; margin: 10px 0; padding: 8px 15px; background: #f8f9fa; font-style: italic; color: #555;\">💬 {content}</blockquote>\n\n"
+    },
+    {
+      "key": "callout",
+      "display_name": "নোটিশ / কলআউট (Notice Box)",
+      "is_diagram": false,
+      "body": "<div style=\"background: #e1f5fe; border: 1px solid #81d4fa; border-radius: 6px; padding: 10px 15px; margin: 10px 0; color: #0277bd;\">📌 <b>Notice:</b> {content}</div>\n\n"
+    },
+    {
+      "key": "flowchart",
+      "display_name": "Flowchart",
+      "is_diagram": true,
+      "body": "```mermaid\nflowchart TD\n    Start([Start]) --> Action[\"{{CONTENT}}\"]\n    Action --> End([End])\n```\n"
+    },
+    {
+      "key": "sequence",
+      "display_name": "Sequence Diagram",
+      "is_diagram": true,
+      "body": "```mermaid\nsequenceDiagram\n    autonumber\n    User->>System: {{CONTENT}}\n    System-->>User: Response\n```\n"
+    },
+    {
+      "key": "mindmap",
+      "display_name": "Mind Map",
+      "is_diagram": true,
+      "body": "```mermaid\nmindmap\n  root((Main Topic))\n    SubTopic1\n      {{CONTENT}}\n```\n"
+    },
+    {
+      "key": "class",
+      "display_name": "Class Diagram",
+      "is_diagram": true,
+      "body": "```mermaid\nclassDiagram\n    class NoteNode {\n        +String content\n    }\n    NoteNode : {{CONTENT}}\n```\n"
+    }
+  ]
+}

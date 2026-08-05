@@ -102,12 +102,29 @@ void ClipboardGrabber::setup_actions() {
                 && ui_.subject_dropdown->currentIndex() != -1;
         });
 
-    reg.registerFunctionalAction("toggle_format", "ফরম্যাট পরিবর্তন (Toggle Format)",
-        "ক্যাপচার ফরম্যাট সাইকেল করুন", "Capture", QKeySequence("Ctrl+Shift+F"),
+    reg.registerFunctionalAction("toggle_format",
+        "ফরম্যাট পরবর্তী (Format Next / Clockwise)",
+        "ক্যাপচার ফরম্যাট ঘড়ির কাঁটার দিকে সাইকেল করুন",
+        "Capture", QKeySequence("Ctrl+Shift+F"),
         [this](const QVariantMap &) {
             if (ui_.format_dropdown->isEnabled() && ui_.format_dropdown->count() > 0) {
-                int next = (ui_.format_dropdown->currentIndex() + 1) % ui_.format_dropdown->count();
+                const int count = ui_.format_dropdown->count();
+                int next = (ui_.format_dropdown->currentIndex() + 1) % count;
                 ui_.format_dropdown->setCurrentIndex(next);
+                ui_.last_captured_label->setText(
+                    "ফরম্যাট পরিবর্তন করা হয়েছে: " + ui_.format_dropdown->currentText());
+            }
+        });
+
+    reg.registerFunctionalAction("toggle_format_prev",
+        "ফরম্যাট পূর্ববর্তী (Format Prev / Anti-clockwise)",
+        "ক্যাপচার ফরম্যাট ঘড়ির কাঁটার বিপরীতে সাইকেল করুন",
+        "Capture", QKeySequence("Ctrl+Shift+R"),
+        [this](const QVariantMap &) {
+            if (ui_.format_dropdown->isEnabled() && ui_.format_dropdown->count() > 0) {
+                const int count = ui_.format_dropdown->count();
+                int prev = (ui_.format_dropdown->currentIndex() - 1 + count) % count;
+                ui_.format_dropdown->setCurrentIndex(prev);
                 ui_.last_captured_label->setText(
                     "ফরম্যাট পরিবর্তন করা হয়েছে: " + ui_.format_dropdown->currentText());
             }
@@ -168,8 +185,8 @@ void ClipboardGrabber::setup_actions() {
         "System", QKeySequence("Ctrl+Shift+P"),
         [this](const QVariantMap &) { open_settings_dialog(); });
 
-    reg.registerFunctionalAction("wizards", "উইজার্ড ও টুলস (Wizards & Tools)",
-        "এক্সটেনশন ও উইজার্ড তালিকা খুলুন", "Extensions", QKeySequence(),
+    reg.registerFunctionalAction("wizards", "টুলস (Config Tools)",
+        "টেমপ্লেট ও শর্টকাট JSON কনফিগ খুলুন", "Extensions", QKeySequence(),
         [this](const QVariantMap &) { open_wizards_dialog(); });
 
     reg.registerFunctionalAction("always_on_top", "সর্বদা উপরে (Always On Top)",

@@ -1,0 +1,190 @@
+{
+  "version": 1,
+  "description": "Default keyboard shortcut templates for Clipboard Graber. Edit keys here for future extension; user overrides still live in ~/GraberNotes/settings.ini. Open this file via the উইজার্ড ও টুলস button.",
+  "shortcuts": [
+    {
+      "id": "start",
+      "name_bangla": "শুরু করুন (Start)",
+      "name_english": "ক্লিপবোর্ড ট্র্যাকিং চালু করুন",
+      "category": "Monitoring",
+      "default_key": "Ctrl+Shift+S",
+      "enabled": true
+    },
+    {
+      "id": "stop",
+      "name_bangla": "থামুন (Stop)",
+      "name_english": "ক্লিপবোর্ড ট্র্যাকিং বন্ধ করুন",
+      "category": "Monitoring",
+      "default_key": "Ctrl+Shift+T",
+      "enabled": true
+    },
+    {
+      "id": "add_image",
+      "name_bangla": "ছবি যুক্ত করুন (Add Image)",
+      "name_english": "ক্লিপবোর্ডের ছবি যুক্ত করুন",
+      "category": "Capture",
+      "default_key": "Ctrl+Shift+I",
+      "enabled": true
+    },
+    {
+      "id": "new_subject",
+      "name_bangla": "নতুন বিষয় (New Subject)",
+      "name_english": "নতুন বিষয় তৈরি করুন",
+      "category": "Subject",
+      "default_key": "Ctrl+Shift+N",
+      "enabled": true
+    },
+    {
+      "id": "add_folder",
+      "name_bangla": "নতুন ফোল্ডার (New Folder)",
+      "name_english": "নতুন ফোল্ডার তৈরি করুন",
+      "category": "Subject",
+      "default_key": "Ctrl+Shift+B",
+      "enabled": true
+    },
+    {
+      "id": "open_note",
+      "name_bangla": "নোট খুলুন (Open Note)",
+      "name_english": "সক্রিয় নোট ফাইল ওপেন করুন",
+      "category": "File",
+      "default_key": "Ctrl+Shift+O",
+      "enabled": true
+    },
+    {
+      "id": "append",
+      "name_bangla": "যুক্ত করুন (Append)",
+      "name_english": "টার্গেট শিরোনামে কনটেন্ট যুক্ত করুন",
+      "category": "Heading",
+      "default_key": "Ctrl+Shift+A",
+      "enabled": true
+    },
+    {
+      "id": "inject",
+      "name_bangla": "ইনজেক্ট করুন (Inject)",
+      "name_english": "ক্লিপবোর্ডের লেখা নতুন শিরোনাম হিসেবে যুক্ত করুন",
+      "category": "Heading",
+      "default_key": "Ctrl+Shift+J",
+      "enabled": true
+    },
+    {
+      "id": "select_heading",
+      "name_bangla": "শিরোনাম নির্বাচন (Select Heading)",
+      "name_english": "টার্গেট শিরোনাম খুঁজুন ও নির্বাচন করুন",
+      "category": "Heading",
+      "default_key": "Ctrl+Shift+G",
+      "enabled": true
+    },
+    {
+      "id": "shift",
+      "name_bangla": "স্থানান্তর (Shift)",
+      "name_english": "শিরোনাম অন্য স্থানে স্থানান্তর করুন",
+      "category": "Heading",
+      "default_key": "Ctrl+Shift+H",
+      "enabled": true
+    },
+    {
+      "id": "delete",
+      "name_bangla": "মুছে ফেলুন (Delete)",
+      "name_english": "টার্গেট শিরোনাম সেকশন ডিলিট করুন",
+      "category": "Heading",
+      "default_key": "Ctrl+Shift+D",
+      "enabled": true
+    },
+    {
+      "id": "new_section",
+      "name_bangla": "নতুন বিভাগ (New Section)",
+      "name_english": "কাস্টম বিভাগ যোগ করুন",
+      "category": "Section",
+      "default_key": "Ctrl+Shift+K",
+      "enabled": true
+    },
+    {
+      "id": "insert_diagram",
+      "name_bangla": "নতুন ডায়াগ্রাম (New Diagram)",
+      "name_english": "বর্তমান ডায়াগ্রাম শেষ করে নতুন রুট নোড দিয়ে আবার শুরু করুন",
+      "category": "Diagram",
+      "default_key": "Ctrl+Shift+M",
+      "enabled": true
+    },
+    {
+      "id": "toggle_format",
+      "name_bangla": "ফরম্যাট পরবর্তী (Format Next / Clockwise)",
+      "name_english": "ক্যাপচার ফরম্যাট ঘড়ির কাঁটার দিকে সাইকেল করুন",
+      "category": "Capture",
+      "default_key": "Ctrl+Shift+F",
+      "enabled": true
+    },
+    {
+      "id": "toggle_format_prev",
+      "name_bangla": "ফরম্যাট পূর্ববর্তী (Format Prev / Anti-clockwise)",
+      "name_english": "ক্যাপচার ফরম্যাট ঘড়ির কাঁটার বিপরীতে সাইকেল করুন",
+      "category": "Capture",
+      "default_key": "Ctrl+Shift+R",
+      "enabled": true
+    },
+    {
+      "id": "toggle_section",
+      "name_bangla": "বিভাগ পরিবর্তন (Toggle Section)",
+      "name_english": "বিভাগ ক্যাটগরি সাইকেল করুন",
+      "category": "Section",
+      "default_key": "Ctrl+Shift+C",
+      "enabled": true
+    },
+    {
+      "id": "toggle_subject",
+      "name_bangla": "বিষয় পরিবর্তন (Toggle Subject)",
+      "name_english": "পরবর্তী বিষয় নির্বাচন করুন",
+      "category": "Subject",
+      "default_key": "Ctrl+Shift+E",
+      "enabled": true
+    },
+    {
+      "id": "toggle_folder",
+      "name_bangla": "ফোল্ডার পরিবর্তন (Toggle Folder)",
+      "name_english": "পরবর্তী ফোল্ডার নির্বাচন করুন",
+      "category": "Subject",
+      "default_key": "Ctrl+Shift+U",
+      "enabled": true
+    },
+    {
+      "id": "toggle_mode",
+      "name_bangla": "মোড পরিবর্তন (Toggle Mode)",
+      "name_english": "কপি / সিলেক্ট মোড সাইকেল করুন",
+      "category": "Capture",
+      "default_key": "Ctrl+Shift+W",
+      "enabled": true
+    },
+    {
+      "id": "toggle_diagram",
+      "name_bangla": "ডায়াগ্রাম টেমপ্লেট পরিবর্তন (Toggle Diagram Template)",
+      "name_english": "ডায়াগ্রাম টেমপ্লেট সাইকেল করুন",
+      "category": "Diagram",
+      "default_key": "Ctrl+Shift+L",
+      "enabled": true
+    },
+    {
+      "id": "settings",
+      "name_bangla": "সেটিংস (Settings)",
+      "name_english": "শর্টকাট সেটিংস খুলুন",
+      "category": "System",
+      "default_key": "Ctrl+Shift+P",
+      "enabled": true
+    },
+    {
+      "id": "wizards",
+      "name_bangla": "উইজার্ড ও টুলস (Config Tools)",
+      "name_english": "টেমপ্লেট ও শর্টকাট JSON কনফিগ খুলুন",
+      "category": "Extensions",
+      "default_key": "",
+      "enabled": true
+    },
+    {
+      "id": "always_on_top",
+      "name_bangla": "সর্বদা উপরে (Always On Top)",
+      "name_english": "উইন্ডো সর্বদা সবার উপরে পিন করুন/সরান",
+      "category": "System",
+      "default_key": "Ctrl+Shift+Y",
+      "enabled": true
+    }
+  ]
+}

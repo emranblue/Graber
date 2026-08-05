@@ -16,5 +16,7 @@
     <file alias="icons/app-16.png">resources/icons/app-16.png</file>
     <file alias="icons/folder-1024.png">resources/icons/folder-1024.png</file>
     <file alias="icons/file-1024.png">resources/icons/file-1024.png</file>
+    <file alias="config/templates.json">config/templates.json</file>
+    <file alias="config/shortcut_templates.json">config/shortcut_templates.json</file>
 </qresource>
 </RCC>

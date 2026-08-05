@@ -21,11 +21,7 @@
 GlobalHotkeyListener::NativeEventFilter::NativeEventFilter(GlobalHotkeyListener *parent)
     : parent_(parent) {}
 
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-bool GlobalHotkeyListener::NativeEventFilter::nativeEventFilter(const QByteArray &eventType, void *message, qintptr *result) {
-#else
 bool GlobalHotkeyListener::NativeEventFilter::nativeEventFilter(const QByteArray &eventType, void *message, long *result) {
-#endif
     Q_UNUSED(result);
     if (eventType == "windows_generic_MSG") {
         MSG *msg = static_cast<MSG *>(message);

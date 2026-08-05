@@ -102,6 +102,8 @@ add_executable(graber
     formatters/DiagramTemplates.cpp
     formatters/CaptureContentFormatter.h
     formatters/CaptureContentFormatter.cpp
+    formatters/MarkdownTemplateManager.h
+    formatters/MarkdownTemplateManager.cpp
 
     # Monitors
     monitors/ClipboardMonitor.h
@@ -150,13 +152,15 @@ add_executable(graber
     ui/dialogs/ExportNoteWizard.h
     ui/dialogs/ExportNoteWizard.cpp
 
-    # Utils (safe I/O + crash/exception guards)
+    # Utils (safe I/O + crash/exception guards + config paths)
     utils/Utils.h
     utils/Utils.cpp
     utils/FileIO.h
     utils/FileIO.cpp
     utils/CrashGuard.h
     utils/CrashGuard.cpp
+    utils/ConfigPaths.h
+    utils/ConfigPaths.cpp
     utils/UiAnimator.h
     utils/UiAnimator_Internal.h
     utils/UiAnimator_Visibility.cpp

@@ -6,6 +6,7 @@
 #include "utils/Utils.h"
 #include "utils/CrashGuard.h"
 #include "utils/UiAnimator.h"
+#include "utils/ConfigPaths.h"
 
 // Note: Ctrl+Shift+F ("cycle format") used to also be registered here as a
 // second, independent global hotkey (via RegisterHotKey/GlobalHotkeyFilter on
@@ -118,6 +119,10 @@ int main(int argc, char *argv[]) {
             set_feather_font_family(fontFamilies.at(0));
         }
     }
+
+    // Seed ~/GraberNotes/config/{templates,shortcut_templates}.json from
+    // embedded resources so format templates & shortcut defaults are editable.
+    ConfigPaths::ensureUserConfigFiles();
 
     int exitCode = 1;
     CrashGuard::safeCall([&]() {

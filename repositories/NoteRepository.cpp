@@ -47,6 +47,7 @@ QStringList NoteRepository::populateFoldersFromDisk() {
         rel.replace('\\', '/');
 
         if (rel == "deleted" || rel.startsWith("deleted/") ||
+            rel == "config" || rel.startsWith("config/") ||
             rel == "images" || rel.endsWith("/images") || rel.contains("/images/") ||
             rel == "backup" || rel.startsWith("backup/") ||
             rel.startsWith(".git") || rel.startsWith("build")) {
