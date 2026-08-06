@@ -23,16 +23,7 @@ QString MarkdownDocumentFormatter::formatDiagram(const QString &content,
     if (content.trimmed().isEmpty())
         return {};
 
-    QString sanitized = content.trimmed();
-    sanitized.replace(QLatin1Char('"'), QLatin1Char('\''));
-    sanitized.replace(QLatin1Char('\n'), QStringLiteral("<br/>"));
-
-    QString tmpl = DiagramTemplates::getTemplate(diagramType);
-    if (tmpl.contains(QStringLiteral("{{CONTENT}}")))
-        return tmpl.replace(QStringLiteral("{{CONTENT}}"), sanitized);
-
-    return QStringLiteral("```mermaid\nflowchart TD\n    Node1[\"%1\"]\n```\n")
-        .arg(sanitized);
+    return DiagramTemplates::buildFromNodes(diagramType, QStringList{content});
 }
 
 void MarkdownDocumentFormatter::saveStructureTree(const QString &treeFilePath,

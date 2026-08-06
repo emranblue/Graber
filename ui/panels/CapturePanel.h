@@ -25,6 +25,7 @@ public:
     QComboBox *diagramDropdown() const { return diagram_dropdown_; }
 
     void populateFormatDropdown();
+    void populateDiagramDropdown();
 
     QPushButton *addImageButton() const { return add_image_button_; }
     QPushButton *addSectionButton() const { return add_section_button_; }

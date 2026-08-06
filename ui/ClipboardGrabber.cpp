@@ -1,6 +1,7 @@
 #include "ClipboardGrabber.h"
 #include "ActionRegistry.h"
 #include "ServiceRegistry.h"
+#include "MarkdownTemplateManager.h"
 #include "utils/UiAnimator.h"
 #include "panels/MacTitleBar.h"
 #include "utils/Utils.h"
@@ -93,6 +94,10 @@ ClipboardGrabber::ClipboardGrabber(QWidget *parent) : QWidget(parent) {
             this, [this](int) { on_subject_changed(get_selected_subject_name()); });
     connect(ui_.format_dropdown, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &ClipboardGrabber::on_format_changed);
+    connect(ui_.diagram_dropdown, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &ClipboardGrabber::on_diagram_format_changed);
+    connect(&MarkdownTemplateManager::instance(), &MarkdownTemplateManager::templatesReloaded,
+            this, &ClipboardGrabber::refresh_active_diagram);
 
     apply_diagram_format_lock();
     populate_folders_from_disk();

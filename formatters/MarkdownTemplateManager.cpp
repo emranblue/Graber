@@ -11,6 +11,8 @@
 #include <QJsonArray>
 #include <QJsonValue>
 
+#include <QTimer>
+
 MarkdownTemplateManager &MarkdownTemplateManager::instance() {
     static MarkdownTemplateManager mgr;
     return mgr;
@@ -19,6 +21,21 @@ MarkdownTemplateManager &MarkdownTemplateManager::instance() {
 MarkdownTemplateManager::MarkdownTemplateManager() {
     ConfigPaths::ensureUserConfigFiles();
     file_path_ = ConfigPaths::templatesJsonPath();
+
+    watcher_ = new QFileSystemWatcher(this);
+    if (QFile::exists(file_path_)) {
+        watcher_->addPath(file_path_);
+    }
+
+    connect(watcher_, &QFileSystemWatcher::fileChanged, this, [this](const QString &) {
+        QTimer::singleShot(150, this, [this]() {
+            if (QFile::exists(file_path_) && !watcher_->files().contains(file_path_)) {
+                watcher_->addPath(file_path_);
+            }
+            reload();
+            emit templatesReloaded();
+        });
+    });
 }
 
 QString MarkdownTemplateManager::templateFilePath() const {
@@ -40,6 +57,7 @@ void MarkdownTemplateManager::loadFromDiskIfNeeded() {
     QDateTime modified = info.lastModified();
     if (templates_.isEmpty() || modified != last_modified_) {
         reload();
+        emit templatesReloaded();
     }
 }
 
@@ -148,6 +166,61 @@ QList<TemplateFormatInfo> MarkdownTemplateManager::getFormatList() {
     return list;
 }
 
+QList<TemplateFormatInfo> MarkdownTemplateManager::getDiagramFormatList() {
+    loadFromDiskIfNeeded();
+
+    QList<TemplateFormatInfo> list;
+
+    QStringList defaultDiagramOrder = {
+        QStringLiteral("flowchart"),
+        QStringLiteral("sequence"),
+        QStringLiteral("mindmap"),
+        QStringLiteral("class")
+    };
+
+    auto addDiagramKey = [&](const QString &key) {
+        bool isDiag = is_diagram_.value(key, false);
+        if (!isDiag && !defaultDiagramOrder.contains(key))
+            return;
+
+        TemplateFormatInfo info;
+        info.key = key;
+        info.isDiagram = true;
+
+        if (display_names_.contains(key)) {
+            info.displayName = display_names_[key];
+        } else if (key == QStringLiteral("flowchart")) {
+            info.displayName = QStringLiteral("Flowchart");
+        } else if (key == QStringLiteral("sequence")) {
+            info.displayName = QStringLiteral("Sequence Diagram");
+        } else if (key == QStringLiteral("mindmap")) {
+            info.displayName = QStringLiteral("Mind Map");
+        } else if (key == QStringLiteral("class")) {
+            info.displayName = QStringLiteral("Class Diagram");
+        } else {
+            QString formatted = key;
+            if (!formatted.isEmpty())
+                formatted[0] = formatted[0].toUpper();
+            info.displayName = formatted;
+        }
+
+        for (const auto &existing : list) {
+            if (existing.key == info.key)
+                return;
+        }
+        list.append(info);
+    };
+
+    for (const auto &k : defaultDiagramOrder) {
+        if (templates_.contains(k) || section_order_.contains(k))
+            addDiagramKey(k);
+    }
+    for (const auto &k : section_order_)
+        addDiagramKey(k);
+
+    return list;
+}
+
 QString MarkdownTemplateManager::getFormatKeyForIndex(int formatIndex) {
     QList<TemplateFormatInfo> list = getFormatList();
     if (formatIndex >= 0 && formatIndex < list.size())
@@ -208,23 +281,16 @@ QString MarkdownTemplateManager::getDefaultTemplate(const QString &key) const {
             "padding: 10px 15px; margin: 10px 0; color: #0277bd;\">📌 <b>Notice:</b> {content}</div>\n");
     }
     if (k == QStringLiteral("flowchart") || k == QStringLiteral("flow")) {
-        return QStringLiteral(
-            "```mermaid\nflowchart TD\n    Start([Start]) --> Action[\"{{CONTENT}}\"]\n"
-            "    Action --> End([End])\n```\n");
+        return QStringLiteral("```mermaid\nflowchart TD\n{{CONTENT}}\n```\n");
     }
     if (k == QStringLiteral("sequence")) {
-        return QStringLiteral(
-            "```mermaid\nsequenceDiagram\n    autonumber\n    User->>System: {{CONTENT}}\n"
-            "    System-->>User: Response\n```\n");
+        return QStringLiteral("```mermaid\nsequenceDiagram\n    autonumber\n{{CONTENT}}\n```\n");
     }
     if (k == QStringLiteral("mindmap")) {
-        return QStringLiteral(
-            "```mermaid\nmindmap\n  root((Main Topic))\n    SubTopic1\n      {{CONTENT}}\n```\n");
+        return QStringLiteral("```mermaid\nmindmap\n{{CONTENT}}\n```\n");
     }
     if (k == QStringLiteral("class")) {
-        return QStringLiteral(
-            "```mermaid\nclassDiagram\n    class NoteNode {\n        +String content\n    }\n"
-            "    NoteNode : {{CONTENT}}\n```\n");
+        return QStringLiteral("```mermaid\nclassDiagram\n{{CONTENT}}\n```\n");
     }
     return QStringLiteral("{content}");
 }

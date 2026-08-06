@@ -1,6 +1,8 @@
 #ifndef MARKDOWNTEMPLATEMANAGER_H
 #define MARKDOWNTEMPLATEMANAGER_H
 
+#include <QObject>
+#include <QFileSystemWatcher>
 #include <QString>
 #include <QMap>
 #include <QList>
@@ -17,7 +19,8 @@ struct TemplateFormatInfo {
  * ~/GraberNotes/config/templates.json (seeded from project config/).
  * Users can edit the JSON while Graber is running to customize formats.
  */
-class MarkdownTemplateManager {
+class MarkdownTemplateManager : public QObject {
+    Q_OBJECT
 public:
     static MarkdownTemplateManager &instance();
 
@@ -29,6 +32,9 @@ public:
 
     /** Returns all available format options for the UI dropdown. */
     QList<TemplateFormatInfo> getFormatList();
+
+    /** Returns all available diagram format options for the UI dropdown. */
+    QList<TemplateFormatInfo> getDiagramFormatList();
 
     /** Returns format key corresponding to a numeric format index. */
     QString getFormatKeyForIndex(int formatIndex);
@@ -52,6 +58,9 @@ public:
     /** Forces a reload from disk. */
     void reload();
 
+signals:
+    void templatesReloaded();
+
 private:
     MarkdownTemplateManager();
     void loadFromDiskIfNeeded();
@@ -63,6 +72,7 @@ private:
     QList<QString> section_order_;
     QDateTime last_modified_;
     QString file_path_;
+    QFileSystemWatcher *watcher_ = nullptr;
 };
 
 #endif // MARKDOWNTEMPLATEMANAGER_H

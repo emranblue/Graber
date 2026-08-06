@@ -48,6 +48,8 @@ private slots:
     void open_wizards_dialog();
     void insert_diagram();
     void on_format_changed(int index);
+    void on_diagram_format_changed(int index);
+    void refresh_active_diagram();
     void toggle_always_on_top();
     void trigger_shortcut_action(const QString &action_id); // deprecated, unused
 

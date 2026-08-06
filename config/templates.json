@@ -8,6 +8,14 @@
       "is_diagram": false,
       "body": " ▣ {content}"
     },
+
+    {
+      "key": "highlight",
+      "display_name": "highlight (Point)",
+      "is_diagram": false,
+      "body": " ▣ =={content}=="
+    },
+
     {
       "key": "heading",
       "display_name": "প্রধান শিরোনাম (Heading - Red)",
@@ -48,25 +56,25 @@
       "key": "flowchart",
       "display_name": "Flowchart",
       "is_diagram": true,
-      "body": "```mermaid\nflowchart TD\n    Start([Start]) --> Action[\"{{CONTENT}}\"]\n    Action --> End([End])\n```\n"
+      "body": "```mermaid\nflowchart TD\n{{CONTENT}}\n```\n"
     },
     {
-      "key": "sequence",
-      "display_name": "Sequence Diagram",
+      "key": "semicircular_timeline",
+      "display_name": "Semicircular Timeline",
       "is_diagram": true,
-      "body": "```mermaid\nsequenceDiagram\n    autonumber\n    User->>System: {{CONTENT}}\n    System-->>User: Response\n```\n"
+      "body": "```mermaid\nflowchart LR\n    %% Curved Arc Backbone\n    linkStyle default curve basis\n    \n    T1((\"2010\")) === T2((\"2012\"))\n    T2 === T3((\"2014\"))\n    T3 === T4((\"2016\"))\n    T4 === T5((\"2018\"))\n    T5 === T6((\"2020\"))\n    \n    %% Milestone Connections\n    T1 --> M1[\"Milestone 1<br/>{{CONTENT}}\"]\n    T2 --> M2[\"Milestone 2\"]\n    T3 --> M3[\"Milestone 3\"]\n    T4 --> M4[\"Milestone 4\"]\n    T5 --> M5[\"Milestone 5\"]\n    T6 --> M6[\"Milestone 6\"]\n    \n    %% Custom Styling\n    style T1 fill:#e67e22,stroke:#fff,stroke-width:2px\n    style T2 fill:#e74c3c,stroke:#fff,stroke-width:2px\n    style T3 fill:#8e44ad,stroke:#fff,stroke-width:2px\n    style T4 fill:#2980b9,stroke:#fff,stroke-width:2px\n    style T5 fill:#16a085,stroke:#fff,stroke-width:2px\n    style T6 fill:#2c3e50,stroke:#fff,stroke-width:2px\n```\n"
+    },
+    {
+     "key": "timeline",
+     "display_name": "Timeline Diagram",
+     "is_diagram": true,
+     "body": "```mermaid\ntimeline\n    title Timeline\n    2010 : Milestone 1 : {{CONTENT}}\n    2012 : Milestone 2\n    2014 : Milestone 3\n    2016 : Milestone 4\n    2018 : Milestone 5\n    2020 : Milestone 6\n```\n"
     },
     {
       "key": "mindmap",
       "display_name": "Mind Map",
       "is_diagram": true,
-      "body": "```mermaid\nmindmap\n  root((Main Topic))\n    SubTopic1\n      {{CONTENT}}\n```\n"
-    },
-    {
-      "key": "class",
-      "display_name": "Class Diagram",
-      "is_diagram": true,
-      "body": "```mermaid\nclassDiagram\n    class NoteNode {\n        +String content\n    }\n    NoteNode : {{CONTENT}}\n```\n"
+      "body": "```mermaid\nmindmap\n{{CONTENT}}\n```\n"
     }
   ]
 }

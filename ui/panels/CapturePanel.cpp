@@ -44,6 +44,9 @@ CapturePanel::CapturePanel(QWidget *parent) : QFrame(parent) {
     format_dropdown_ = new QComboBox(this);
     populateFormatDropdown();
 
+    connect(&MarkdownTemplateManager::instance(), &MarkdownTemplateManager::templatesReloaded,
+            this, &CapturePanel::populateFormatDropdown);
+
     mode_label_ = new QLabel("মোড:", this);
     mode_dropdown_ = new QComboBox(this);
     mode_dropdown_->addItem("কপি মোড (Ctrl+C)");
@@ -60,9 +63,7 @@ CapturePanel::CapturePanel(QWidget *parent) : QFrame(parent) {
     // Diagram quick-insert row
     diagram_dropdown_ = new QComboBox(this);
     diagram_dropdown_->setEnabled(false);
-    for (const auto &tpl : DiagramTemplates::list()) {
-        diagram_dropdown_->addItem(tpl.second, tpl.first);
-    }
+    populateDiagramDropdown();
 
     insert_diagram_button_ = new QPushButton("নতুন ডায়াগ্রাম (New Diagram)", this);
     insert_diagram_button_->setStyleSheet(
@@ -146,6 +147,30 @@ void CapturePanel::populateFormatDropdown() {
         format_dropdown_->setCurrentIndex(currentIndex);
     } else {
         format_dropdown_->setCurrentIndex(0);
+    }
+
+    populateDiagramDropdown();
+}
+
+void CapturePanel::populateDiagramDropdown() {
+    if (!diagram_dropdown_)
+        return;
+
+    const QString currentKey = diagram_dropdown_->currentData().toString();
+
+    diagram_dropdown_->blockSignals(true);
+    diagram_dropdown_->clear();
+
+    for (const auto &tpl : DiagramTemplates::list()) {
+        diagram_dropdown_->addItem(tpl.second, tpl.first);
+    }
+    diagram_dropdown_->blockSignals(false);
+
+    int restoredIdx = diagram_dropdown_->findData(currentKey);
+    if (restoredIdx != -1) {
+        diagram_dropdown_->setCurrentIndex(restoredIdx);
+    } else if (diagram_dropdown_->count() > 0) {
+        diagram_dropdown_->setCurrentIndex(0);
     }
 }
 
