@@ -25,7 +25,7 @@ void ClipboardGrabber::start_monitoring() {
 
     QClipboard::Mode mode = (ui_.mode_dropdown->currentIndex() == 0)
         ? QClipboard::Clipboard : QClipboard::Selection;
-    clipboard_monitor_->start(mode, 1000);
+    clipboard_monitor_->start(mode, 250);
 
     ui_.subject_dropdown->setEnabled(false);
     ui_.folder_dropdown->setEnabled(false);

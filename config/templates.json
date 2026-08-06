@@ -1,80 +1,90 @@
 {
   "version": 1,
-  "description": "Markdown & diagram formatting templates for Clipboard Graber. Edit body strings and display_name; add new format keys for extension. Placeholders: {content}, {raw_content}, {slug}, {section}, {color}, {color_alpha}. Diagram skeletons may use {{CONTENT}}. Open via উইজার্ড ও টুলস.",
+  "description": "Markdown & diagram formatting templates for Clipboard Graber.\n\n=== HOW TO ADD A NEW DIAGRAM (user tutorial) ===\n1. Add a new object inside the \"formats\" array.\n2. Set \"is_diagram\": true.\n3. Choose a unique \"key\" (lowercase, no spaces).\n4. Write a \"body\" that uses one of these placeholder styles:\n\n   A) Mermaid style (recommended for most diagrams)\n      body must contain {{CONTENT}}\n      Example:\n        \"body\": \"```mermaid\\nmindmap\\n{{CONTENT}}\\n```\\n\"\n      The engine will automatically put:\n        - 1st clipboard copy  → root node\n        - every later copy    → sub-node of that root\n\n   B) Custom HTML style (for fully custom layouts)\n      body may contain {{ROOT}} and/or {{SUBNODES}}\n      Example:\n        \"body\": \"<div>... {{ROOT}} ... {{SUBNODES}} ...</div>\"\n      {{ROOT}}     = first clipboard text (HTML-escaped)\n      {{SUBNODES}} = auto-generated rounded pills for every later copy\n\n5. Save the file. Graber reloads templates live – no restart needed.\n6. The new diagram appears in the diagram dropdown automatically.\n\nPlaceholders for normal (non-diagram) formats:\n  {content}  {raw_content}  {slug}  {section}  {color}  {color_alpha}\n\nDiagram skeletons may use {{CONTENT}}, {{ROOT}}, {{SUBNODES}}.\nOpen via উইজার্ড ও টুলস.",
   "formats": [
     {
       "key": "bullet",
       "display_name": "বুলেট পয়েন্ট (Point)",
       "is_diagram": false,
-      "body": " ▣ {content}"
+      "body": " ▣ <span style=\"font-family: 'Times New Roman', Times, 'Kalpurush', serif; color: #2c3e50;\">{content}</span>"
     },
-
     {
       "key": "highlight",
       "display_name": "highlight (Point)",
       "is_diagram": false,
-      "body": " ▣ =={content}=="
+      "body": " ▣ ==<span style=\"font-family: 'Times New Roman', Times, 'Kalpurush', serif; color: #2c3e50;\">{content}</span>=="
     },
-
     {
       "key": "heading",
-      "display_name": "প্রধান শিরোনাম (Heading - Red)",
+      "display_name": "প্রধান শিরোনাম (Heading - Beautiful Round Box)",
       "is_diagram": false,
-      "body": "\n<h2 id=\"{slug}\" data-section=\"{section}\" style=\"color: #e74c3c; font-weight: bold; font-style: italic; margin-bottom: 5px;\">{content}</h2>\n\n"
+      "body": "\n<div style=\"text-align: center; margin: 18px 0 14px 0;\">\n  <div id=\"{slug}\" data-section=\"{section}\" style=\"display: inline-block; background: linear-gradient(145deg, #2c3e50, #1a252f); color: #f4f6f7; font-weight: 700; font-style: italic; font-family: 'Times New Roman', Times, 'Kalpurush', serif; font-size: 1.45em; padding: 12px 36px; border-radius: 50px; box-shadow: 0 5px 16px rgba(44, 62, 80, 0.28), 0 2px 4px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.12); letter-spacing: 0.4px;\">{content}</div>\n</div>\n\n"
     },
     {
       "key": "subheading",
-      "display_name": "উপ-শিরোনাম (Subheading - Blue)",
+      "display_name": "উপ-শিরোনাম (Subheading - Accent Style)",
       "is_diagram": false,
-      "body": "\n<h3 id=\"{slug}\" style=\"color: #2980b9; font-weight: bold; font-style: italic; margin-top: 10px; margin-bottom: 5px;\">{content}</h3>\n\n"
+      "body": "\n<div id=\"{slug}\" style=\"font-family: 'Times New Roman', Times, 'Kalpurush', serif; color: #1a5276; font-weight: 600; font-size: 1.15em; margin: 16px 0 8px 0; padding: 7px 0 7px 16px; border-left: 4px solid #5dade2; background: linear-gradient(to right, #eaf2f8 0%, transparent 100%); border-radius: 0 6px 6px 0;\">{content}</div>\n\n"
     },
     {
       "key": "timeline",
       "display_name": "মাইন্ড ম্যাপ (Timeline Mind Map)",
       "is_diagram": false,
-      "body": "<div class=\"timeline-item\" style=\"border-left: 2px dashed {color}; margin-left: 20px; padding-left: 20px; padding-bottom: 12px; position: relative;\"><span style=\"position: absolute; left: -2px; top: 18px; width: 12px; height: 2px; background-color: {color};\"></span><span style=\"position: absolute; left: 8px; top: 13px; color: {color}; font-size: 10px; line-height: 1;\">➤</span><div style=\"background-color: {color_alpha}; border: 1px solid {color}; border-radius: 6px; padding: 8px 12px; display: inline-block; box-shadow: 1px 1px 3px rgba(0,0,0,0.05); margin-left: 10px;\"><span style=\"color: {color}; font-weight: 600; font-family: 'Segoe UI', 'Kalpurush', sans-serif; font-size: 16px;\">{content}</span></div></div>\n\n"
+      "body": "<div class=\"timeline-item\" style=\"border-left: 3px solid {color}; margin-left: 22px; padding-left: 22px; padding-bottom: 16px; position: relative;\">\n  <span style=\"position: absolute; left: -7px; top: 16px; width: 12px; height: 12px; background: linear-gradient(145deg, {color}, #ffffff88); border: 2px solid {color}; border-radius: 50%; box-shadow: 0 0 6px {color}44, 0 2px 4px rgba(0,0,0,0.1);\"></span>\n  <div style=\"background: linear-gradient(145deg, {color_alpha}, #ffffffee); border: 1px solid {color}66; border-radius: 12px; padding: 10px 16px; display: inline-block; box-shadow: 0 3px 10px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04), inset 0 1px 0 #ffffffcc; margin-left: 8px;\">\n    <span style=\"color: #2c3e50; font-weight: 600; font-family: 'Times New Roman', Times, 'Kalpurush', serif; font-size: 16px; letter-spacing: 0.2px;\">{content}</span>\n  </div>\n</div>\n\n"
     },
     {
       "key": "paragraph",
       "display_name": "প্যারাগ্রাফ (Paragraph)",
       "is_diagram": false,
-      "body": "<p class=\"paragraph-item\" style=\"color: #2f3640; line-height: 1.6; font-family: 'Segoe UI', 'Kalpurush', sans-serif; margin-bottom: 10px; text-align: justify;\">{content}</p>\n\n"
+      "body": "<p class=\"paragraph-item\" style=\"color: #2c3e50; line-height: 1.75; font-family: 'Times New Roman', Times, 'Kalpurush', serif; margin-bottom: 14px; text-align: justify;\">{content}</p>\n\n"
     },
     {
       "key": "quote",
       "display_name": "উদ্ধৃতি (Quote Block)",
       "is_diagram": false,
-      "body": "<blockquote style=\"border-left: 4px solid #3498db; margin: 10px 0; padding: 8px 15px; background: #f8f9fa; font-style: italic; color: #555;\">💬 {content}</blockquote>\n\n"
+      "body": "<blockquote style=\"border-left: 4px solid #5dade2; margin: 14px 0; padding: 12px 18px; background: linear-gradient(to right, #f4f8fb, #ffffff); font-style: italic; color: #34495e; font-family: 'Times New Roman', Times, 'Kalpurush', serif; border-radius: 0 8px 8px 0; box-shadow: 1px 2px 6px rgba(0,0,0,0.04);\">💬 {content}</blockquote>\n\n"
     },
     {
       "key": "callout",
       "display_name": "নোটিশ / কলআউট (Notice Box)",
       "is_diagram": false,
-      "body": "<div style=\"background: #e1f5fe; border: 1px solid #81d4fa; border-radius: 6px; padding: 10px 15px; margin: 10px 0; color: #0277bd;\">📌 <b>Notice:</b> {content}</div>\n\n"
+      "body": "<div style=\"background: linear-gradient(145deg, #eaf4f8, #f7fbfd); border: 1px solid #aed6f1; border-radius: 10px; padding: 13px 18px; margin: 14px 0; color: #1a5276; font-family: 'Times New Roman', Times, 'Kalpurush', serif; box-shadow: 0 2px 8px rgba(26, 82, 118, 0.08);\">📌 <b>Notice:</b> {content}</div>\n\n"
     },
     {
       "key": "flowchart",
-      "display_name": "Flowchart",
+      "display_name": "Flowchart (ফ্লোচার্ট)",
       "is_diagram": true,
       "body": "```mermaid\nflowchart TD\n{{CONTENT}}\n```\n"
     },
     {
-      "key": "semicircular_timeline",
-      "display_name": "Semicircular Timeline",
-      "is_diagram": true,
-      "body": "```mermaid\nflowchart LR\n    %% Curved Arc Backbone\n    linkStyle default curve basis\n    \n    T1((\"2010\")) === T2((\"2012\"))\n    T2 === T3((\"2014\"))\n    T3 === T4((\"2016\"))\n    T4 === T5((\"2018\"))\n    T5 === T6((\"2020\"))\n    \n    %% Milestone Connections\n    T1 --> M1[\"Milestone 1<br/>{{CONTENT}}\"]\n    T2 --> M2[\"Milestone 2\"]\n    T3 --> M3[\"Milestone 3\"]\n    T4 --> M4[\"Milestone 4\"]\n    T5 --> M5[\"Milestone 5\"]\n    T6 --> M6[\"Milestone 6\"]\n    \n    %% Custom Styling\n    style T1 fill:#e67e22,stroke:#fff,stroke-width:2px\n    style T2 fill:#e74c3c,stroke:#fff,stroke-width:2px\n    style T3 fill:#8e44ad,stroke:#fff,stroke-width:2px\n    style T4 fill:#2980b9,stroke:#fff,stroke-width:2px\n    style T5 fill:#16a085,stroke:#fff,stroke-width:2px\n    style T6 fill:#2c3e50,stroke:#fff,stroke-width:2px\n```\n"
-    },
-    {
-     "key": "timeline",
-     "display_name": "Timeline Diagram",
-     "is_diagram": true,
-     "body": "```mermaid\ntimeline\n    title Timeline\n    2010 : Milestone 1 : {{CONTENT}}\n    2012 : Milestone 2\n    2014 : Milestone 3\n    2016 : Milestone 4\n    2018 : Milestone 5\n    2020 : Milestone 6\n```\n"
-    },
-    {
       "key": "mindmap",
-      "display_name": "Mind Map",
+      "display_name": "Mind Map / Semicircular (মাইন্ড ম্যাপ)",
       "is_diagram": true,
       "body": "```mermaid\nmindmap\n{{CONTENT}}\n```\n"
+    },
+    {
+      "key": "sequence",
+      "display_name": "Sequence Diagram (সিকোয়েন্স)",
+      "is_diagram": true,
+      "body": "```mermaid\nsequenceDiagram\n    autonumber\n{{CONTENT}}\n```\n"
+    },
+    {
+      "key": "class",
+      "display_name": "Class Diagram (ক্লাস)",
+      "is_diagram": true,
+      "body": "```mermaid\nclassDiagram\n{{CONTENT}}\n```\n"
+    },
+    {
+      "key": "timeline_diagram",
+      "display_name": "Timeline Diagram (টাইমলাইন)",
+      "is_diagram": true,
+      "body": "```mermaid\ntimeline\n{{CONTENT}}\n```\n"
+    },
+    {
+      "key": "semicircular_html",
+      "display_name": "Semicircular HTML (custom)",
+      "is_diagram": true,
+      "body": "<div style=\"position:relative;width:100%;max-width:680px;min-height:200px;margin:20px auto;padding:16px;font-family:'Times New Roman',Times,'Kalpurush',serif;background:#f8fafc;border-radius:12px;\">\n  <div style=\"text-align:center;margin-bottom:18px;\">\n    <div style=\"display:inline-block;background:linear-gradient(145deg,#2c3e50,#1a252f);color:#f4f6f7;font-weight:700;padding:12px 24px;border-radius:14px;box-shadow:0 4px 12px rgba(44,62,80,0.25);font-size:15px;max-width:90%;word-break:break-word;\">\n      {{ROOT}}\n    </div>\n  </div>\n  <div style=\"display:flex;flex-wrap:wrap;justify-content:center;gap:8px;\">\n    {{SUBNODES}}\n  </div>\n</div>\n"
     }
   ]
 }

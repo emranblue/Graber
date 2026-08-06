@@ -5,6 +5,13 @@ ClipboardMonitor::ClipboardMonitor(QObject *parent)
     : IClipboardMonitor(parent), mode_(QClipboard::Clipboard), is_running_(false) {
     timer_ = new QTimer(this);
     connect(timer_, &QTimer::timeout, this, &ClipboardMonitor::checkClipboard);
+
+    QClipboard *clipboard = QGuiApplication::clipboard();
+    if (clipboard) {
+        connect(clipboard, &QClipboard::dataChanged, this, &ClipboardMonitor::checkClipboard);
+        connect(clipboard, &QClipboard::selectionChanged, this, &ClipboardMonitor::checkClipboard);
+        connect(clipboard, &QClipboard::changed, this, &ClipboardMonitor::checkClipboard);
+    }
 }
 
 void ClipboardMonitor::start(QClipboard::Mode mode, int intervalMs) {
