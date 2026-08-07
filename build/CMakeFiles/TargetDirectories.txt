@@ -1,8 +1,0 @@
-/home/emran/Desktop/extra/graber/build/CMakeFiles/graber.dir
-/home/emran/Desktop/extra/graber/build/CMakeFiles/update_all_notes.dir
-/home/emran/Desktop/extra/graber/build/CMakeFiles/edit_cache.dir
-/home/emran/Desktop/extra/graber/build/CMakeFiles/rebuild_cache.dir
-/home/emran/Desktop/extra/graber/build/CMakeFiles/graber_autogen_timestamp_deps.dir
-/home/emran/Desktop/extra/graber/build/CMakeFiles/graber_autogen.dir
-/home/emran/Desktop/extra/graber/build/CMakeFiles/update_all_notes_autogen_timestamp_deps.dir
-/home/emran/Desktop/extra/graber/build/CMakeFiles/update_all_notes_autogen.dir
