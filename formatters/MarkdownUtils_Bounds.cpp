@@ -5,24 +5,35 @@
 namespace MarkdownUtils {
 
 bool get_heading_bounds(const QString &content, const QString &slug, int &start_pos, int &end_pos, bool &is_html) {
-    QString html_pattern = QString("<h2[^>]*id=\"%1\"[^>]*>").arg(QRegularExpression::escape(slug));
-    QRegularExpression html_rx(html_pattern, QRegularExpression::CaseInsensitiveOption);
+    // Match <h2 id="slug"> or styled <div id="slug" data-section=...>
+    const QString esc = QRegularExpression::escape(slug);
+    QRegularExpression html_rx(
+        QStringLiteral("<(?:h2|div)[^>]*id=\"%1\"[^>]*>").arg(esc),
+        QRegularExpression::CaseInsensitiveOption);
     QRegularExpressionMatch html_match = html_rx.match(content);
     
     if (html_match.hasMatch()) {
         is_html = true;
         start_pos = html_match.capturedStart();
-        
-        int next_h2 = content.indexOf("<h2", html_match.capturedEnd(), Qt::CaseInsensitive);
-        int next_h3 = content.indexOf("<h3", html_match.capturedEnd(), Qt::CaseInsensitive);
-        
-        QRegularExpression next_md_rx("^#{1,3}\\s+", QRegularExpression::MultilineOption);
-        QRegularExpressionMatch next_md_match = next_md_rx.match(content, html_match.capturedEnd());
+        const int after = html_match.capturedEnd();
+
+        int next_h2 = content.indexOf(QStringLiteral("<h2"), after, Qt::CaseInsensitive);
+        int next_h3 = content.indexOf(QStringLiteral("<h3"), after, Qt::CaseInsensitive);
+        // Next main-style div with data-section (another heading)
+        QRegularExpression next_div_main(
+            QStringLiteral("<div[^>]*data-section=\"[^\"]+\"[^>]*>"),
+            QRegularExpression::CaseInsensitiveOption);
+        QRegularExpressionMatch next_div_m = next_div_main.match(content, after);
+        int next_div = next_div_m.hasMatch() ? next_div_m.capturedStart() : -1;
+
+        QRegularExpression next_md_rx(QStringLiteral("^#{1,3}\\s+"), QRegularExpression::MultilineOption);
+        QRegularExpressionMatch next_md_match = next_md_rx.match(content, after);
         int next_md = next_md_match.hasMatch() ? next_md_match.capturedStart() : -1;
         
         int min_pos = content.length();
         if (next_h2 != -1 && next_h2 < min_pos) min_pos = next_h2;
         if (next_h3 != -1 && next_h3 < min_pos) min_pos = next_h3;
+        if (next_div != -1 && next_div < min_pos) min_pos = next_div;
         if (next_md != -1 && next_md < min_pos) min_pos = next_md;
         
         end_pos = min_pos;
@@ -71,8 +82,11 @@ bool get_heading_bounds(const QString &content, const QString &slug, int &start_
 }
 
 bool get_subheading_insert_pos(const QString &content, const QString &slug, int &insert_pos) {
-    QString html_pattern = QString("<h3[^>]*id=\"%1\"[^>]*>").arg(QRegularExpression::escape(slug));
-    QRegularExpression html_rx(html_pattern, QRegularExpression::CaseInsensitiveOption);
+    const QString esc = QRegularExpression::escape(slug);
+    // <h3 id> or <div id> (subheading template without data-section)
+    QRegularExpression html_rx(
+        QStringLiteral("<(?:h3|div)[^>]*id=\"%1\"[^>]*>").arg(esc),
+        QRegularExpression::CaseInsensitiveOption);
     QRegularExpressionMatch html_match = html_rx.match(content);
     
     int start_search = -1;
@@ -118,8 +132,10 @@ bool get_subheading_insert_pos(const QString &content, const QString &slug, int 
 }
 
 bool get_subheading_bounds(const QString &content, const QString &slug, int &start_pos, int &end_pos) {
-    QString html_pattern = QString("<h3[^>]*id=\"%1\"[^>]*>").arg(QRegularExpression::escape(slug));
-    QRegularExpression html_rx(html_pattern, QRegularExpression::CaseInsensitiveOption);
+    const QString esc = QRegularExpression::escape(slug);
+    QRegularExpression html_rx(
+        QStringLiteral("<(?:h3|div)[^>]*id=\"%1\"[^>]*>").arg(esc),
+        QRegularExpression::CaseInsensitiveOption);
     QRegularExpressionMatch html_match = html_rx.match(content);
     
     if (html_match.hasMatch()) {

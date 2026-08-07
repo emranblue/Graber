@@ -6,7 +6,7 @@ graber/
 ├── Makefile
 ├── README.md
 ├── PROJECT_TREE.md
-├── UPDATE_GUIDE.md
+├── DEVELOPER_GUIDE.md
 ├── main.cpp
 ├── resources.qrc
 ├── Kalpurush.ttf

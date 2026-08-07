@@ -34,7 +34,7 @@ public:
 
     virtual bool writeToNote(const QString &targetFile, const QString &processedText, int formatIndex, const QString &section, const QString &selectedSlug, QString &lastDate, QString &outCapturedLabelText) = 0;
 
-    virtual bool writeImageToNote(const QString &targetFile, const QString &imageFilename, QString &lastDate) = 0;
+    virtual bool writeImageToNote(const QString &targetFile, const QString &imageFilename, const QString &selectedSlug, QString &lastDate) = 0;
 
     // Inserts a raw, already-formatted Markdown block (e.g. a ```mermaid
     // fenced diagram) as-is — unlike appendContentToHeading/writeToNote, the
@@ -52,6 +52,14 @@ public:
     virtual bool upsertLiveDiagram(const QString &targetFile, const QString &sessionId, const QString &diagramMarkdown, const QString &selectedSlug, QString &lastDate) = 0;
 
     virtual bool injectHeadingToNote(const QString &targetFile, const QString &simplifiedText, const QString &section, QString &lastDate) = 0;
+
+    // Copy a heading/subheading block from sourceFile into targetFile,
+    // inserted after insertAfterSlug (empty = append at end of file).
+    // Source block is copied as-is (ids preserved if unique; caller may rename).
+    virtual bool injectSubheadingFromNote(const QString &targetFile, const QString &insertAfterSlug,
+                                          const QString &sourceFile, const QString &sourceSlug,
+                                          const QList<SectionItem> &sections,
+                                          QString &outCapturedLabelText) = 0;
 
     virtual bool deleteHeadingSection(const QString &targetFile, const QString &slug, const QString &subjectName, QString &outCapturedLabelText) = 0;
 

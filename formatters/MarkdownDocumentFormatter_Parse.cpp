@@ -1,5 +1,6 @@
 #include "MarkdownDocumentFormatter.h"
 #include "MarkdownUtils.h"
+#include "MarkdownDocumentFormatter_TocHelpers.h"
 
 #include <QRegularExpression>
 #include <QStringList>
@@ -15,7 +16,8 @@ QList<NoteItem> MarkdownDocumentFormatter::parseNoteStructure(
     QSet<QString> &outCustomSections) const {
 
     QList<NoteItem> items;
-    const QStringList lines = content.split(QLatin1Char('\n'));
+    const QString clean_content = MarkdownTocHelpers::stripExistingToc(content);
+    const QStringList lines = clean_content.split(QLatin1Char('\n'));
 
     static const QRegularExpression h2_regex(
         QStringLiteral("<h2([^>]*)>(.*?)</h2>"),
@@ -38,12 +40,18 @@ QList<NoteItem> MarkdownDocumentFormatter::parseNoteStructure(
     for (const auto &sec : availableSections)
         known_slugs.insert(sec.slug);
 
+    static const QRegularExpression div_h_regex(
+        QStringLiteral("<div\\b[^>]*\\bid=[\"']([^\"']+)[\"'][^>]*>(.*?)</div>"),
+        QRegularExpression::CaseInsensitiveOption);
+
     for (const QString &raw : lines) {
         const QString line = raw.trimmed();
         const auto h2_match = h2_regex.match(line);
         const auto h3_match = h3_regex.match(line);
         const auto md_match = md_regex.match(line);
         const auto md_sub_match = md_sub_regex.match(line);
+        const auto div_h_match = (!line.contains(QStringLiteral("timeline-item")) && !line.contains(QStringLiteral("paragraph-item")))
+            ? div_h_regex.match(line) : QRegularExpressionMatch();
 
         if (h2_match.hasMatch()) {
             const QString attributes = h2_match.captured(1);
@@ -77,6 +85,35 @@ QList<NoteItem> MarkdownDocumentFormatter::parseNoteStructure(
             item.section = QString();
             item.parent_slug = current_parent_slug;
             items.append(item);
+        } else if (div_h_match.hasMatch()) {
+            const QString attributes = div_h_match.captured(1);
+            const QString title = div_h_match.captured(2).trimmed();
+            if (title.isEmpty()) continue;
+            const QString slug = generateSlug(title);
+
+            const auto section_match = section_attr_regex.match(attributes);
+            if (section_match.hasMatch()) {
+                QString section = section_match.captured(1);
+                if (!known_slugs.contains(section) && section != QLatin1String("others"))
+                    outCustomSections.insert(section);
+
+                NoteItem item;
+                item.title = title;
+                item.slug = slug;
+                item.type = QStringLiteral("heading");
+                item.section = section;
+                item.parent_slug = QString();
+                items.append(item);
+                current_parent_slug = slug;
+            } else {
+                NoteItem item;
+                item.title = title;
+                item.slug = slug;
+                item.type = QStringLiteral("subheading");
+                item.section = QString();
+                item.parent_slug = current_parent_slug;
+                items.append(item);
+            }
         } else if (md_match.hasMatch()) {
             const QString rest = md_match.captured(2).trimmed();
             QString section = QStringLiteral("others");

@@ -83,7 +83,7 @@ graber/
 └── utils/                         # Styling, Icons, & Logging Utilities (Utils)
 ```
 For a detailed file-by-file tree breakdown, see [PROJECT_TREE.md](PROJECT_TREE.md).
-For a developer guide on extending services, actions, shortcuts, and wizards, see [UPDATE_GUIDE.md](UPDATE_GUIDE.md).
+For a developer guide on extending services, actions, shortcuts, and wizards, see [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md).
 
 ### Runtime Notes Directory (`~/GraberNotes`)
 

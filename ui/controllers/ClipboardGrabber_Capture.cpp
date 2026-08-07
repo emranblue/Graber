@@ -100,14 +100,14 @@ void ClipboardGrabber::add_clipboard_image() {
     QString target_file = get_current_target_file();
     if (target_file == "নির্বাচিত নয়") return;
 
-    QDir images_dir(QFileInfo(target_file).dir().filePath("images"));
+    QDir images_dir(note_service_.notesDirPath() + "/images");
     if (!images_dir.exists()) images_dir.mkpath(".");
 
     QString filename = "img_" + QDateTime::currentDateTime().toString("yyyyMMdd_hhmmss") + ".png";
     QString filepath = images_dir.filePath(filename);
 
     if (image.save(filepath, "PNG")) {
-        note_service_.writeImageToNote(target_file, filename, last_date_);
+        note_service_.writeImageToNote(target_file, filename, selected_heading_slug_, last_date_);
         note_service_.updateTocInFile(target_file, get_sections_from_ui());
         ui_.last_captured_label->setText("ছবি সফলভাবে যুক্ত করা হয়েছে: " + filename);
     } else {
@@ -127,7 +127,7 @@ void ClipboardGrabber::write_to_file(const QString &processed_text, const QStrin
         ui_.last_captured_label->setText(out_label);
     if (ok) {
         note_service_.updateTocInFile(target_file, get_sections_from_ui());
-        if (format_index == 1)
+        if (format_index == 1 || format_index == 2)
             populate_headings_from_file();
     }
 }

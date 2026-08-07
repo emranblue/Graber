@@ -1,6 +1,7 @@
 #include "MarkdownDocumentFormatter.h"
 #include "MarkdownUtils.h"
 #include "MarkdownDocumentFormatter_TocHelpers.h"
+#include "MarkdownTemplateManager.h"
 
 #include <QRegularExpression>
 #include <QStringList>
@@ -15,6 +16,13 @@ QString MarkdownDocumentFormatter::generateToc(const QString &content,
                         toc_end + QStringLiteral("<!-- TOC_END -->").length() - toc_start);
     }
     return {};
+}
+
+static QString cleanHeadingTitle(const QString &raw) {
+    QString t = raw;
+    t.replace(QRegularExpression(QStringLiteral("<[^>]+>")), QString());
+    t.replace(QRegularExpression(QStringLiteral("^[*_]{1,3}|[*_]{1,3}$")), QString());
+    return t.trimmed();
 }
 
 QString MarkdownDocumentFormatter::updateTocInContent(const QString &content,
@@ -55,24 +63,26 @@ QString MarkdownDocumentFormatter::updateTocInContent(const QString &content,
         QRegularExpression::CaseInsensitiveOption);
     static const QRegularExpression md_regex(QStringLiteral("^(#{2})\\s+(.*?)$"));
     static const QRegularExpression md_sub_regex(
-        QStringLiteral("^(#{3})\\s+(?!\\*\\*\\*)(.*?)$"));
+        QStringLiteral("^(#{3})\\s+(.*?)$"));
     static const QRegularExpression md_section_regex(
         QStringLiteral("<!--\\s*section:([\\w-]+)\\s*-->"));
 
     QStringList processed_lines;
 
-    auto pushMain = [&](const QString &title, const QString &slug, const QString &section,
+    auto pushMain = [&](const QString &rawTitle, const QString &slug, const QString &section,
                         bool is_html, const QString &style, int lineIdx) {
         heading_counter++;
         sub_counter = 0;
         current_parent_slug = slug;
         current_parent_index = heading_counter;
 
+        const QString displayTitle = cleanHeadingTitle(rawTitle);
+
         HeadingInfo info;
         info.index = heading_counter;
         info.sub_index = 0;
-        info.title = title;
-        info.slug = slug;
+        info.title = displayTitle;
+        info.slug = slug.isEmpty() ? generateSlug(displayTitle) : slug;
         info.date = current_date;
         info.is_html = is_html;
         info.style = style;
@@ -84,14 +94,16 @@ QString MarkdownDocumentFormatter::updateTocInContent(const QString &content,
         headings.append(info);
     };
 
-    auto pushSub = [&](const QString &title, const QString &slug, bool is_html,
+    auto pushSub = [&](const QString &rawTitle, const QString &slug, bool is_html,
                        const QString &style, int lineIdx) {
         sub_counter++;
+        const QString displayTitle = cleanHeadingTitle(rawTitle);
+
         HeadingInfo info;
         info.index = current_parent_index > 0 ? current_parent_index : heading_counter;
         info.sub_index = sub_counter;
-        info.title = title;
-        info.slug = slug;
+        info.title = displayTitle;
+        info.slug = slug.isEmpty() ? generateSlug(displayTitle) : slug;
         info.date = current_date;
         info.is_html = is_html;
         info.style = style;
@@ -103,6 +115,10 @@ QString MarkdownDocumentFormatter::updateTocInContent(const QString &content,
         headings.append(info);
     };
 
+    static const QRegularExpression div_h_regex(
+        QStringLiteral("<div\\b[^>]*\\bid=[\"']([^\"']+)[\"'][^>]*>(.*?)</div>"),
+        QRegularExpression::CaseInsensitiveOption);
+
     for (int i = 0; i < lines.size(); ++i) {
         const QString &line = lines[i];
         const QString trimmed_line = line.trimmed();
@@ -112,20 +128,17 @@ QString MarkdownDocumentFormatter::updateTocInContent(const QString &content,
         const auto h3_match = h3_regex.match(trimmed_line);
         const auto md_match = md_regex.match(trimmed_line);
         const auto md_sub_match = md_sub_regex.match(trimmed_line);
+        const auto div_h_match = (!line.contains(QStringLiteral("timeline-item")) && !line.contains(QStringLiteral("paragraph-item")))
+            ? div_h_regex.match(trimmed_line) : QRegularExpressionMatch();
 
         if (date_match.hasMatch()) {
             current_date = date_match.captured(1).trimmed();
             processed_lines.append(line);
         } else if (h2_match.hasMatch()) {
             const QString attributes = h2_match.captured(1);
-            const QString title = h2_match.captured(2).trimmed();
-            const QString slug = generateSlug(title);
-
-            QString style = QStringLiteral(
-                "color: #e74c3c; font-weight: bold; font-style: italic; margin-bottom: 5px;");
-            const auto style_match = style_regex.match(attributes);
-            if (style_match.hasMatch())
-                style = style_match.captured(1);
+            const QString rawTitle = h2_match.captured(2).trimmed();
+            const QString cleanTitle = cleanHeadingTitle(rawTitle);
+            const QString slug = generateSlug(cleanTitle);
 
             QString section = QStringLiteral("others");
             const auto section_match = section_attr_regex.match(attributes);
@@ -134,51 +147,81 @@ QString MarkdownDocumentFormatter::updateTocInContent(const QString &content,
             if (section.trimmed().isEmpty())
                 section = QStringLiteral("others");
 
-            pushMain(title, slug, section, true, style, i);
-            processed_lines.append(
-                QStringLiteral("<h2 id=\"%1\" data-section=\"%2\" style=\"%3\">%4</h2>")
-                    .arg(slug, section, style, title));
+            pushMain(cleanTitle, slug, section, true, QString(), i);
+            const QString formatted = MarkdownTemplateManager::instance().formatByKey(QStringLiteral("heading"), cleanTitle, section);
+            processed_lines.append(formatted.trimmed());
         } else if (h3_match.hasMatch()) {
-            const QString attributes = h3_match.captured(1);
-            const QString title = h3_match.captured(2).trimmed();
-            const QString slug = generateSlug(title);
-            QString style = QStringLiteral(
-                "color: #2980b9; font-weight: bold; font-style: italic; "
-                "margin-top: 10px; margin-bottom: 5px;");
-            const auto style_match = style_regex.match(attributes);
-            if (style_match.hasMatch())
-                style = style_match.captured(1);
+            const QString rawTitle = h3_match.captured(2).trimmed();
+            const QString cleanTitle = cleanHeadingTitle(rawTitle);
+            const QString slug = generateSlug(cleanTitle);
 
-            pushSub(title, slug, true, style, i);
-            processed_lines.append(
-                QStringLiteral("<h3 id=\"%1\" style=\"%2\">%3</h3>")
-                    .arg(slug, style, title));
+            pushSub(cleanTitle, slug, true, QString(), i);
+            const QString formatted = MarkdownTemplateManager::instance().formatByKey(QStringLiteral("subheading"), cleanTitle);
+            processed_lines.append(formatted.trimmed());
+        } else if (div_h_match.hasMatch()) {
+            const QString tag_attributes = div_h_match.captured(1);
+            const QString rawTitle = div_h_match.captured(2).trimmed();
+            const QString cleanTitle = cleanHeadingTitle(rawTitle);
+            if (cleanTitle.isEmpty()) {
+                processed_lines.append(line);
+                continue;
+            }
+
+            QString section = QStringLiteral("others");
+            const auto section_match = section_attr_regex.match(tag_attributes);
+            const bool is_main = section_match.hasMatch();
+
+            if (is_main) {
+                section = section_match.captured(1);
+                if (section.trimmed().isEmpty())
+                    section = QStringLiteral("others");
+
+                const QString slug = generateSlug(cleanTitle);
+                pushMain(cleanTitle, slug, section, true, QString(), i);
+                const QString formatted = MarkdownTemplateManager::instance().formatByKey(QStringLiteral("heading"), cleanTitle, section);
+                processed_lines.append(formatted.trimmed());
+            } else {
+                const QString slug = generateSlug(cleanTitle);
+                pushSub(cleanTitle, slug, true, QString(), i);
+                const QString formatted = MarkdownTemplateManager::instance().formatByKey(QStringLiteral("subheading"), cleanTitle);
+                processed_lines.append(formatted.trimmed());
+            }
         } else if (md_match.hasMatch()) {
             const QString rest = md_match.captured(2).trimmed();
             QString section = QStringLiteral("others");
-            QString title = rest;
+            QString rawTitle = rest;
             const auto section_match = md_section_regex.match(rest);
             if (section_match.hasMatch()) {
                 section = section_match.captured(1);
-                title = rest.left(section_match.capturedStart()).trimmed();
+                rawTitle = rest.left(section_match.capturedStart()).trimmed();
             }
             if (section.trimmed().isEmpty())
                 section = QStringLiteral("others");
 
-            const QString slug = generateSlug(title);
-            pushMain(title, slug, section, false, QString(), i);
-            processed_lines.append(line);
+            const QString cleanTitle = cleanHeadingTitle(rawTitle);
+            const QString slug = generateSlug(cleanTitle);
+            pushMain(cleanTitle, slug, section, false, QString(), i);
+            const QString formatted = MarkdownTemplateManager::instance().formatByKey(QStringLiteral("heading"), cleanTitle, section);
+            processed_lines.append(formatted.trimmed());
         } else if (md_sub_match.hasMatch()) {
-            const QString title = md_sub_match.captured(2).trimmed();
-            const QString slug = generateSlug(title);
-            pushSub(title, slug, false, QString(), i);
-            processed_lines.append(line);
+            const QString rawTitle = md_sub_match.captured(2).trimmed();
+            const QString cleanTitle = cleanHeadingTitle(rawTitle);
+            if (!cleanTitle.isEmpty()) {
+                const QString slug = generateSlug(cleanTitle);
+                pushSub(cleanTitle, slug, false, QString(), i);
+                const QString formatted = MarkdownTemplateManager::instance().formatByKey(QStringLiteral("subheading"), cleanTitle);
+                processed_lines.append(formatted.trimmed());
+            } else {
+                processed_lines.append(line);
+            }
+        } else if (trimmed_line.startsWith(QLatin1String("<div style=\"text-align: center; margin: 18px 0 14px 0;\">")) ||
+                   (trimmed_line == QLatin1String("</div>") && !processed_lines.isEmpty() && processed_lines.last().contains(QLatin1String("text-align: center")))) {
+            // Skip redundant outer wrapper container divs
+            continue;
         } else {
             processed_lines.append(line);
         }
     }
-
-    // Plain hierarchical Markdown TOC (no HTML/CSS).
 
     const QString toc_block = MarkdownTocHelpers::buildTocBlock(headings, sections);
     return toc_block + processed_lines.join(QLatin1Char('\n'));

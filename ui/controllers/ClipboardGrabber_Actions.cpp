@@ -53,7 +53,8 @@ void ClipboardGrabber::setup_actions() {
                 && ui_.subject_dropdown->currentText() != "নির্বাচিত নয়";
         });
 
-    reg.registerFunctionalAction("append", "যুক্ত করুন (Append)", "টার্গেট শিরোনামে কনটেন্ট যুক্ত করুন",
+    reg.registerFunctionalAction("append", "রিজিউম (Resume)",
+        "নির্বাচিত শিরোনাম/উপ-শিরোনামের ঠিক নিচে ক্লিপবোর্ড কনটেন্ট যোগ করুন",
         "Heading", QKeySequence("Ctrl+Shift+A"),
         [this](const QVariantMap &) { manual_append_to_heading(); },
         [this]() {
@@ -61,8 +62,8 @@ void ClipboardGrabber::setup_actions() {
                 && !selected_heading_slug_.isEmpty();
         });
 
-    reg.registerFunctionalAction("inject", "ইনজেক্ট করুন (Inject)",
-        "ক্লিপবোর্ডের লেখা নতুন শিরোনাম হিসেবে যুক্ত করুন",
+    reg.registerFunctionalAction("inject", "ইনজেক্ট (Inject from other note)",
+        "অন্য ফাইলের উপ-শিরোনাম ব্লক এই ফাইলের বর্তমান স্থানে কপি করুন",
         "Heading", QKeySequence("Ctrl+Shift+J"),
         [this](const QVariantMap &) { inject_heading_from_clipboard(); },
         [this]() { return ui_.subject_dropdown->currentIndex() != -1; });
@@ -73,12 +74,12 @@ void ClipboardGrabber::setup_actions() {
         [this](const QVariantMap &) { open_heading_select_dialog(); },
         [this]() { return ui_.subject_dropdown->currentIndex() != -1; });
 
-    reg.registerFunctionalAction("shift", "স্থানান্তর (Shift)", "শিরোনাম অন্য স্থানে স্থানান্তর করুন",
+    reg.registerFunctionalAction("shift", "শাফল (Shuffle / Drag-Reorder)",
+        "মাউস ড্র্যাগে উপ-শিরোনাম পুনর্বিন্যাস (TOC লিংক অপরিবর্তিত)",
         "Heading", QKeySequence("Ctrl+Shift+H"),
         [this](const QVariantMap &) { shift_selected_heading_section(); },
         [this]() {
-            return ui_.subject_dropdown->currentIndex() != -1
-                && !selected_heading_slug_.isEmpty();
+            return ui_.subject_dropdown->currentIndex() != -1;
         });
 
     reg.registerFunctionalAction("delete", "মুছে ফেলুন (Delete)", "টার্গেট শিরোনাম সেকশন ডিলিট করুন",

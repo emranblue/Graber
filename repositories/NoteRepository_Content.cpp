@@ -7,6 +7,8 @@
 
 #include <QDateTime>
 #include <QFileInfo>
+#include <QDir>
+#include <QRegularExpression>
 
 void NoteRepository::normalizeNoteFile(const QString &filePath) {
     if (filePath.isEmpty() || !formatter_)
@@ -35,7 +37,13 @@ void NoteRepository::updateTocInFile(const QString &filePath, const QList<Sectio
         if (read.isFail())
             return;
 
-        const QString updated = formatter_->updateTocInContent(read.value(), sections);
+        QString content = read.value();
+        const QString rootImagesDir = QDir(notes_dir_path_).filePath(QStringLiteral("images"));
+        static const QRegularExpression relative_img_regex(
+            QStringLiteral("!\\[([^\\]]*)\\]\\((?!/)(?:.*?[/\\\\])?images[/\\\\](img_[^)]+)\\)"));
+        content.replace(relative_img_regex, QStringLiteral("![\\1](%1/\\2)").arg(rootImagesDir));
+
+        const QString updated = formatter_->updateTocInContent(content, sections);
         FileIO::writeTextAtomic(filePath, updated + QLatin1Char('\n'));
     }, QStringLiteral("updateTocInFile"));
 }
@@ -60,7 +68,7 @@ QList<NoteItem> NoteRepository::parseNoteStructure(const QString &filePath,
 }
 
 bool NoteRepository::writeImageToNote(const QString &targetFile, const QString &imageFilename,
-                                      QString &lastDate) {
+                                      const QString &selectedSlug, QString &lastDate) {
     if (isUnselectedSubject(targetFile)) {
         return false;
     }
@@ -73,6 +81,36 @@ bool NoteRepository::writeImageToNote(const QString &targetFile, const QString &
     }
 
     return CrashGuard::safeCallValue<bool>([&]() -> bool {
+        const QString absImagePath = QDir(notes_dir_path_).filePath(QStringLiteral("images/")) + escapeHtml(imageFilename);
+        const QString imgMarkdown = QStringLiteral("\n![Image](%1)\n\n").arg(absImagePath);
+
+        if (!selectedSlug.isEmpty()) {
+            auto read = FileIO::readText(targetFile);
+            if (read.isFail())
+                return false;
+
+            QString content = read.takeValue();
+
+            int start_pos = -1;
+            int end_pos = -1;
+            bool is_html = false;
+            int insert_pos = -1;
+
+            if (MarkdownUtils::get_heading_bounds(content, selectedSlug, start_pos, end_pos, is_html)) {
+                insert_pos = end_pos;
+            } else if (!MarkdownUtils::get_subheading_insert_pos(content, selectedSlug, insert_pos)) {
+                return false;
+            }
+
+            if (insert_pos >= 0 && insert_pos <= content.size()) {
+                QString to_insert = imgMarkdown;
+                if (insert_pos > 0 && content[insert_pos - 1] != QLatin1Char('\n'))
+                    to_insert.prepend(QLatin1Char('\n'));
+                content.insert(insert_pos, to_insert);
+                return FileIO::writeTextAtomic(targetFile, content).isOk();
+            }
+        }
+
         lastDate = MarkdownUtils::restore_state_from_file(targetFile);
 
         auto read = FileIO::readText(targetFile);
@@ -89,7 +127,7 @@ bool NoteRepository::writeImageToNote(const QString &targetFile, const QString &
             lastDate = current_date;
         }
 
-        content += QStringLiteral("\n![Image](images/%1)\n\n").arg(escapeHtml(imageFilename));
+        content += imgMarkdown;
         return FileIO::writeTextAtomic(targetFile, content).isOk();
     }, false, QStringLiteral("writeImageToNote"));
 }

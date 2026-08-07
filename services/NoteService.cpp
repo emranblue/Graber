@@ -67,8 +67,8 @@ bool NoteService::writeToNote(const QString &targetFile, const QString &processe
     return note_repository_->writeToNote(targetFile, processedText, formatIndex, section, selectedSlug, lastDate, outCapturedLabelText);
 }
 
-bool NoteService::writeImageToNote(const QString &targetFile, const QString &imageFilename, QString &lastDate) {
-    return note_repository_->writeImageToNote(targetFile, imageFilename, lastDate);
+bool NoteService::writeImageToNote(const QString &targetFile, const QString &imageFilename, const QString &selectedSlug, QString &lastDate) {
+    return note_repository_->writeImageToNote(targetFile, imageFilename, selectedSlug, lastDate);
 }
 
 bool NoteService::insertDiagramToNote(const QString &targetFile, const QString &diagramMarkdown, const QString &selectedSlug, QString &lastDate) {
@@ -81,6 +81,14 @@ bool NoteService::upsertLiveDiagram(const QString &targetFile, const QString &se
 
 bool NoteService::injectHeadingToNote(const QString &targetFile, const QString &simplifiedText, const QString &section, QString &lastDate) {
     return note_repository_->injectHeadingToNote(targetFile, simplifiedText, section, lastDate);
+}
+
+bool NoteService::injectSubheadingFromNote(const QString &targetFile, const QString &insertAfterSlug,
+                                           const QString &sourceFile, const QString &sourceSlug,
+                                           const QList<SectionItem> &sections,
+                                           QString &outCapturedLabelText) {
+    return note_repository_->injectSubheadingFromNote(targetFile, insertAfterSlug, sourceFile, sourceSlug,
+                                                      sections, outCapturedLabelText);
 }
 
 bool NoteService::deleteHeadingSection(const QString &targetFile, const QString &slug, const QString &subjectName, QString &outCapturedLabelText) {

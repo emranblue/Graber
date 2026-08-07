@@ -50,7 +50,10 @@ HeadingPanel::HeadingPanel(QWidget *parent) : QFrame(parent) {
     select_heading_button_->setIcon(get_feather_icon(QChar(0xe90a), QColor("#2f3640")));
     select_heading_button_->setIconSize(QSize(16, 16));
 
-    append_to_heading_button_ = new QPushButton("যুক্ত করুন", this);
+    append_to_heading_button_ = new QPushButton("রিজিউম", this);
+    append_to_heading_button_->setToolTip(
+        QStringLiteral("রিজিউম (Resume): নির্বাচিত শিরোনাম/উপ-শিরোনামের ঠিক নিচে\n"
+                       "ক্লিপবোর্ড কনটেন্ট যোগ করুন — hierarchy অপরিবর্তিত"));
     append_to_heading_button_->setStyleSheet(
         "QPushButton { background-color: #ff9500; color: white; border-radius: 4px; padding: 5px; }"
         "QPushButton:hover { background-color: #e68600; }");
@@ -58,7 +61,10 @@ HeadingPanel::HeadingPanel(QWidget *parent) : QFrame(parent) {
     append_to_heading_button_->setIcon(get_feather_icon(QChar(0xe963)));
     append_to_heading_button_->setIconSize(QSize(16, 16));
 
-    inject_heading_button_ = new QPushButton("ইনজেক্ট করুন", this);
+    inject_heading_button_ = new QPushButton("ইনজেক্ট", this);
+    inject_heading_button_->setToolTip(
+        QStringLiteral("ইনজেক্ট: অন্য নোট ফাইলের উপ-শিরোনাম ব্লক\n"
+                       "এই ফাইলের বর্তমান নির্বাচিত স্থানে কপি করুন"));
     inject_heading_button_->setStyleSheet(
         "QPushButton { background-color: #5856d6; color: white; border-radius: 4px; padding: 5px; }"
         "QPushButton:hover { background-color: #7d7aff; }");
@@ -66,7 +72,10 @@ HeadingPanel::HeadingPanel(QWidget *parent) : QFrame(parent) {
     inject_heading_button_->setIcon(get_feather_icon(QChar(0xe992)));
     inject_heading_button_->setIconSize(QSize(16, 16));
 
-    shift_heading_button_ = new QPushButton("স্থানান্তর", this);
+    shift_heading_button_ = new QPushButton("শাফল", this);
+    shift_heading_button_->setToolTip(
+        QStringLiteral("শাফল (Shuffle): মাউস ড্র্যাগে উপ-শিরোনাম পুনর্বিন্যাস\n"
+                       "স্লাগ অপরিবর্তিত → TOC নেভিগেশন ঠিক থাকে"));
     shift_heading_button_->setStyleSheet(
         "QPushButton { background-color: #007aff; color: white; border-radius: 4px; padding: 5px; }"
         "QPushButton:hover { background-color: #0066d6; }");

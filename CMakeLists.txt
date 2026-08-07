@@ -147,6 +147,10 @@ add_executable(graber
     ui/dialogs/HeadingSelectDialog.cpp
     ui/dialogs/HeadingSelectDialog_Search.cpp
     ui/dialogs/HeadingSelectDialog_Populate.cpp
+    ui/dialogs/HeadingReorderDialog.h
+    ui/dialogs/HeadingReorderDialog.cpp
+    ui/dialogs/InjectFromNoteDialog.h
+    ui/dialogs/InjectFromNoteDialog.cpp
     ui/dialogs/ShortcutsSettingsDialog.h
     ui/dialogs/ShortcutsSettingsDialog.cpp
     ui/dialogs/ExportNoteWizard.h
@@ -199,3 +203,34 @@ if(UNIX)
         )
     endif()
 endif()
+
+add_executable(update_all_notes
+    tools/update_all_notes.cpp
+    repositories/NoteRepository.cpp
+    repositories/NoteRepository_Subjects.cpp
+    repositories/NoteRepository_Content.cpp
+    repositories/NoteRepository_Append.cpp
+    repositories/NoteRepository_Diagram.cpp
+    repositories/NoteRepository_Heading.cpp
+    repositories/IniSectionRepository.cpp
+    formatters/MarkdownDocumentFormatter.cpp
+    formatters/MarkdownDocumentFormatter_Normalize.cpp
+    formatters/MarkdownDocumentFormatter_Toc.cpp
+    formatters/MarkdownDocumentFormatter_TocHelpers.cpp
+    formatters/MarkdownDocumentFormatter_Parse.cpp
+    formatters/MarkdownUtils.cpp
+    formatters/MarkdownUtils_Bounds.cpp
+    formatters/DiagramTemplates.cpp
+    formatters/CaptureContentFormatter.cpp
+    formatters/MarkdownTemplateManager.cpp
+    utils/Utils.cpp
+    utils/FileIO.cpp
+    utils/CrashGuard.cpp
+    utils/ConfigPaths.cpp
+)
+target_link_libraries(update_all_notes PRIVATE Qt6::Core Qt6::Gui Qt6::Widgets)
+if(UNIX AND NOT APPLE)
+    target_include_directories(update_all_notes PRIVATE ${X11_INCLUDE_DIR})
+    target_link_libraries(update_all_notes PRIVATE ${X11_LIBRARIES})
+endif()
+
